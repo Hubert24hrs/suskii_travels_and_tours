@@ -1,8 +1,153 @@
-import { Module } from '@nestjs/common';
+import {
+  Module,
+  type DynamicModule,
+  type MiddlewareConsumer,
+  type NestModule,
+} from '@nestjs/common';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, DiscoveryModule } from '@nestjs/core';
 
+import { AccountsModule } from './accounts/accounts.module';
+import { AdminModule } from './admin/admin.module';
+import { AlertsModule } from './alerts/alerts.module';
+import { AssistedQuotesModule } from './assisted-quotes/assisted-quotes.module';
+import { AttestationGuard } from './attestation/attestation.guard';
+import { AttestationModule } from './attestation/attestation.module';
+import { AuditModule } from './audit/audit.module';
+import { AuthGuard } from './auth/auth.guard';
+import { AuthModule } from './auth/auth.module';
+import { BusesModule } from './buses/buses.module';
+import { RidesModule } from './rides/rides.module';
+import { DriversModule } from './drivers/drivers.module';
+import { RentalsModule } from './rentals/rentals.module';
+import { TripsModule } from './trips/trips.module';
+import { AgentModule } from './agent/agent.module';
+import { PriceIntelModule } from './price-intel/price-intel.module';
+import { PlanningModule } from './planning/planning.module';
+import { PartnersModule } from './partners/partners.module';
+import { MetasearchModule } from './metasearch/metasearch.module';
+import { FinanceModule } from './finance/finance.module';
+import { BookingsModule } from './bookings/bookings.module';
+import { AppVersionGuard } from './common/app-version.guard';
+import { BeaconBodyMiddleware } from './common/beacon-body.middleware';
+import { ClientCountryMiddleware } from './common/client-country.middleware';
+import { BotProtectionModule } from './bot-protection/bot-protection.module';
+import { AiSearchModule } from './ai-search/ai-search.module';
+import { CatalogModule } from './catalog/catalog.module';
+import { ContentModule } from './content/content.module';
+import { DealsModule } from './deals/deals.module';
+import { PermissionsGuard } from './auth/permissions.guard';
+import { ProblemDetailsFilter } from './common/problem-details';
+import type { AppConfig } from './config/config';
+import { ConfigModule } from './config/config.module';
+import { ContractInterceptor } from './contract/contract.interceptor';
+import { CryptoModule } from './crypto/crypto.module';
+import { CarsFeatureGuard } from './ground/cars-flags';
+import { GroundModule } from './ground/ground.module';
 import { HealthModule } from './health/health.module';
+import { InhouseModule } from './inhouse/inhouse.module';
+import { StatusModule } from './status/status.module';
+import { SupportModule } from './support/support.module';
+import { VisaModule } from './visa/visa.module';
+import { IdempotencyInterceptor } from './idempotency/idempotency.interceptor';
+import { InfraModule } from './infra/redis';
+import { LedgerModule } from './ledger/ledger.module';
+import { LoggingModule } from './logging/logging.module';
+import { MessagingModule } from './messaging/messaging.module';
+import { NewsletterModule } from './newsletter/newsletter.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { PricingModule } from './pricing/pricing.module';
+import { PrimeModule } from './prime/prime.module';
+import { PrivacyModule } from './privacy/privacy.module';
+import { PushModule } from './push/push.module';
+import { RateLimitGuard } from './rate-limit/rate-limit.guard';
+import { RbacModule } from './rbac/rbac.module';
+import { ReferralsModule } from './referrals/referrals.module';
+import { RemindersModule } from './reminders/reminders.module';
+import { ReviewsModule } from './reviews/reviews.module';
+import { CompaniesModule } from './companies/companies.module';
+import { MarketingModule } from './marketing/marketing.module';
+import { SearchModule } from './search/search.module';
+import { TelemetryModule } from './telemetry/telemetry.module';
 
-@Module({
-  imports: [HealthModule],
-})
-export class AppModule {}
+@Module({})
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(ClientCountryMiddleware, BeaconBodyMiddleware).forRoutes('*');
+  }
+
+  /** `config` is injected by tests; production validates `process.env`. */
+  static forRoot(config?: AppConfig): DynamicModule {
+    return {
+      module: AppModule,
+      imports: [
+        ConfigModule.forRoot(config),
+        DiscoveryModule,
+        LoggingModule,
+        InfraModule,
+        CryptoModule,
+        AuditModule,
+        LedgerModule,
+        GroundModule,
+        NotificationsModule,
+        PushModule,
+        MessagingModule,
+        AttestationModule,
+        BotProtectionModule,
+        RbacModule,
+        AuthModule,
+        AdminModule,
+        CatalogModule,
+        PricingModule,
+        SearchModule,
+        AiSearchModule,
+        ContentModule,
+        DealsModule,
+        NewsletterModule,
+        BookingsModule,
+        InhouseModule,
+        BusesModule,
+        RidesModule,
+        DriversModule,
+        RentalsModule,
+        PlanningModule,
+        PartnersModule,
+        FinanceModule,
+        VisaModule,
+        AccountsModule,
+        PrivacyModule,
+        PrimeModule,
+        AlertsModule,
+        AssistedQuotesModule,
+        ReferralsModule,
+        RemindersModule,
+        ReviewsModule,
+        CompaniesModule,
+        TripsModule,
+        MarketingModule,
+        MetasearchModule,
+        SupportModule,
+        StatusModule,
+        AgentModule,
+        PriceIntelModule,
+        HealthModule,
+        TelemetryModule,
+      ],
+      providers: [
+        { provide: APP_FILTER, useClass: ProblemDetailsFilter },
+        // Guards run in this order: a retired app version (before anything else), a switched-off
+        // Cars product (404 for everyone), who is calling, how often, what they may do, then (mobile sensitive routes) whether the
+        // device is genuine.
+        { provide: APP_GUARD, useClass: AppVersionGuard },
+        { provide: APP_GUARD, useExisting: CarsFeatureGuard },
+        { provide: APP_GUARD, useExisting: AuthGuard },
+        { provide: APP_GUARD, useClass: RateLimitGuard },
+        { provide: APP_GUARD, useExisting: PermissionsGuard },
+        { provide: APP_GUARD, useExisting: AttestationGuard },
+        // Interceptors nest in this order: idempotency wraps the contract, so replays return
+        // exactly the validated response that was sent the first time.
+        { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
+        { provide: APP_INTERCEPTOR, useClass: ContractInterceptor },
+      ],
+    };
+  }
+}

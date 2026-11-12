@@ -1,0 +1,58 @@
+import { Module } from '@nestjs/common';
+
+import { BackgroundTasks } from '../common/background-tasks';
+import { ReferralsModule } from '../referrals/referrals.module';
+
+import { AuthController } from './auth.controller';
+import { AuthGuard } from './auth.guard';
+import { AuthService } from './auth.service';
+import { CsrfService } from './csrf.service';
+import { DeviceCredentialsService } from './device-credentials.service';
+import { JwksController } from './jwks.controller';
+import { LoginThrottleService } from './login-throttle.service';
+import { MeController } from './me.controller';
+import { MfaService } from './mfa.service';
+import { MockSocialIssuer } from './mock-social';
+import { OtpService } from './otp.service';
+import { PermissionsGuard } from './permissions.guard';
+import { ReauthService } from './reauth.service';
+import { SessionService } from './session.service';
+import {
+  remoteKeyResolvers,
+  SOCIAL_KEY_RESOLVERS,
+  SocialIdentityVerifier,
+  SocialNonces,
+} from './social.service';
+import { AccessTokenService } from './tokens/access-token.service';
+
+@Module({
+  imports: [ReferralsModule],
+  controllers: [AuthController, MeController, JwksController],
+  providers: [
+    AccessTokenService,
+    AuthService,
+    AuthGuard,
+    PermissionsGuard,
+    BackgroundTasks,
+    CsrfService,
+    DeviceCredentialsService,
+    LoginThrottleService,
+    MfaService,
+    MockSocialIssuer,
+    OtpService,
+    ReauthService,
+    SessionService,
+    SocialIdentityVerifier,
+    SocialNonces,
+    { provide: SOCIAL_KEY_RESOLVERS, useFactory: remoteKeyResolvers },
+  ],
+  exports: [
+    AccessTokenService,
+    AuthGuard,
+    PermissionsGuard,
+    ReauthService,
+    SessionService,
+    BackgroundTasks,
+  ],
+})
+export class AuthModule {}

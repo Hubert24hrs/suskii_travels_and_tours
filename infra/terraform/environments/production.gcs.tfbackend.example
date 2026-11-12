@@ -1,0 +1,3 @@
+# Copy to production.gcs.tfbackend (git-ignored). The bucket is created once by hand (README).
+bucket = "REPLACE-suskii-production-tfstate"
+prefix = "suskii/production"

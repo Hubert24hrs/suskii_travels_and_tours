@@ -1,0 +1,62 @@
+# The assistant on the phone (ADR-101): a visitor opens it from Account, reads that it is an
+# automated assistant, asks a question (the app proves itself with its device attestation when
+# the conversation starts) and gets an answer. The test stack answers from the mock inside the
+# API: no model is called. Runs after the support flow in run-android.sh.
+appId: com.suskii.travels.e2e
+name: Ask the assistant
+tags:
+  - assistant
+---
+- launchApp:
+    clearState: true
+- runFlow: subflows/dismiss-system-dialogs.yaml
+- extendedWaitUntil:
+    visible:
+      id: flight-search-form
+    timeout: 60000
+
+- tapOn:
+    id: tab-account
+# The button is there only while the server says the assistant is available.
+- scrollUntilVisible:
+    element:
+      id: account-assistant
+- tapOn:
+    id: account-assistant
+- extendedWaitUntil:
+    visible:
+      id: assistant-screen
+    timeout: 15000
+- assertVisible: 'This is an automated assistant.*'
+
+- tapOn:
+    id: assistant-input
+- inputText: What documents do I need to fly to Abuja?
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: assistant-send
+- tapOn:
+    id: assistant-send
+
+# The traveller's message shows at once; the answer follows within the run's limit.
+- extendedWaitUntil:
+    visible:
+      id: assistant-message-user
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: assistant-message-assistant
+    timeout: 60000
+- assertVisible: '.*sample assistant.*'
+
+# A person is one press away.
+- scrollUntilVisible:
+    element:
+      id: assistant-person
+- tapOn:
+    id: assistant-person
+- extendedWaitUntil:
+    visible:
+      id: support-start
+    timeout: 15000

@@ -1,0 +1,209 @@
+# Production: copy to production.tfvars (git-ignored) and replace every REPLACE value. Non-secret
+# only: the origin secret comes from TF_VAR_origin_auth_secret, application secrets from Secret
+# Manager. The API refuses to start with a mock provider here, so every provider below needs its
+# real account first (open questions in CLAUDE.md); their keys go in extra_secrets.
+#
+# Blocker today: SMS, WhatsApp, exchange rates, hotels, driver KYC and payouts only have mock
+# adapters, so production cannot start until those adapters exist for the providers the owner
+# picks (docs/phases/phase-12.md). Staging runs everything on mocks meanwhile.
+
+project_id         = "REPLACE-suskii-production"
+environment        = "production"
+region             = "europe-west2"
+cloudflare_zone_id = "REPLACE_WITH_PRODUCTION_ZONE_ID"
+
+hosts = {
+  web   = "suskii.example"
+  api   = "api.suskii.example"
+  admin = "admin.suskii.example"
+}
+redirect_hosts = ["www.suskii.example"]
+
+deploy_services = false
+
+# The agent service (ADR-101). First add AGENT_RUN_TOKEN, AGENT_TOOLS_TOKEN and LLM_API_KEY to
+# extra_secrets and give each a value; true then creates its identity, its database role's URL
+# and the service, reachable from the VPC only (infra/terraform/README.md, "The agent
+# service"). It answers nobody until AGENT_URL and AGENT_ENABLED are set in api_env.
+deploy_agent = false
+
+database = {
+  tier                = "db-custom-2-7680"
+  availability_type   = "REGIONAL"
+  disk_size_gb        = 50
+  backup_retention    = 30
+  log_retention_days  = 7
+  deletion_protection = true
+}
+
+cache = {
+  tier           = "STANDARD_HA"
+  memory_size_gb = 2
+}
+
+scaling = {
+  api    = { min = 2, max = 20 }
+  worker = { min = 1, max = 2 }
+  web    = { min = 2, max = 20 }
+  admin  = { min = 0, max = 2 }
+  agent  = { min = 1, max = 5 } # used with deploy_agent: one warm instance takes twenty runs
+}
+
+allow_mock_providers = false
+managed_waf          = true
+log_retention_days   = 90
+# With Advanced Certificate Manager: AEAD suites only on TLS 1.2 (README).
+tls_ciphers = []
+admin_allowed_ips    = ["REPLACE_OFFICE_OR_VPN_CIDR"]
+# Uptime alerts from outside the platform (ADR-087): addresses, or the on-call tool's channel ids.
+uptime_alert_emails          = ["REPLACE_ON_CALL_ADDRESS"]
+uptime_notification_channels = []
+
+# Provider names only; their secrets are listed in extra_secrets and set in Secret Manager.
+extra_secrets = [
+  "PAYSTACK_SECRET_KEY",
+  "DUFFEL_API_TOKEN",
+  "SMTP_PASSWORD",
+  "EXPO_ACCESS_TOKEN",
+  "TERMII_API_KEY",           # texts (ADR-091)
+  "OPENEXCHANGERATES_APP_ID", # exchange rates (ADR-091)
+  # "AFRICASTALKING_API_KEY", # texts outside Nigeria, with SMS_ROUTES below
+]
+
+api_env = {
+  FLIGHT_SUPPLIERS   = "duffel"
+  HOTEL_SUPPLIERS    = "duffel" # needs Duffel Stays on the account (ADR-062)
+  # Hotelbeds as a second hotel source (ADR-071): add "HOTELBEDS_API_KEY" and
+  # "HOTELBEDS_API_SECRET" to extra_secrets, set them in Secret Manager, then use:
+  # HOTEL_SUPPLIERS   = "duffel,hotelbeds"
+  # HOTELBEDS_API_URL = "https://api.hotelbeds.com"
+  # Expedia Rapid after certification (ADR-086): add "EXPEDIA_RAPID_API_KEY" and
+  # "EXPEDIA_RAPID_SHARED_SECRET" to extra_secrets, set them in Secret Manager, then use:
+  # HOTEL_SUPPLIERS       = "duffel,hotelbeds,expedia"
+  # EXPEDIA_RAPID_API_URL = "https://api.ean.com"
+  # EXPEDIA_POINT_OF_SALE = "NG"
+  PAYMENT_PROVIDERS  = "paystack"
+  TAX_SELLER_COUNTRY = "NG" # whose tax rules price offers (ADR-072); rates in the console
+  EMAIL_PROVIDER     = "smtp"
+  EMAIL_FROM         = "Suskii Travels <no-reply@suskii.example>"
+  SMTP_HOST          = "REPLACE"
+  SMTP_PORT          = "465"
+  SMTP_SECURE        = "true"
+  SMTP_USER          = "REPLACE"
+  PUSH_PROVIDER      = "expo"
+  # Texts (ADR-091): Termii (sender ID approved by Termii, DND route activated). When selling
+  # outside Nigeria, add Africa's Talking for those numbers: its key in extra_secrets, then
+  # SMS_ROUTES = "254=africastalking,233=africastalking" and AFRICASTALKING_USERNAME = "REPLACE".
+  SMS_PROVIDER     = "termii"
+  TERMII_SENDER_ID = "REPLACE"
+  # Exchange rates (ADR-091). To pin the naira to your bank's settlement rate instead of the
+  # market rate, add FX_RATE_OVERRIDES = "NGN=REPLACE" (naira per US dollar).
+  FX_PROVIDER = "openexchangerates"
+  # WhatsApp notifications need one approved template per message; off until then (ADR-091).
+  WHATSAPP_PROVIDER  = "none"
+  ANTIVIRUS_PROVIDER = "clamav"
+  CLAMAV_HOST        = "REPLACE"
+  DEVICE_ATTESTATION = "none"
+  ATTESTATION_MODE   = "report"
+  ADMIN_IP_ALLOWLIST = "REPLACE_OFFICE_OR_VPN_CIDR"
+  OPS_ALERT_EMAIL    = "REPLACE"
+  SENTRY_DSN         = "REPLACE"
+  # Partner offers (ADR-069, ADR-070) are off unless set. Add "TRAVELPAYOUTS_TOKEN",
+  # "TRAVELPAYOUTS_POSTBACK_SECRET" and "VIATOR_API_KEY" to extra_secrets, set them in Secret
+  # Manager, then uncomment:
+  # PARTNER_OFFERS_ENABLED = "true"
+  # AFFILIATE_NETWORK      = "travelpayouts"
+  # TRAVELPAYOUTS_MARKER   = "REPLACE"
+  # TRAVELPAYOUTS_TRS      = "REPLACE"
+  # ACTIVITY_PARTNER       = "viator"
+  # Server-side ad conversions (ADR-079) are off unless set. Add "META_CAPI_ACCESS_TOKEN" and
+  # "TIKTOK_EVENTS_ACCESS_TOKEN" to extra_secrets, set them in Secret Manager, set the same pixel
+  # ids in web_env, then uncomment:
+  # AD_CONVERSIONS  = "meta,tiktok"
+  # META_PIXEL_ID   = "REPLACE"
+  # TIKTOK_PIXEL_ID = "REPLACE"
+  # WhatsApp support (ADR-084) is off unless set. Add "WHATSAPP_ACCESS_TOKEN",
+  # "WHATSAPP_APP_SECRET" and "WHATSAPP_VERIFY_TOKEN" to extra_secrets, set them in Secret
+  # Manager, register https://<api host>/v1/webhooks/whatsapp in the Meta app, then uncomment:
+  # WHATSAPP_SUPPORT_PROVIDER = "cloud"
+  # WHATSAPP_PHONE_NUMBER_ID  = "REPLACE"
+  # Seat selection on Duffel flights (ADR-094) is off unless set. Run the Duffel sandbox check
+  # with booking on first (it orders one seat), then uncomment:
+  # DUFFEL_SEAT_SELECTION = "true"
+  # Live flight status and delay alerts (ADR-095) are off unless set: FLIGHT_STATUS_PROVIDER
+  # takes a real flight-data provider once its adapter exists (the mock is refused here).
+  # AI trip search (ADR-061) is off unless set. To offer it, add "LLM_API_KEY" to extra_secrets,
+  # set its value in Secret Manager, run the eval (ai-eval.yml) and uncomment:
+  # AI_SEARCH_ENABLED = "true"
+  # LLM_PROVIDER      = "anthropic"
+  # The after-hours support assistant (ADR-085) is off unless set. It uses the same model key
+  # (LLM_API_KEY above). Run ai-eval.yml with the support-assistant suite, set the staffed hours
+  # and uncomment:
+  # SUPPORT_ASSISTANT_ENABLED = "true"
+  # SUPPORT_HOURS             = "mon-fri 08:00-20:00, sat 09:00-14:00"
+  # SUPPORT_TIME_ZONE         = "Africa/Lagos"
+  # Suskii Agent (ADR-101 to ADR-107) and price intelligence (ADR-102) are off unless set, and
+  # nothing here turns them on. The agent service is created with deploy_agent (above, and
+  # infra/terraform/README.md, "The agent service"), with AGENT_RUN_TOKEN and AGENT_TOOLS_TOKEN
+  # (two different values, neither equal to INTERNAL_API_TOKEN) and LLM_API_KEY in
+  # extra_secrets. Once it runs and its evals have passed against the model (ADR-106), the
+  # owner decides:
+  # AGENT_URL           = "https://REPLACE.run.app" # the agent_internal_url output
+  # AGENT_ENABLED       = "true"
+  # The assistant answers on WhatsApp only with its own switch as well (and
+  # WHATSAPP_SUPPORT_PROVIDER = "cloud" above); people still take over by replying:
+  # AGENT_WHATSAPP_ENABLED = "true"
+  # A candidate prompt version is tried beside a share of turns, never shown, only when both
+  # are set (ADR-106); its model calls have their own daily cap in micro-dollars:
+  # AGENT_SHADOW_PROMPTS        = "flights@3"
+  # AGENT_SHADOW_SAMPLE_PERCENT = "5"
+  # AGENT_SHADOW_DAILY_MICROUSD = "2000000"
+  # Operations are told once when the assistant's estimated cost of the month is heading past
+  # this figure and once when it is past it (micro-dollars; 40000000 is US$40). It stops
+  # nothing: the daily caps do.
+  # AGENT_MONTHLY_ALERT_MICROUSD = "40000000"
+  # Price intelligence reads only sites approved in the console, through the vendors named
+  # here; each vendor's key goes in extra_secrets (FIRECRAWL_API_KEY, APIFY_TOKEN,
+  # BROWSE_AI_API_KEY, OXYLABS_PASSWORD, BRIGHT_DATA_API_KEY). The mock vendor is refused in
+  # production, and `direct` needs PRICE_INTEL_BOT_URL. Run scrapers-sandbox.yml first
+  # (docs/owner/launch-checklist.md, section 7.1).
+  # PRICE_INTEL_ENABLED = "true"
+  # PRICE_INTEL_VENDORS = "firecrawl,oxylabs"
+  # OXYLABS_USERNAME    = "REPLACE"
+  # BRIGHT_DATA_ZONE    = "REPLACE"
+  # Assisted quotes (ADR-104) need people on shift to verify prices and book by hand; they
+  # stay off until the owner names who works that queue (launch checklist, section 7.3).
+  # ASSISTED_QUOTES_ENABLED      = "true"
+  # ASSISTED_QUOTE_VALID_MINUTES = "120"
+  # ASSISTED_QUOTE_REQUEST_HOURS = "48"
+  # PRICE_INTEL_BOT_URL = "https://REPLACE/price-bot"
+  # What each vendor charges, in millionths of a US dollar per page (vendor:class=cost):
+  # PRICE_INTEL_COSTS   = "firecrawl:datacenter=1000,oxylabs:unblocker=2500"
+  # Company wallet top-ups (ADR-090) default to NGN 10,000 to 5,000,000 and USD 10 to 5,000,
+  # five a day per company. To change them (minor units, CUR=min/max), uncomment:
+  # COMPANY_WALLET_TOPUP_LIMITS   = "NGN=1000000/500000000,USD=1000/500000"
+  # COMPANY_WALLET_TOPUPS_PER_DAY = "5"
+}
+
+worker_env = {
+  SENTRY_DSN = "REPLACE"
+}
+
+web_env = {
+  MOBILE_APP_SCHEME      = "suskii"
+  MOBILE_ANDROID_PACKAGE = "REPLACE"
+  MOBILE_IOS_APP_IDS     = "REPLACE"
+  # Meta and TikTok tags after marketing consent (ADR-079); without them no tag or prompt.
+  # META_PIXEL_ID   = "REPLACE"
+  # TIKTOK_PIXEL_ID = "REPLACE"
+}
+
+# The agent service's own settings (used with deploy_agent): the provider and the model of each
+# role. The names are the provider's; each change is measured by the agent evals before it
+# answers travellers (ADR-106).
+agent_env = {
+  AGENT_MODEL_PROVIDER = "anthropic"
+  # AGENT_MODEL_ROUTER     = "REPLACE" # a small, fast model
+  # AGENT_MODEL_SPECIALIST = "REPLACE" # the model that answers
+  # AGENT_MODEL_FALLBACK   = "REPLACE" # tried once when the provider fails
+}

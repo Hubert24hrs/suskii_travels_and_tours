@@ -1,0 +1,14 @@
+Suskii {{ .Values.global.environment }} ({{ .Release.Name }}, revision {{ .Release.Revision }}).
+
+Website {{ .Values.global.urls.web }}, API {{ .Values.global.urls.api }}, console {{ .Values.global.urls.admin }}.
+
+Deploy with the release's health gate and automatic rollback (ADR-060):
+  helm upgrade --install {{ .Release.Name }} infra/helm/suskii -n {{ .Release.Namespace }} \
+    -f <values> --atomic --wait --timeout 10m
+
+Roll back by hand to the previous revision (the database stays: migrations are expand/contract):
+  helm history {{ .Release.Name }} -n {{ .Release.Namespace }}
+  helm rollback {{ .Release.Name }} -n {{ .Release.Namespace }} --wait
+
+Smoke test:
+  pnpm smoke --api {{ .Values.global.urls.api }} --web {{ .Values.global.urls.web }} --admin {{ .Values.global.urls.admin }}

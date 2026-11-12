@@ -1,0 +1,154 @@
+# Availability objectives and error-budget alerts for Suskii (ADR-087, docs/phases/uptime.md).
+#
+#   API           99.9% of requests without a 5xx over 30 days (43 minutes of budget)
+#   Booking path  99.5% of quote, booking and payment requests without a 5xx (3 h 36 min)
+#
+# 4xx answers are good events: the API did its job (a refused card or a sold-out room is a 4xx).
+# Probes (/health, /ready) are not traveller traffic and are left out.
+#
+# Alerts follow the multi-window, multi-burn-rate method of the Google SRE workbook: each fires
+# only when both its long and its short window burn faster than the threshold, so it pages fast
+# for a real outage and clears soon after recovery. The thresholds spend 2% (14.4x over 1 hour),
+# 5% (6x over 6 hours) and 10% (1x over 3 days) of the monthly budget. Paging alerts also need
+# enough traffic to judge (one failed request at 3 a.m. is not an outage).
+#
+# Check with:
+#   promtool check rules infra/observability/alerts/suskii.slo.rules.yml
+#   promtool test rules infra/observability/alerts/suskii.slo.rules.test.yml
+groups:
+  - name: suskii-slo-api-sli
+    rules:
+      - record: slo:api_requests:rate5m
+        expr: sum(rate(http_server_request_duration_seconds_count{http_route!~"/(health|ready)"}[5m]))
+      - record: slo:api_requests:rate1h
+        expr: sum(rate(http_server_request_duration_seconds_count{http_route!~"/(health|ready)"}[1h]))
+      - record: slo:api_errors:ratio_rate5m
+        expr: >-
+          sum(rate(http_server_request_duration_seconds_count{http_route!~"/(health|ready)", http_response_status_code=~"5.."}[5m]))
+          / sum(rate(http_server_request_duration_seconds_count{http_route!~"/(health|ready)"}[5m]))
+      - record: slo:api_errors:ratio_rate30m
+        expr: >-
+          sum(rate(http_server_request_duration_seconds_count{http_route!~"/(health|ready)", http_response_status_code=~"5.."}[30m]))
+          / sum(rate(http_server_request_duration_seconds_count{http_route!~"/(health|ready)"}[30m]))
+      - record: slo:api_errors:ratio_rate1h
+        expr: >-
+          sum(rate(http_server_request_duration_seconds_count{http_route!~"/(health|ready)", http_response_status_code=~"5.."}[1h]))
+          / sum(rate(http_server_request_duration_seconds_count{http_route!~"/(health|ready)"}[1h]))
+      - record: slo:api_errors:ratio_rate6h
+        expr: >-
+          sum(rate(http_server_request_duration_seconds_count{http_route!~"/(health|ready)", http_response_status_code=~"5.."}[6h]))
+          / sum(rate(http_server_request_duration_seconds_count{http_route!~"/(health|ready)"}[6h]))
+      - record: slo:api_errors:ratio_rate3d
+        expr: >-
+          sum(rate(http_server_request_duration_seconds_count{http_route!~"/(health|ready)", http_response_status_code=~"5.."}[3d]))
+          / sum(rate(http_server_request_duration_seconds_count{http_route!~"/(health|ready)"}[3d]))
+
+  - name: suskii-slo-booking-sli
+    rules:
+      - record: slo:booking_requests:rate1h
+        expr: >-
+          sum(rate(http_server_request_duration_seconds_count{http_route=~"/v1/(.*/)?(quotes|bookings|payments)(/.*)?", http_route!~"/v1/(admin|internal)/.*"}[1h]))
+      - record: slo:booking_errors:ratio_rate5m
+        expr: >-
+          sum(rate(http_server_request_duration_seconds_count{http_route=~"/v1/(.*/)?(quotes|bookings|payments)(/.*)?", http_route!~"/v1/(admin|internal)/.*", http_response_status_code=~"5.."}[5m]))
+          / sum(rate(http_server_request_duration_seconds_count{http_route=~"/v1/(.*/)?(quotes|bookings|payments)(/.*)?", http_route!~"/v1/(admin|internal)/.*"}[5m]))
+      - record: slo:booking_errors:ratio_rate30m
+        expr: >-
+          sum(rate(http_server_request_duration_seconds_count{http_route=~"/v1/(.*/)?(quotes|bookings|payments)(/.*)?", http_route!~"/v1/(admin|internal)/.*", http_response_status_code=~"5.."}[30m]))
+          / sum(rate(http_server_request_duration_seconds_count{http_route=~"/v1/(.*/)?(quotes|bookings|payments)(/.*)?", http_route!~"/v1/(admin|internal)/.*"}[30m]))
+      - record: slo:booking_errors:ratio_rate1h
+        expr: >-
+          sum(rate(http_server_request_duration_seconds_count{http_route=~"/v1/(.*/)?(quotes|bookings|payments)(/.*)?", http_route!~"/v1/(admin|internal)/.*", http_response_status_code=~"5.."}[1h]))
+          / sum(rate(http_server_request_duration_seconds_count{http_route=~"/v1/(.*/)?(quotes|bookings|payments)(/.*)?", http_route!~"/v1/(admin|internal)/.*"}[1h]))
+      - record: slo:booking_errors:ratio_rate6h
+        expr: >-
+          sum(rate(http_server_request_duration_seconds_count{http_route=~"/v1/(.*/)?(quotes|bookings|payments)(/.*)?", http_route!~"/v1/(admin|internal)/.*", http_response_status_code=~"5.."}[6h]))
+          / sum(rate(http_server_request_duration_seconds_count{http_route=~"/v1/(.*/)?(quotes|bookings|payments)(/.*)?", http_route!~"/v1/(admin|internal)/.*"}[6h]))
+      - record: slo:booking_errors:ratio_rate3d
+        expr: >-
+          sum(rate(http_server_request_duration_seconds_count{http_route=~"/v1/(.*/)?(quotes|bookings|payments)(/.*)?", http_route!~"/v1/(admin|internal)/.*", http_response_status_code=~"5.."}[3d]))
+          / sum(rate(http_server_request_duration_seconds_count{http_route=~"/v1/(.*/)?(quotes|bookings|payments)(/.*)?", http_route!~"/v1/(admin|internal)/.*"}[3d]))
+
+  - name: suskii-slo-alerts
+    rules:
+      # API: 99.9%, so the error budget is 0.1% of requests.
+      - alert: ApiErrorBudgetBurnFast
+        expr: >-
+          slo:api_errors:ratio_rate1h > (14.4 * 0.001)
+          and slo:api_errors:ratio_rate5m > (14.4 * 0.001)
+          and slo:api_requests:rate1h > 0.1
+        labels:
+          severity: page
+          slo: api
+        annotations:
+          summary: 'The API is spending its monthly error budget 14 times too fast'
+          description: >-
+            At this rate the 30-day budget (43 minutes) is gone in about two days. Open an
+            incident on the status page if travellers notice.
+          runbook: docs/runbooks/slo-burn.md
+
+      - alert: ApiErrorBudgetBurnSlow
+        expr: >-
+          slo:api_errors:ratio_rate6h > (6 * 0.001)
+          and slo:api_errors:ratio_rate30m > (6 * 0.001)
+          and slo:api_requests:rate1h > 0.1
+        labels:
+          severity: page
+          slo: api
+        annotations:
+          summary: 'The API is spending its monthly error budget 6 times too fast'
+          description: At this rate the 30-day budget is gone in five days.
+          runbook: docs/runbooks/slo-burn.md
+
+      - alert: ApiErrorBudgetBurnSteady
+        expr: >-
+          slo:api_errors:ratio_rate3d > 0.001
+          and slo:api_errors:ratio_rate6h > 0.001
+        labels:
+          severity: ticket
+          slo: api
+        annotations:
+          summary: 'The API is failing more often than its 99.9% objective allows'
+          description: A slow burn; plan the fix before the month's budget runs out.
+          runbook: docs/runbooks/slo-burn.md
+
+      # Booking path: 99.5%, so the error budget is 0.5% of requests.
+      - alert: BookingErrorBudgetBurnFast
+        expr: >-
+          slo:booking_errors:ratio_rate1h > (14.4 * 0.005)
+          and slo:booking_errors:ratio_rate5m > (14.4 * 0.005)
+          and slo:booking_requests:rate1h > 0.02
+        labels:
+          severity: page
+          slo: booking
+        annotations:
+          summary: 'Quotes, bookings or payments fail 14 times faster than the budget allows'
+          description: >-
+            Travellers cannot book or pay. Check payment providers and suppliers first, then
+            open an incident on the status page.
+          runbook: docs/runbooks/slo-burn.md
+
+      - alert: BookingErrorBudgetBurnSlow
+        expr: >-
+          slo:booking_errors:ratio_rate6h > (6 * 0.005)
+          and slo:booking_errors:ratio_rate30m > (6 * 0.005)
+          and slo:booking_requests:rate1h > 0.02
+        labels:
+          severity: page
+          slo: booking
+        annotations:
+          summary: 'Quotes, bookings or payments fail 6 times faster than the budget allows'
+          description: At this rate the booking path's 30-day budget is gone in five days.
+          runbook: docs/runbooks/slo-burn.md
+
+      - alert: BookingErrorBudgetBurnSteady
+        expr: >-
+          slo:booking_errors:ratio_rate3d > 0.005
+          and slo:booking_errors:ratio_rate6h > 0.005
+        labels:
+          severity: ticket
+          slo: booking
+        annotations:
+          summary: 'The booking path fails more often than its 99.5% objective allows'
+          description: A slow burn; plan the fix before the month's budget runs out.
+          runbook: docs/runbooks/slo-burn.md

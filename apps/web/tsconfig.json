@@ -1,5 +1,11 @@
 {
   "extends": "@suskii/config/tsconfig/nextjs.json",
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "app/.well-known/**/*.ts",
+    ".next/types/**/*.ts"
+  ],
   "exclude": ["node_modules", ".next"]
 }

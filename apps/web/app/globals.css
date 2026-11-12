@@ -1,0 +1,14 @@
+@import 'tailwindcss';
+@import '@suskii/design-tokens/theme.css';
+
+/* Scan the component library so its classes are generated. */
+@source '../node_modules/@suskii/ui-web/src';
+
+/* Keep what keyboard focus or an in-page link scrolls to clear of the sticky header (WCAG 2.4.11). */
+html {
+  @apply scroll-pt-20;
+}
+
+body {
+  @apply bg-background font-body text-foreground antialiased;
+}

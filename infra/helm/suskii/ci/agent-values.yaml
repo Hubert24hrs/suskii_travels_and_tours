@@ -1,0 +1,12 @@
+# The chart with the agent service enabled, for `helm lint` and the schema check in CI, on top
+# of the rehearsal values. Never use these values for a real environment.
+agent:
+  enabled: true
+  env:
+    LOG_LEVEL: info
+    AGENT_MODEL_PROVIDER: mock
+    ALLOW_MOCK_PROVIDERS: 'true'
+    AGENT_DATABASE_ALLOW_PLAINTEXT: 'true'
+  resources:
+    requests: { cpu: 50m, memory: 256Mi }
+    limits: { memory: 768Mi }

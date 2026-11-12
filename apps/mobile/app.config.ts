@@ -1,0 +1,135 @@
+import { color } from '@suskii/design-tokens';
+import type { ConfigContext, ExpoConfig } from 'expo/config';
+
+/**
+ * App variants (ADR-024). `APP_VARIANT` picks the bundle id suffix, the display name and whether a
+ * plain-http API is allowed; only development and e2e builds may talk to http hosts.
+ */
+const VARIANTS = ['development', 'preview', 'production', 'e2e'] as const;
+type Variant = (typeof VARIANTS)[number];
+
+function readVariant(): Variant {
+  const value = process.env.APP_VARIANT ?? 'development';
+  if (!(VARIANTS as readonly string[]).includes(value))
+    throw new Error(`APP_VARIANT must be one of ${VARIANTS.join(', ')}`);
+  return value as Variant;
+}
+
+const variant = readVariant();
+/** Owner decision (placeholder until the store listings exist). */
+const baseId = process.env.APP_BUNDLE_ID ?? 'com.suskii.travels';
+const bundleId =
+  variant === 'production' ? baseId : `${baseId}.${variant === 'development' ? 'dev' : variant}`;
+const apiUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
+const webUrl = process.env.EXPO_PUBLIC_WEB_BASE_URL ?? 'http://localhost:3000';
+const insecureAllowed = variant === 'development' || variant === 'e2e';
+const nativeAttestation = process.env.EXPO_PUBLIC_ATTESTATION !== 'mock';
+const projectId = process.env.EAS_PROJECT_ID;
+
+for (const [name, url] of [
+  ['EXPO_PUBLIC_API_BASE_URL', apiUrl],
+  ['EXPO_PUBLIC_WEB_BASE_URL', webUrl],
+] as const) {
+  if (!insecureAllowed && !url.startsWith('https://'))
+    throw new Error(`${name} must use https for the ${variant} variant`);
+}
+if (variant === 'production' && !nativeAttestation)
+  throw new Error('Production builds must use native attestation (EXPO_PUBLIC_ATTESTATION)');
+
+// App links only for https hosts: Android verifies them and iOS requires TLS (ADR-021).
+const webHost = new URL(webUrl).host;
+const appLinks = webUrl.startsWith('https://');
+const linkPaths = [
+  { pathPrefix: '/bookings/' },
+  { path: '/flights/search' },
+  { path: '/hotels/search' },
+  { path: '/deals' },
+  // Price requests (ADR-104): the emailed link to an answered request.
+  { path: '/quotes' },
+  { pathPrefix: '/quotes/' },
+];
+
+export default ({ config }: ConfigContext): ExpoConfig => ({
+  ...config,
+  // The name under the icon (ADR-068); the test build carries it too, as testers asked.
+  name: variant === 'production' || variant === 'e2e' ? 'SUSKII T&T' : `SUSKII T&T (${variant})`,
+  slug: 'suskii-travels',
+  scheme: 'suskii',
+  version: '0.1.0',
+  // Follows the device: a phone mounted in landscape (wheelchair, car) must still work (WCAG 1.3.4).
+  orientation: 'default',
+  // Design tokens define a light theme only.
+  userInterfaceStyle: 'light',
+  // Built from brand/suskii-tt-logo.webp by scripts/brand-assets.mjs (ADR-068).
+  icon: './assets/icon.png',
+  platforms: ['ios', 'android'],
+  runtimeVersion: { policy: 'fingerprint' },
+  updates: projectId ? { url: `https://u.expo.dev/${projectId}` } : { enabled: false },
+  ios: {
+    bundleIdentifier: bundleId,
+    supportsTablet: true,
+    usesAppleSignIn: true,
+    config: { usesNonExemptEncryption: false },
+    ...(appLinks ? { associatedDomains: [`applinks:${webHost}`] } : {}),
+    ...(nativeAttestation
+      ? {
+          entitlements: {
+            'com.apple.developer.devicecheck.appattest-environment':
+              variant === 'production' ? 'production' : 'development',
+          },
+        }
+      : {}),
+  },
+  android: {
+    package: bundleId,
+    adaptiveIcon: { foregroundImage: './assets/adaptive-icon.png', backgroundColor: color.primary },
+    // Trips, documents and the secure store never leave the device through backups (ADR-020).
+    allowBackup: false,
+    ...(appLinks
+      ? {
+          intentFilters: [
+            {
+              action: 'VIEW',
+              autoVerify: true,
+              data: linkPaths.map((path) => ({ scheme: 'https', host: webHost, ...path })),
+              category: ['BROWSABLE', 'DEFAULT'],
+            },
+          ],
+        }
+      : {}),
+  },
+  plugins: [
+    'expo-router',
+    'expo-secure-store',
+    // Arabic mirrors the layout; the system lists the app's languages (ADR-076).
+    ['expo-localization', { supportsRTL: true, supportedLocales: ['en', 'fr', 'sw', 'ar', 'pt'] }],
+    'expo-web-browser',
+    [
+      'expo-splash-screen',
+      { image: './assets/splash-icon.png', imageWidth: 200, backgroundColor: color.surface },
+    ],
+    ['expo-notifications', { color: color.primary, defaultChannel: 'bookings' }],
+    // Bus operator agents scan boarding passes (Cars, ADR-050); no recording, no microphone.
+    [
+      'expo-camera',
+      {
+        cameraPermission: 'Allow SUSKII T&T to use the camera to scan boarding pass QR codes.',
+        microphonePermission: false,
+        recordAudioAndroid: false,
+        barcodeScannerEnabled: true,
+      },
+    ],
+    // Fingerprint sign-in and Sign in with Apple (ADR-067).
+    [
+      'expo-local-authentication',
+      { faceIDPermission: 'Allow SUSKII T&T to use Face ID to sign you in.' },
+    ],
+    'expo-apple-authentication',
+    ['expo-build-properties', { android: { usesCleartextTraffic: insecureAllowed } }],
+  ],
+  experiments: { typedRoutes: true },
+  extra: {
+    variant,
+    ...(projectId ? { eas: { projectId } } : {}),
+  },
+});

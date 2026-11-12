@@ -1,0 +1,910 @@
+import { Inject, Injectable } from '@nestjs/common';
+
+import { PreferencesService } from '../accounts/preferences.service';
+import { BOOKING_INCLUDE } from '../bookings/booking-presenter';
+import { BookingNotesService } from '../bookings/booking-notes.service';
+import { BookingsService, passportContext } from '../bookings/bookings.service';
+import { fromJsonValue } from '../common/json';
+import { APP_CONFIG, type AppConfig } from '../config/config';
+import {
+  customerIpContext,
+  driverLicenceContext,
+  driverNinContext,
+  driverPayoutContext,
+  emergencyContactContext,
+  rentalLicenceNumberContext,
+  agentMessageContext,
+  supportMessageContext,
+} from '../crypto/encryption-contexts';
+import { FieldEncryption } from '../crypto/field-encryption';
+import { PrismaService } from '../infra/prisma.service';
+import { benefitsView, storedBenefits } from '../prime/prime-status';
+
+import type { ExportSection } from './data-registry';
+
+const iso = (value: Date | null | undefined): string | null => value?.toISOString() ?? null;
+const isoDate = (value: Date | null | undefined): string | null =>
+  value ? value.toISOString().slice(0, 10) : null;
+const minor = (value: bigint | null | undefined): number | null =>
+  value === null || value === undefined ? null : Number(value);
+
+export interface DataExport {
+  format: 'suskii-data-export';
+  version: 1;
+  generatedAt: string;
+  accountId: string;
+  notes: string[];
+  data: Record<ExportSection, unknown>;
+}
+
+/**
+ * Builds the account's data export (ADR-029): one section per `EXPORT_SECTIONS` entry, typed so a
+ * new section cannot be forgotten. Secrets (password and token hashes, TOTP secrets, device
+ * tokens, voucher codes), internal pricing, staff notes and other people's accounts never appear.
+ */
+@Injectable()
+export class DataExportService {
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
+    private readonly encryption: FieldEncryption,
+    private readonly bookings: BookingsService,
+    private readonly notes: BookingNotesService,
+    private readonly preferences: PreferencesService,
+  ) {}
+
+  async build(userId: string, now = new Date()): Promise<DataExport> {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      include: { roles: { select: { roleKey: true } } },
+    });
+    const bookingRows = await this.prisma.booking.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+      include: BOOKING_INCLUDE,
+    });
+    const bookingIds = bookingRows.map((booking) => booking.id);
+
+    const [
+      preferences,
+      notificationPreferences,
+      notifications,
+      identities,
+      sessions,
+      factor,
+      recoveryCodes,
+      fingerprintSignIn,
+      devices,
+      travellers,
+      payments,
+      refunds,
+      wallet,
+      visaApplications,
+      memberships,
+      referrals,
+      priceAlerts,
+      newsletter,
+      activity,
+      partnerClicks,
+      adConversions,
+    ] = await Promise.all([
+      this.preferences.get(userId),
+      this.preferences.notifications(userId),
+      this.prisma.notification.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
+      this.prisma.socialIdentity.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
+      this.prisma.session.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
+      this.prisma.mfaFactor.findUnique({ where: { userId_type: { userId, type: 'totp' } } }),
+      this.prisma.mfaRecoveryCode.findMany({ where: { userId }, select: { usedAt: true } }),
+      this.prisma.deviceCredential.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
+      this.prisma.pushToken.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
+      this.prisma.traveller.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
+      this.prisma.payment.findMany({
+        where: { bookingId: { in: bookingIds } },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.refund.findMany({
+        where: { bookingId: { in: bookingIds } },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.wallet(userId),
+      this.prisma.visaApplication.findMany({
+        where: { bookingId: { in: bookingIds } },
+        orderBy: { createdAt: 'asc' },
+        include: {
+          product: { select: { slug: true, title: true } },
+          events: { orderBy: { occurredAt: 'asc' } },
+          documents: { orderBy: { uploadedAt: 'asc' } },
+        },
+      }),
+      this.prisma.primeMembership.findMany({
+        where: { userId },
+        orderBy: { startsAt: 'asc' },
+        include: { plan: { select: { slug: true, name: true, period: true } } },
+      }),
+      this.referrals(userId),
+      this.prisma.priceAlert.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
+      user.email
+        ? this.prisma.newsletterSubscription.findUnique({ where: { email: user.email } })
+        : null,
+      this.prisma.auditLog.findMany({
+        where: { actorUserId: userId },
+        orderBy: { occurredAt: 'asc' },
+      }),
+      this.prisma.partnerClick.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
+      this.prisma.adConversion.findMany({
+        where: { booking: { userId } },
+        orderBy: { createdAt: 'asc' },
+      }),
+    ]);
+
+    const presented = [];
+    for (const booking of bookingRows) {
+      presented.push({
+        ...(await this.bookings.present(booking)),
+        contact: this.bookings.contact(booking),
+        // The checkout IP a hotel supplier needs to book (ADR-086), while it is still kept.
+        checkoutIps: booking.items.flatMap((item) =>
+          item.customerIpEncrypted
+            ? [
+                {
+                  itemId: item.id,
+                  ip: this.encryption.decrypt(item.customerIpEncrypted, customerIpContext(item.id)),
+                },
+              ]
+            : [],
+        ),
+        // Notes staff kept about the booking are personal data too (ADR-029).
+        internalNotes: (await this.notes.list(booking.id)).map((note) => ({
+          createdAt: note.createdAt,
+          text: note.text,
+        })),
+      });
+    }
+
+    const data: Record<ExportSection, unknown> = {
+      profile: {
+        id: user.id,
+        email: user.email,
+        emailVerifiedAt: iso(user.emailVerifiedAt),
+        phone: user.phone,
+        phoneVerifiedAt: iso(user.phoneVerifiedAt),
+        displayName: user.displayName,
+        status: user.status,
+        hasPassword: user.passwordHash !== null,
+        roles: user.roles.map((role) => role.roleKey),
+        createdAt: iso(user.createdAt),
+        updatedAt: iso(user.updatedAt),
+      },
+      // With what the assistant remembers, which the person chose like any other setting.
+      preferences: { ...preferences, assistantMemory: await this.assistantMemory(userId) },
+      notificationPreferences: notificationPreferences.preferences,
+      notifications: notifications.map((row) => ({
+        createdAt: iso(row.createdAt),
+        category: row.category,
+        channel: row.channel,
+        template: row.template,
+        status: row.status,
+        reason: row.reason,
+        bookingId: row.bookingId,
+      })),
+      identities: identities.map((identity) => ({
+        provider: identity.provider,
+        email: identity.email,
+        linkedAt: iso(identity.createdAt),
+      })),
+      sessions: sessions.map((session) => ({
+        id: session.id,
+        signInMethod: session.authMethod,
+        userAgent: session.userAgent,
+        mfaVerifiedAt: iso(session.mfaVerifiedAt),
+        createdAt: iso(session.createdAt),
+        lastSeenAt: iso(session.lastSeenAt),
+        expiresAt: iso(session.expiresAt),
+        revokedAt: iso(session.revokedAt),
+        revokedReason: session.revokedReason,
+      })),
+      mfa: {
+        authenticatorApp: factor
+          ? { enrolledAt: iso(factor.createdAt), confirmedAt: iso(factor.confirmedAt) }
+          : null,
+        recoveryCodes: {
+          total: recoveryCodes.length,
+          unused: recoveryCodes.filter((code) => code.usedAt === null).length,
+        },
+        fingerprintSignIn: fingerprintSignIn.map((credential) => ({
+          phone: credential.label,
+          turnedOnAt: iso(credential.createdAt),
+          lastUsedAt: iso(credential.lastUsedAt),
+          turnedOffAt: iso(credential.revokedAt),
+        })),
+      },
+      devices: devices.map((device) => ({
+        platform: device.platform,
+        scope: device.scope.split(':')[0] ?? device.scope,
+        registeredAt: iso(device.createdAt),
+        lastSeenAt: iso(device.lastSeenAt),
+      })),
+      travellers: travellers.map((traveller) => ({
+        id: traveller.id,
+        title: traveller.title,
+        gender: traveller.gender,
+        givenNames: traveller.givenNames,
+        surname: traveller.surname,
+        dateOfBirth: isoDate(traveller.dateOfBirth),
+        nationality: traveller.nationality,
+        passport: traveller.passportEncrypted
+          ? {
+              number: this.encryption.decrypt(
+                traveller.passportEncrypted,
+                passportContext('traveller', traveller.id),
+              ),
+              issuingCountry: traveller.issuingCountry,
+              expiryDate: isoDate(traveller.documentExpiry),
+            }
+          : null,
+        createdAt: iso(traveller.createdAt),
+        updatedAt: iso(traveller.updatedAt),
+      })),
+      bookings: presented,
+      payments: payments.map((payment) => ({
+        id: payment.id,
+        bookingId: payment.bookingId,
+        reference: payment.providerReference,
+        provider: payment.provider,
+        kind: payment.kind,
+        status: payment.status,
+        amountMinor: minor(payment.amountMinor),
+        currency: payment.currency,
+        method: payment.method,
+        createdAt: iso(payment.createdAt),
+        succeededAt: iso(payment.succeededAt),
+        refundDue: payment.requiresRefund,
+      })),
+      refunds: refunds.map((refund) => ({
+        id: refund.id,
+        bookingId: refund.bookingId,
+        paymentId: refund.paymentId,
+        amountMinor: minor(refund.amountMinor),
+        currency: refund.currency,
+        destination: refund.destination,
+        reason: refund.reason,
+        status: refund.status,
+        createdAt: iso(refund.createdAt),
+        settledAt: iso(refund.settledAt),
+      })),
+      wallet,
+      visaApplications: visaApplications.map((application) => ({
+        id: application.id,
+        bookingId: application.bookingId,
+        product: application.product,
+        applicantPosition: application.applicantPosition,
+        status: application.status,
+        purpose: application.purpose,
+        nationality: application.nationality,
+        destination: application.destination,
+        travelDate: isoDate(application.travelDate),
+        submittedAt: iso(application.submittedAt),
+        closedAt: iso(application.closedAt),
+        // Officer messages are for the customer; internal notes stay internal.
+        events: application.events.map((event) => ({
+          occurredAt: iso(event.occurredAt),
+          kind: event.kind,
+          fromStatus: event.fromStatus,
+          toStatus: event.toStatus,
+          message: event.message,
+        })),
+        documents: application.documents.map((document) => ({
+          id: document.id,
+          checklistKey: document.checklistKey,
+          status: document.status,
+          contentType: document.contentType,
+          sizeBytes: document.sizeBytes,
+          uploadedAt: iso(document.uploadedAt),
+          deletedAt: iso(document.deletedAt),
+        })),
+      })),
+      memberships: memberships.map((membership) => ({
+        id: membership.id,
+        plan: membership.plan,
+        status: membership.status,
+        startsAt: iso(membership.startsAt),
+        endsAt: iso(membership.endsAt),
+        // As the member sees them: the share of our margin is internal (ADR-030).
+        benefits: benefitsView(storedBenefits(membership.benefits)),
+        bookingId: membership.bookingId,
+      })),
+      referrals,
+      priceAlerts: priceAlerts.map((alert) => ({
+        id: alert.id,
+        origin: alert.origin,
+        destination: alert.destination,
+        departureDate: isoDate(alert.departureDate),
+        departureMonth: alert.departureMonth,
+        cabinClass: alert.cabinClass,
+        currency: alert.currency,
+        targetMinor: minor(alert.targetMinor),
+        lastPriceMinor: minor(alert.lastPriceMinor),
+        lastCheckedAt: iso(alert.lastCheckedAt),
+        lastNotifiedAt: iso(alert.lastNotifiedAt),
+        active: alert.active,
+        endsOn: isoDate(alert.endsOn),
+        createdAt: iso(alert.createdAt),
+      })),
+      newsletter: newsletter
+        ? {
+            email: newsletter.email,
+            status: newsletter.status,
+            locale: newsletter.locale,
+            whatsappPhone: newsletter.whatsappPhone,
+            whatsappStatus: newsletter.whatsappStatus,
+            consentVersion: newsletter.consentVersion,
+            consentedAt: iso(newsletter.consentedAt),
+            source: newsletter.source,
+            confirmedAt: iso(newsletter.confirmedAt),
+            unsubscribedAt: iso(newsletter.unsubscribedAt),
+          }
+        : null,
+      activity: [
+        ...activity.map((event) => ({
+          occurredAt: iso(event.occurredAt),
+          action: event.action,
+          targetType: event.targetType,
+          targetId: event.targetId,
+          userAgent: event.userAgent,
+          metadata: event.metadata,
+        })),
+        // Partner offers the account opened (ADR-070), in the same shape as audit events.
+        ...partnerClicks.map((click) => ({
+          occurredAt: iso(click.createdAt),
+          action: 'partner.offer_opened',
+          targetType: 'partner_program',
+          targetId: click.programId,
+          userAgent: null,
+          metadata: {
+            category: click.category,
+            bookingId: click.bookingId,
+            channel: click.channel,
+          },
+        })),
+        // Bookings whose Purchase was, or may be, sent to ad networks after consent (ADR-079).
+        ...adConversions.map((conversion) => ({
+          occurredAt: iso(conversion.createdAt),
+          action: 'ads.purchase_conversion',
+          targetType: 'booking',
+          targetId: conversion.bookingId,
+          userAgent: null,
+          metadata: {
+            consentId: conversion.consentId,
+            clickIds: conversion.clickIds,
+            status: conversion.status,
+            sentTo: conversion.sentTo,
+            sentAt: iso(conversion.sentAt),
+          },
+        })),
+      ].sort((a, b) => (a.occurredAt ?? '').localeCompare(b.occurredAt ?? '')),
+      rides: await this.rides(userId),
+      emergencyContacts: await this.emergencyContacts(userId),
+      driving: await this.driving(userId),
+      rentals: await this.rentals(userId),
+      reviews: await this.reviews(userId),
+      company: await this.company(userId),
+      support: await this.support(userId),
+      privacyRequests: await this.privacyRequests(userId),
+      trips: await this.trips(userId),
+      assistant: await this.assistant(userId),
+      assistedQuotes: await this.assistedQuotes(userId),
+    };
+
+    return {
+      format: 'suskii-data-export',
+      version: 1,
+      generatedAt: now.toISOString(),
+      accountId: user.id,
+      notes: [
+        'Amounts are in minor units of their currency (kobo for NGN).',
+        'Passenger passport numbers on bookings show their last three characters; saved travellers include the full number.',
+        'Visa documents and e-tickets are listed as metadata; download them from the booking while it is available.',
+        'The checkout IP a hotel booking needs (checkoutIps) is kept only until the hotel is booked, at most 7 days.',
+        'Ride pickup and drop-off points are rounded to about 1 km after 90 days, and driver positions during a ride are deleted then.',
+        `Financial records are kept for ${this.config.FINANCIAL_RECORDS_RETENTION_YEARS} years after account deletion, with contact details removed.`,
+      ],
+      data,
+    };
+  }
+
+  private async wallet(userId: string): Promise<unknown> {
+    const accounts = await this.prisma.ledgerAccount.findMany({
+      where: { userId, code: { startsWith: 'wallet:' } },
+      orderBy: { currency: 'asc' },
+    });
+    const entries = await this.prisma.ledgerEntry.findMany({
+      where: { accountId: { in: accounts.map((account) => account.id) } },
+      orderBy: { createdAt: 'asc' },
+      include: { transaction: { select: { kind: true, bookingId: true } } },
+    });
+    return {
+      balances: accounts.map((account) => ({
+        currency: account.currency,
+        balanceMinor: minor(account.balanceMinor),
+      })),
+      entries: entries.map((entry) => ({
+        createdAt: iso(entry.createdAt),
+        // Wallets are liabilities: a credit adds to the customer's balance.
+        direction: entry.direction === 'credit' ? 'in' : 'out',
+        amountMinor: minor(entry.amountMinor),
+        currency: entry.currency,
+        kind: entry.transaction.kind,
+        bookingId: entry.transaction.bookingId,
+      })),
+    };
+  }
+
+  private async referrals(userId: string): Promise<unknown> {
+    const [code, made, referredBy] = await Promise.all([
+      this.prisma.referralCode.findUnique({ where: { userId } }),
+      this.prisma.referral.findMany({
+        where: { referrerId: userId },
+        orderBy: { createdAt: 'asc' },
+        select: { status: true, createdAt: true, qualifiedAt: true, rewardedAt: true },
+      }),
+      this.prisma.referral.findUnique({
+        where: { refereeId: userId },
+        select: { status: true, createdAt: true, qualifiedAt: true, rewardedAt: true },
+      }),
+    ]);
+    const view = (row: {
+      status: string;
+      createdAt: Date;
+      qualifiedAt: Date | null;
+      rewardedAt: Date | null;
+    }) => ({
+      status: row.status,
+      createdAt: iso(row.createdAt),
+      qualifiedAt: iso(row.qualifiedAt),
+      rewardedAt: iso(row.rewardedAt),
+    });
+    return {
+      code: code ? { code: code.code, active: code.active, createdAt: iso(code.createdAt) } : null,
+      // The people referred are other accounts: only the outcome of each referral is theirs.
+      referred: made.map(view),
+      referredBy: referredBy ? view(referredBy) : null,
+    };
+  }
+
+  /** Rides taken as a rider (ADR-049): places, times, fare, ratings given and safety reports. */
+  private async rides(userId: string): Promise<unknown> {
+    const rides = await this.prisma.ride.findMany({
+      where: { riderUserId: userId },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        events: { orderBy: { createdAt: 'asc' } },
+        ratings: true,
+        pings: {
+          orderBy: { recordedAt: 'asc' },
+          select: { lat: true, lng: true, recordedAt: true },
+        },
+        incidents: { where: { reporterUserId: userId }, orderBy: { createdAt: 'asc' } },
+      },
+    });
+    return rides.map((ride) => ({
+      id: ride.id,
+      bookingId: ride.bookingId,
+      category: ride.category,
+      status: ride.status,
+      pickup: { label: ride.pickupLabel, lat: ride.pickupLat, lng: ride.pickupLng },
+      dropoff: { label: ride.dropoffLabel, lat: ride.dropoffLat, lng: ride.dropoffLng },
+      scheduledFor: iso(ride.scheduledFor),
+      distanceMetres: ride.distanceMetres,
+      durationSeconds: ride.durationSeconds,
+      fareMinor: minor(ride.fareMinor),
+      currency: ride.currency,
+      cancellationFeeMinor: minor(ride.cancellationFeeMinor),
+      cancelledBy: ride.cancelledBy,
+      createdAt: iso(ride.createdAt),
+      startedAt: iso(ride.startedAt),
+      completedAt: iso(ride.completedAt),
+      cancelledAt: iso(ride.cancelledAt),
+      events: ride.events.map((event) => ({
+        createdAt: iso(event.createdAt),
+        event: event.event,
+        fromStatus: event.fromStatus,
+        toStatus: event.toStatus,
+        actorKind: event.actorKind,
+      })),
+      // The rider's own rating of the driver; the driver's rating of the rider is about them too.
+      ratings: ride.ratings.map((rating) => ({
+        raterKind: rating.raterKind,
+        stars: rating.stars,
+        comment: rating.raterKind === 'rider' ? rating.comment : null,
+        createdAt: iso(rating.createdAt),
+      })),
+      route: ride.pings.map((ping) => ({
+        lat: ping.lat,
+        lng: ping.lng,
+        recordedAt: iso(ping.recordedAt),
+      })),
+      safetyReports: ride.incidents.map((incident) => ({
+        kind: incident.kind,
+        status: incident.status,
+        createdAt: iso(incident.createdAt),
+        resolvedAt: iso(incident.resolvedAt),
+      })),
+    }));
+  }
+
+  /**
+   * Company accounts (ADR-078): the account's company and role, and the company wallet top-ups
+   * this person started (ADR-090).
+   */
+  private async company(userId: string): Promise<unknown> {
+    const [member, topUps] = await Promise.all([
+      this.prisma.companyMember.findUnique({
+        where: { userId },
+        include: { company: { select: { id: true, name: true, countryCode: true } } },
+      }),
+      this.prisma.companyWalletTopUp.findMany({
+        where: { requestedById: userId },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          reference: true,
+          companyId: true,
+          status: true,
+          amountMinor: true,
+          currency: true,
+          method: true,
+          createdAt: true,
+          succeededAt: true,
+        },
+      }),
+    ]);
+    return {
+      membership: member
+        ? { company: member.company, role: member.role, joinedAt: iso(member.createdAt) }
+        : null,
+      walletTopUps: topUps.map((topUp) => ({
+        reference: topUp.reference,
+        companyId: topUp.companyId,
+        status: topUp.status,
+        amountMinor: topUp.amountMinor.toString(),
+        currency: topUp.currency,
+        method: topUp.method,
+        createdAt: iso(topUp.createdAt),
+        succeededAt: topUp.succeededAt ? iso(topUp.succeededAt) : null,
+      })),
+    };
+  }
+
+  /**
+   * Support conversations (ADR-083): what the traveller and staff wrote to each other. Internal
+   * notes and which staff member answered stay out.
+   */
+  /**
+   * Combined trips (ADR-099): the plan the traveller entered and which of their bookings are its
+   * parts. The bookings and each one's share of a trip payment are in their own sections.
+   */
+  private async trips(userId: string): Promise<unknown> {
+    const rows = await this.prisma.trip.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        bookings: {
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, reference: true, tripComponent: true },
+        },
+      },
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      reference: row.reference,
+      plan: row.plan,
+      currency: row.currency,
+      createdAt: iso(row.createdAt),
+      parts: row.bookings.map((booking) => ({
+        component: booking.tripComponent,
+        bookingId: booking.id,
+        bookingReference: booking.reference,
+      })),
+    }));
+  }
+
+  /** The person's own data rights requests: what, how, when and the outcome (ADR-089). */
+  private async privacyRequests(userId: string): Promise<unknown> {
+    const rows = await this.prisma.privacyRequest.findMany({
+      where: { userId },
+      orderBy: { receivedAt: 'asc' },
+    });
+    return rows.map((row) => ({
+      kind: row.kind,
+      channel: row.channel,
+      status: row.status,
+      receivedAt: iso(row.receivedAt),
+      dueAt: iso(row.dueAt),
+      closedAt: iso(row.closedAt),
+      refusalReason: row.refusalReason,
+    }));
+  }
+
+  private async support(userId: string): Promise<unknown> {
+    const rows = await this.prisma.supportConversation.findMany({
+      where: { userId },
+      include: { messages: { where: { internal: false }, orderBy: { id: 'asc' } } },
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map((row) => ({
+      reference: row.reference,
+      bookingId: row.bookingId,
+      category: row.category,
+      status: row.status,
+      channel: row.channel,
+      createdAt: iso(row.createdAt),
+      resolvedAt: iso(row.resolvedAt),
+      messages: row.messages.map((message) => ({
+        from: message.author,
+        sentAt: iso(message.createdAt),
+        text: this.encryption.decrypt(message.bodyEncrypted, supportMessageContext(message.id)),
+      })),
+    }));
+  }
+
+  /** Conversations with the assistant (ADR-105): what the person and the assistant wrote. */
+  private async assistant(userId: string): Promise<unknown> {
+    const rows = await this.prisma.agentConversation.findMany({
+      where: { userId },
+      include: {
+        messages: { where: { role: { not: 'system' } }, orderBy: { id: 'asc' } },
+        confirmations: { orderBy: { id: 'asc' } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map((row) => ({
+      reference: row.reference,
+      channel: row.channel,
+      language: row.locale,
+      bookingId: row.bookingId,
+      status: row.status,
+      createdAt: iso(row.createdAt),
+      lastMessageAt: iso(row.lastMessageAt),
+      rating: row.rating,
+      messages: row.messages.map((message) => ({
+        from: message.role === 'user' ? 'you' : 'assistant',
+        sentAt: iso(message.createdAt),
+        text: this.encryption.decrypt(message.bodyEncrypted, agentMessageContext(message.id)),
+        feedback: message.feedback,
+      })),
+      // What the assistant asked to be confirmed, and the answer (ADR-107).
+      confirmations: row.confirmations.map((confirmation) => ({
+        action: confirmation.tool,
+        shown: confirmation.card,
+        status: confirmation.status,
+        askedAt: iso(confirmation.createdAt),
+        answeredAt: confirmation.decidedAt ? iso(confirmation.decidedAt) : null,
+      })),
+    }));
+  }
+
+  /** What the assistant remembers about the person, and when they agreed to it (ADR-105). */
+  private async assistantMemory(userId: string): Promise<unknown> {
+    const [preference, rows] = await Promise.all([
+      this.prisma.userPreference.findUnique({
+        where: { userId },
+        select: { assistantMemoryAt: true },
+      }),
+      this.prisma.agentMemory.findMany({ where: { userId }, orderBy: { key: 'asc' } }),
+    ]);
+    return {
+      agreedAt: preference?.assistantMemoryAt ? iso(preference.assistantMemoryAt) : null,
+      preferences: rows.map((row) => ({
+        preference: row.key,
+        value: row.value,
+        setBy: row.source,
+        updatedAt: iso(row.updatedAt),
+      })),
+    };
+  }
+
+  /** Requests to have a price confirmed by a person (ADR-104), and how each ended. */
+  private async assistedQuotes(userId: string): Promise<unknown> {
+    const rows = await this.prisma.assistedQuote.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map((row) => ({
+      reference: row.reference,
+      product: row.product,
+      title: row.title,
+      request: row.request,
+      currency: row.currency,
+      status: row.status,
+      closedReason: row.closedReason,
+      // What was offered, in the words the traveller was shown; the supplier's name and the
+      // proof are Suskii's own records.
+      offered: row.details,
+      offeredUntil: row.offerExpiresAt ? iso(row.offerExpiresAt) : null,
+      createdAt: iso(row.createdAt),
+    }));
+  }
+
+  /** Verified reviews (ADR-077): what was written, about what, and where moderation stands. */
+  private async reviews(userId: string): Promise<unknown> {
+    const rows = await this.prisma.review.findMany({
+      where: { userId },
+      include: { subject: { select: { kind: true, name: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      bookingId: row.bookingId,
+      about: row.subject,
+      rating: row.rating,
+      title: row.title,
+      liked: row.liked,
+      disliked: row.disliked,
+      tripType: row.tripType,
+      shownAs: row.displayName,
+      travelledOn: row.travelledOn,
+      status: row.status,
+      rejectReason: row.rejectReason,
+      createdAt: iso(row.createdAt),
+      publishedAt: iso(row.publishedAt),
+    }));
+  }
+
+  /** Car rentals (ADR-051): periods, the licence given, handover readings and the deposit. */
+  private async rentals(userId: string): Promise<unknown> {
+    const rows = await this.prisma.rentalReservation.findMany({
+      where: { bookingItem: { booking: { userId } } },
+      include: {
+        vehicle: { select: { make: true, model: true, plate: true } },
+        licence: true,
+        handovers: {
+          include: { _count: { select: { photos: true } } },
+          orderBy: { createdAt: 'asc' },
+        },
+        bookingItem: { select: { bookingId: true, payload: true } },
+      },
+      orderBy: { pickupAt: 'desc' },
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      bookingId: row.bookingItem.bookingId,
+      vehicle: row.vehicle,
+      pickupAt: iso(row.pickupAt),
+      returnAt: iso(row.returnAt),
+      chauffeur: row.chauffeur,
+      // The age given for a self-drive rental (ADR-098); null when none was asked or kept.
+      driverAge:
+        fromJsonValue<{ driverAge?: number | null }>(row.bookingItem.payload).driverAge ?? null,
+      status: row.status,
+      licence: row.licence
+        ? {
+            number: this.encryption.decrypt(
+              row.licence.numberEncrypted,
+              rentalLicenceNumberContext(row.licence.id),
+            ),
+            expiresOn: isoDate(row.licence.expiresOn),
+            status: row.licence.status,
+            scanOnFile: row.licence.storageKey !== null,
+          }
+        : null,
+      handovers: row.handovers.map((handover) => ({
+        kind: handover.kind,
+        odometerKm: handover.odometerKm,
+        fuelEighths: handover.fuelEighths,
+        damageNotes: handover.damageNotes,
+        photos: handover._count.photos,
+        recordedAt: iso(handover.createdAt),
+      })),
+      depositMinor: minor(row.depositMinor),
+      depositKeptMinor: minor(row.depositDeductionMinor),
+      depositDeductionReason: row.depositDeductionReason,
+      depositReleasedAt: iso(row.depositReleasedAt),
+      currency: row.currency,
+    }));
+  }
+
+  private async emergencyContacts(userId: string): Promise<unknown> {
+    const contacts = await this.prisma.emergencyContact.findMany({
+      where: { userId },
+      orderBy: { position: 'asc' },
+    });
+    return contacts.map((contact) => ({
+      position: contact.position,
+      ...(JSON.parse(
+        this.encryption.decrypt(contact.contactEncrypted, emergencyContactContext(contact.id)),
+      ) as { name: string; phone: string }),
+      createdAt: iso(contact.createdAt),
+    }));
+  }
+
+  /** The account's driver profile (ADR-050): identity numbers are theirs, so they are included. */
+  private async driving(userId: string): Promise<unknown> {
+    const driver = await this.prisma.driver.findUnique({
+      where: { userId },
+      include: {
+        vehicles: { orderBy: { createdAt: 'asc' } },
+        documents: { orderBy: { createdAt: 'asc' } },
+        payouts: { orderBy: { createdAt: 'asc' } },
+      },
+    });
+    if (!driver) return null;
+    const rides = await this.prisma.ride.findMany({
+      where: { driverId: driver.id },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        status: true,
+        category: true,
+        cityName: true,
+        assignedAt: true,
+        completedAt: true,
+        distanceMetres: true,
+        fareMinor: true,
+        currency: true,
+      },
+    });
+    return {
+      status: driver.status,
+      givenNames: driver.givenNames,
+      surname: driver.surname,
+      dateOfBirth: isoDate(driver.dateOfBirth),
+      cityName: driver.cityName,
+      nin: this.encryption.decrypt(driver.ninEncrypted, driverNinContext(driver.id)),
+      identityCheck: driver.identityCheck,
+      licenceNumber: this.encryption.decrypt(
+        driver.licenceEncrypted,
+        driverLicenceContext(driver.id),
+      ),
+      licenceExpiresOn: isoDate(driver.licenceExpiresOn),
+      licenceCheck: driver.licenceCheck,
+      payoutAccount: driver.payoutAccountEncrypted
+        ? (JSON.parse(
+            this.encryption.decrypt(driver.payoutAccountEncrypted, driverPayoutContext(driver.id)),
+          ) as unknown)
+        : null,
+      rating:
+        driver.ratingCount > 0
+          ? { average: driver.ratingSum / driver.ratingCount, count: driver.ratingCount }
+          : null,
+      createdAt: iso(driver.createdAt),
+      reviewedAt: iso(driver.reviewedAt),
+      vehicles: driver.vehicles.map((vehicle) => ({
+        make: vehicle.make,
+        model: vehicle.model,
+        year: vehicle.year,
+        colour: vehicle.colour,
+        plate: vehicle.plate,
+        category: vehicle.category,
+        status: vehicle.status,
+        insuranceExpiresOn: isoDate(vehicle.insuranceExpiresOn),
+      })),
+      documents: driver.documents.map((document) => ({
+        id: document.id,
+        kind: document.kind,
+        status: document.status,
+        contentType: document.contentType,
+        sizeBytes: document.sizeBytes,
+        uploadedAt: iso(document.createdAt),
+        deletedAt: iso(document.deletedAt),
+      })),
+      // Rides driven: ids, times and fares; the riders are other people.
+      ridesDriven: rides.map((ride) => ({
+        id: ride.id,
+        status: ride.status,
+        category: ride.category,
+        cityName: ride.cityName,
+        assignedAt: iso(ride.assignedAt),
+        completedAt: iso(ride.completedAt),
+        distanceMetres: ride.distanceMetres,
+        fareMinor: minor(ride.fareMinor),
+        currency: ride.currency,
+      })),
+      payouts: driver.payouts.map((payout) => ({
+        amountMinor: minor(payout.amountMinor),
+        currency: payout.currency,
+        status: payout.status,
+        createdAt: iso(payout.createdAt),
+        settledAt: iso(payout.settledAt),
+      })),
+    };
+  }
+}

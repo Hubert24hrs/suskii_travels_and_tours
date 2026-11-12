@@ -1,0 +1,151 @@
+import { getMessages, type Messages } from '@suskii/i18n';
+import { I18nProvider, useTranslator } from '@suskii/i18n/react';
+import {
+  DEFAULT_CURRENCY,
+  DEFAULT_LOCALE,
+  isSupportedCurrency,
+  negotiateLocale,
+  type CurrencyCode,
+  type LocaleCode,
+} from '@suskii/shared';
+import { ToastProvider } from '@suskii/ui-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { getLocales } from 'expo-localization';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react';
+
+import { forgetAccountData } from '../lib/account-data';
+import { createAppApi, createBareApi, type ApiClient } from '../lib/api';
+import { preferences } from '../lib/cache';
+import { SessionStore, type AuthUser, type RefreshOutcome } from '../lib/session';
+
+interface AppContextValue {
+  api: ApiClient;
+  session: SessionStore;
+  user: AuthUser | null;
+  locale: LocaleCode;
+  currency: CurrencyCode;
+  setCurrency: (currency: CurrencyCode) => void;
+  /** Fewer results per page, for slow or expensive data (ADR-075). */
+  dataSaver: boolean;
+  setDataSaver: (on: boolean) => void;
+  queryClient: QueryClient;
+}
+
+const AppContext = createContext<AppContextValue | null>(null);
+
+/**
+ * The first device language we have (ADR-076): English regions exactly or en-NG, other languages
+ * by language (`fr-CI` is `fr`); else en-NG.
+ */
+export function deviceLocale(): LocaleCode {
+  return negotiateLocale(getLocales().map((locale) => locale.languageTag)) ?? DEFAULT_LOCALE;
+}
+
+const CURRENCY_KEY = 'preferences.currency';
+const DATA_SAVER_KEY = 'preferences.dataSaver';
+
+function storedCurrency(): CurrencyCode {
+  const value = preferences.getString(CURRENCY_KEY);
+  return value && isSupportedCurrency(value) ? value : DEFAULT_CURRENCY;
+}
+
+export function createSessionStore(): SessionStore {
+  const bare = createBareApi();
+  return new SessionStore(async (refreshToken): Promise<RefreshOutcome> => {
+    try {
+      const { data, response } = await bare.POST('/v1/auth/refresh', { body: { refreshToken } });
+      if (data) return data;
+      return response.status === 401 || response.status === 403 ? 'invalid' : 'unavailable';
+    } catch {
+      return 'unavailable';
+    }
+  });
+}
+
+export const createQueryClient = (): QueryClient =>
+  new QueryClient({
+    defaultOptions: { queries: { retry: 1, staleTime: 30_000, gcTime: 10 * 60_000 } },
+  });
+
+/**
+ * App-wide services: the API client, the session, language, currency, queries and toasts. Tests
+ * pass their own `queryClient` (no retries, no garbage-collection timers).
+ */
+export function AppProvider({
+  session,
+  queryClient: injected,
+  children,
+}: {
+  session: SessionStore;
+  queryClient?: QueryClient;
+  children: ReactNode;
+}) {
+  const [locale] = useState(deviceLocale);
+  const [currency, setCurrencyState] = useState(storedCurrency);
+  const [dataSaver, setDataSaverState] = useState(
+    () => preferences.getBoolean(DATA_SAVER_KEY) === true,
+  );
+  const [queryClient] = useState(() => injected ?? createQueryClient());
+  const api = useMemo(() => createAppApi(session, () => locale), [session, locale]);
+  // Signed out by the API (revoked elsewhere): the account's data goes with the tokens.
+  useEffect(() => session.onRevoked(() => forgetAccountData(queryClient)), [session, queryClient]);
+  const user = useSyncExternalStore(
+    (listener) => session.subscribe(listener),
+    () => session.user,
+  );
+  const setCurrency = useCallback((next: CurrencyCode) => {
+    preferences.set(CURRENCY_KEY, next);
+    setCurrencyState(next);
+  }, []);
+  const setDataSaver = useCallback((on: boolean) => {
+    preferences.set(DATA_SAVER_KEY, on);
+    setDataSaverState(on);
+  }, []);
+  const messages = useMemo(() => getMessages(locale), [locale]);
+  const value = useMemo(
+    () => ({
+      api,
+      session,
+      user,
+      locale,
+      currency,
+      setCurrency,
+      dataSaver,
+      setDataSaver,
+      queryClient,
+    }),
+    [api, session, user, locale, currency, setCurrency, dataSaver, setDataSaver, queryClient],
+  );
+  return (
+    <AppContext.Provider value={value}>
+      <I18nProvider locale={locale} messages={messages}>
+        <QueryClientProvider client={queryClient}>
+          <Toasts>{children}</Toasts>
+        </QueryClientProvider>
+      </I18nProvider>
+    </AppContext.Provider>
+  );
+}
+
+function Toasts({ children }: { children: ReactNode }) {
+  const { t } = useT();
+  return <ToastProvider closeLabel={t('common.close')}>{children}</ToastProvider>;
+}
+
+export function useApp(): AppContextValue {
+  const value = useContext(AppContext);
+  if (!value) throw new Error('useApp must be used inside <AppProvider>');
+  return value;
+}
+
+/** The full catalog: the app bundles every namespace it uses. */
+export const useT = () => useTranslator<Messages>();

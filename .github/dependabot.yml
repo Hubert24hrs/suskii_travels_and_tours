@@ -1,10 +1,71 @@
 version: 2
 updates:
-  # Keep CI actions patched. npm dependency automation (Dependabot vs Renovate)
-  # is decided with the rest of the supply-chain tooling in phase 11.
+  # Actions are pinned by commit SHA with the version in a comment; Dependabot updates both.
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    # New releases wait before Dependabot proposes them (security updates do not wait).
+    cooldown:
+      default-days: 3
+      semver-major-days: 7
     commit-message:
       prefix: ci
+
+  # Container base images (ADR-058), pinned by digest in the Dockerfiles and the release compose
+  # file. Node stays on the 24 LTS line; a major upgrade follows ADR-002.
+  - package-ecosystem: docker
+    directories: [/apps/api, /apps/worker, /apps/web, /apps/admin]
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: build
+    ignore:
+      - dependency-name: 'node'
+        update-types: ['version-update:semver-major']
+
+  # npm (pnpm workspace and catalog). Minor and patch updates are grouped into one pull request
+  # per dependency type each week; majors arrive one per pull request and follow ADR-002's
+  # version policy. Security updates are not grouped and open as soon as an advisory lands.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    cooldown:
+      default-days: 3
+      semver-major-days: 7
+    commit-message:
+      prefix: build
+      include: scope
+    groups:
+      production:
+        dependency-type: production
+        update-types: [minor, patch]
+      development:
+        dependency-type: development
+        update-types: [minor, patch]
+    ignore:
+      # Expo SDK and React Native move together (expo install --fix), on each SDK upgrade.
+      - dependency-name: 'expo'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+      - dependency-name: 'expo-*'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+      - dependency-name: '@expo/*'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+      - dependency-name: 'react-native'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+      - dependency-name: 'react-native-*'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+      - dependency-name: '@react-native/*'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+      # Expo's tooling is versioned with the SDK (babel-preset-expo 57 belongs to SDK 57).
+      - dependency-name: 'babel-preset-expo'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'jest-expo'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'eslint-config-expo'
+        update-types: ['version-update:semver-major']

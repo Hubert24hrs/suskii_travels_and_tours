@@ -1,0 +1,59 @@
+name: Deploy staging
+
+# Every commit on main that passed CI goes to staging (ADR-060): images built, scanned, signed
+# and pushed once, the migrate job, the services, smoke tests. Production takes the same images
+# from a release tag (release.yml). Automatic runs start once the owner has set up staging and
+# set the repository variable DEPLOY_ENABLED to true; a manual run deploys any commit on main.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit on main to deploy (full SHA; empty for the head of main)
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    name: Choose the commit
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (vars.DEPLOY_ENABLED == 'true' && github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      ref: ${{ steps.commit.outputs.ref }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Resolve and check the commit
+        id: commit
+        env:
+          REQUESTED: ${{ github.event.workflow_run.head_sha || inputs.ref }}
+        run: |
+          ref="$(git rev-parse --verify "${REQUESTED:-HEAD}^{commit}")"
+          # Only commits on main reach an environment.
+          git merge-base --is-ancestor "$ref" HEAD || { echo "::error::$ref is not on main"; exit 1; }
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+
+  staging:
+    name: Staging
+    needs: resolve
+    uses: ./.github/workflows/deploy-environment.yml
+    with:
+      environment: staging
+      ref: ${{ needs.resolve.outputs.ref }}
+    permissions:
+      contents: read
+      id-token: write

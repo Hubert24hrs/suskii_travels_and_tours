@@ -4,6 +4,11 @@
   "agentGuidance": false,
   "globalDependencies": [".nvmrc", "packages/config/**"],
   "globalEnv": ["NODE_ENV", "CI"],
+  "globalPassThroughEnv": [
+    "NEXT_TELEMETRY_DISABLED",
+    "EXPO_NO_TELEMETRY",
+    "STORYBOOK_DISABLE_TELEMETRY"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -19,10 +24,31 @@
     },
     "test": {
       "dependsOn": ["^build"],
-      "outputs": ["coverage/**"]
+      "outputs": ["coverage/**"],
+      "passThroughEnv": [
+        "PLAYWRIGHT_BROWSERS_PATH",
+        "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH",
+        "TEST_REDIS_URL"
+      ]
+    },
+    "test:cov": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"],
+      "passThroughEnv": ["TEST_REDIS_URL"]
+    },
+    "test:visual": {
+      "dependsOn": ["^build"],
+      "outputs": [],
+      "passThroughEnv": ["PLAYWRIGHT_BROWSERS_PATH", "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"]
     },
     "test:e2e": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "passThroughEnv": ["DOCKER_HOST", "TESTCONTAINERS_*", "E2E_DATABASE_URL", "E2E_REDIS_URL"]
+    },
+    "test:e2e:cov": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage-e2e/**"],
+      "passThroughEnv": ["DOCKER_HOST", "TESTCONTAINERS_*", "E2E_DATABASE_URL", "E2E_REDIS_URL"]
     },
     "dev": {
       "dependsOn": ["^build"],
@@ -31,6 +57,38 @@
     },
     "clean": {
       "cache": false
+    },
+    "build:storybook": {
+      "dependsOn": ["^build"],
+      "outputs": ["storybook-static/**"]
+    },
+    "@suskii/web#test:e2e": {
+      "dependsOn": ["build", "@suskii/api#build", "@suskii/worker#build"],
+      "cache": false,
+      "passThroughEnv": [
+        "DOCKER_HOST",
+        "TESTCONTAINERS_*",
+        "WEB_E2E_DATABASE_URL",
+        "WEB_E2E_REDIS_URL",
+        "E2E_BASE_URL",
+        "E2E_RATE_LIMIT_ENABLED",
+        "PLAYWRIGHT_BROWSERS_PATH",
+        "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH",
+        "CHROME_PATH",
+        "LIGHTHOUSE_RUNS"
+      ]
+    },
+    "@suskii/admin#test:e2e": {
+      "dependsOn": ["build", "@suskii/api#build"],
+      "cache": false,
+      "passThroughEnv": [
+        "DOCKER_HOST",
+        "TESTCONTAINERS_*",
+        "ADMIN_E2E_DATABASE_URL",
+        "ADMIN_E2E_REDIS_URL",
+        "PLAYWRIGHT_BROWSERS_PATH",
+        "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"
+      ]
     }
   }
 }

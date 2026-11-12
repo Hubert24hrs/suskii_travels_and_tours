@@ -1,0 +1,34 @@
+/**
+ * Prints fresh values for the API's secrets, ready to paste into a local `.env` or a cloud secret
+ * manager. Nothing is written to disk.
+ *
+ *   pnpm --filter @suskii/api keys:generate
+ */
+import { generateKeyPairSync, randomBytes } from 'node:crypto';
+
+const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+const base64Pem = (pem: string): string => Buffer.from(pem).toString('base64');
+
+const ticketKey = generateKeyPairSync('ed25519').privateKey;
+
+const lines = [
+  '# Ed25519 access-token signing keys (base64 of the PEM).',
+  `JWT_PRIVATE_KEY=${base64Pem(privateKey.export({ type: 'pkcs8', format: 'pem' }).toString())}`,
+  `JWT_PUBLIC_KEY=${base64Pem(publicKey.export({ type: 'spki', format: 'pem' }).toString())}`,
+  '# AES-256-GCM key for field-level encryption (32 bytes, base64).',
+  `FIELD_ENCRYPTION_KEY=${randomBytes(32).toString('base64')}`,
+  '# Pick a new id with every new key (ADR-038), e.g. k2 after k1.',
+  'FIELD_ENCRYPTION_KEY_ID=k1',
+  '# Master secret for HMAC subkeys (IP hashing, CSRF, OTP and recovery-code hashes).',
+  `HMAC_SECRET=${randomBytes(48).toString('base64url')}`,
+  '# Ed25519 key that signs bus ticket QR codes (ADR-050).',
+  `CARS_TICKET_SIGNING_KEY=${base64Pem(ticketKey.export({ type: 'pkcs8', format: 'pem' }).toString())}`,
+  '# Service token shared by the API and the worker for /v1/internal routes.',
+  `INTERNAL_API_TOKEN=${randomBytes(32).toString('base64url')}`,
+  '# Between the API and the agent service (ADR-101), two different values: the API presents',
+  '# the first to start a run, the agent service the second to call a tool. Neither opens',
+  '# anything else, and neither is the worker token above.',
+  `AGENT_RUN_TOKEN=${randomBytes(32).toString('base64url')}`,
+  `AGENT_TOOLS_TOKEN=${randomBytes(32).toString('base64url')}`,
+];
+process.stdout.write(`${lines.join('\n')}\n`);

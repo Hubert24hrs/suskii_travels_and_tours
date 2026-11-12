@@ -1,0 +1,267 @@
+import {
+  add,
+  convert,
+  fromWire,
+  multiply,
+  parseRate,
+  sum,
+  zero,
+  toWire,
+  type FlightSearchRequest,
+  type HotelSearchRequest,
+  type ItineraryFacts,
+  type Money,
+  type MoneyWire,
+} from '@suskii/shared';
+
+import type { Converter } from '../pricing/fx.service';
+import type { PricingResult, PromoData, PromoUsage } from '../pricing/pricing-engine';
+import { toPriceDto } from '../pricing/pricing.schemas';
+import type { Pricer } from '../pricing/pricing.service';
+import type { ClientContext } from '../search/client-context';
+import { flightPricingContext, servicePrice } from '../search/flight-search.service';
+import { hotelPricingContext } from '../search/hotel-search.service';
+import type {
+  FlightService,
+  HotelSearchQuery,
+  SupplierFlightOffer,
+  SupplierHotel,
+  SupplierHotelRate,
+} from '../suppliers/supplier.types';
+
+import type { BookingPriceDto } from './bookings.schemas';
+import {
+  inhouseBasePrice,
+  inhousePricingContext,
+  INHOUSE_KINDS,
+  type InhouseItemPayload,
+} from './inhouse-items';
+
+/** What a quote and a booking item store: the offer in our domain shape plus its search. */
+export interface FlightItemPayload {
+  kind: 'flight';
+  offer: SupplierFlightOffer;
+  request: FlightSearchRequest;
+}
+
+export interface HotelItemPayload {
+  kind: 'hotel';
+  /** `rates` holds exactly the booked rate. */
+  hotel: SupplierHotel;
+  request: HotelSearchRequest;
+  query: HotelSearchQuery;
+}
+
+export type SupplierItemPayload = FlightItemPayload | HotelItemPayload;
+export type ItemPayload = SupplierItemPayload | InhouseItemPayload;
+
+export const isInhouse = (payload: ItemPayload): payload is InhouseItemPayload =>
+  (INHOUSE_KINDS as readonly string[]).includes(payload.kind);
+
+export interface ExtraSelection {
+  serviceId: string;
+  /** Passenger position in the booking (supplier order). */
+  passengerIndex: number;
+  quantity: number;
+  /** Stored with the selection so a re-priced offer with new service ids still matches. */
+  type?: string;
+  weightKg?: number;
+  /**
+   * A chosen seat (`type: 'seat'`, ADR-094): which flight of the trip, the seat, and the
+   * airline's price for it in the supplier's currency as the seat map gave it. Seats are not in
+   * `offer.services`, so the selection carries its own price.
+   */
+  flight?: number;
+  designator?: string;
+  price?: MoneyWire;
+}
+
+export type SeatSelection = ExtraSelection & {
+  type: 'seat';
+  flight: number;
+  designator: string;
+  price: MoneyWire;
+};
+
+export const isSeat = (selection: ExtraSelection): selection is SeatSelection =>
+  selection.type === 'seat' &&
+  selection.flight !== undefined &&
+  selection.designator !== undefined &&
+  selection.price !== undefined;
+
+/** The service id a seat is stored under: unique per flight and seat. */
+export const seatServiceId = (flight: number, designator: string): string =>
+  `seat:${flight}:${designator}`;
+
+export type PromoInput = { data: PromoData; usage: PromoUsage } | null;
+
+export function bookedRate(payload: HotelItemPayload): SupplierHotelRate {
+  const rate = payload.hotel.rates[0];
+  if (!rate) throw new Error('Hotel payload has no rate');
+  return rate;
+}
+
+/** The travel dates and passenger counts that flight passengers are checked against. */
+export function itineraryFacts(payload: FlightItemPayload): ItineraryFacts {
+  const { offer } = payload;
+  const first = offer.slices[0];
+  const last = offer.slices[offer.slices.length - 1];
+  const countries = new Set(
+    offer.slices.flatMap((slice) =>
+      slice.segments.flatMap((segment) => [
+        segment.origin.countryCode,
+        segment.destination.countryCode,
+      ]),
+    ),
+  );
+  const firstDate = first?.departureLocal.slice(0, 10) ?? '';
+  return {
+    counts: offer.passengers,
+    firstTravelDate: firstDate,
+    lastTravelDate: last?.departureLocal.slice(0, 10) ?? firstDate,
+    // An unknown country counts as international, so a passport is asked for rather than missed.
+    international: countries.size > 1 || countries.has(null),
+  };
+}
+
+/**
+ * Finds the service a selection refers to in a (re-priced) offer: same id, or failing that the
+ * same kind of extra, since some suppliers issue new service ids when an offer is re-priced.
+ */
+export function matchService(
+  services: readonly FlightService[],
+  wanted: { serviceId: string; type?: string; weightKg?: number },
+): FlightService | null {
+  return (
+    services.find((service) => service.id === wanted.serviceId) ??
+    (wanted.type !== undefined
+      ? (services.find(
+          (service) => service.type === wanted.type && service.weightKg === wanted.weightKg,
+        ) ?? null)
+      : null)
+  );
+}
+
+/** The item through the pricing engine: supplier price or in-house base price. */
+export function priceItem(
+  pricer: Pricer,
+  payload: ItemPayload,
+  client: ClientContext,
+  now: Date,
+  promo: PromoInput = null,
+): PricingResult {
+  if (payload.kind === 'flight')
+    return pricer(payload.offer.price, flightPricingContext(payload.offer, client, now), promo);
+  if (payload.kind === 'hotel')
+    return pricer(
+      bookedRate(payload).price,
+      hotelPricingContext(payload.hotel, payload.request, client, now),
+      promo,
+    );
+  const base = inhouseBasePrice(payload);
+  // Quotes are only created for selections that can book; a snapshot that cannot is corrupt.
+  if ('issue' in base) throw new Error(`In-house item cannot be priced: ${base.issue}`);
+  return pricer(base.price, inhousePricingContext(payload, client, now), promo);
+}
+
+export interface PricedBooking {
+  price: BookingPriceDto;
+  total: Money;
+  promo: PricingResult['promo'];
+}
+
+/**
+ * Prices a booking item for a customer: the fare through the pricing engine (markup, fees, promo)
+ * and extras converted at supplier cost (ADR-014), which are never discounted.
+ */
+export function priceBookingItem(
+  pricer: Pricer,
+  fx: Converter,
+  payload: ItemPayload,
+  client: ClientContext,
+  extras: readonly ExtraSelection[],
+  promo: PromoInput,
+  now: Date,
+): PricedBooking {
+  const result = priceItem(pricer, payload, client, now, promo);
+  const { currency } = result.breakdown;
+  const services = payload.kind === 'flight' ? payload.offer.services : [];
+
+  // Seats carry their own price (the airline's, per traveller); like bags they are converted at
+  // supplier cost and never marked up or discounted (ADR-094).
+  const seats = extras.filter(isSeat).map((seat) => ({
+    flight: seat.flight,
+    designator: seat.designator,
+    passengerPosition: seat.passengerIndex,
+    amount: fx.convert(fromWire(seat.price), currency, 'ceil'),
+  }));
+  const byService = new Map<string, { service: FlightService; quantity: number }>();
+  for (const selection of extras) {
+    if (isSeat(selection)) continue;
+    const service = matchService(services, selection);
+    if (!service) throw new Error(`Unknown service ${selection.serviceId}`);
+    const entry = byService.get(service.id) ?? { service, quantity: 0 };
+    entry.quantity += selection.quantity;
+    byService.set(service.id, entry);
+  }
+  const lines = [...byService.values()].map(({ service, quantity }) => {
+    const unit = servicePrice(fx, service, currency);
+    return { service, quantity, unit, amount: multiply(unit, quantity) };
+  });
+  // A rental deposit is refundable: added at face value, outside markup, fees and promos.
+  const deposit =
+    payload.kind === 'rental' && payload.charge.deposit.minor > 0n
+      ? fx.convert(payload.charge.deposit, currency)
+      : null;
+  const total = add(
+    add(
+      add(
+        result.breakdown.total,
+        sum(
+          currency,
+          lines.map((line) => line.amount),
+        ),
+      ),
+      sum(
+        currency,
+        seats.map((seat) => seat.amount),
+      ),
+    ),
+    deposit ?? zero(currency),
+  );
+  return {
+    price: {
+      ...toPriceDto(result.breakdown),
+      extras: lines.map((line) => ({
+        serviceId: line.service.id,
+        type: line.service.type,
+        weightKg: line.service.weightKg,
+        quantity: line.quantity,
+        unitPrice: toWire(line.unit),
+        amount: toWire(line.amount),
+      })),
+      seats: seats.map((seat) => ({ ...seat, amount: toWire(seat.amount) })),
+      deposit: deposit ? toWire(deposit) : null,
+      total: toWire(total),
+    },
+    total,
+    promo: result.promo,
+  };
+}
+
+export const totalOf = (price: BookingPriceDto): Money => fromWire(price.total);
+
+/**
+ * An amount in an item's own currency (a fare rule's fee, a metered fare) in the booking's
+ * currency, at the exchange rate the booking was priced with (`price.fx`), so it matches what the
+ * customer was charged. Rounds down: fees and shares never grow in conversion.
+ */
+export function atBookedRate(amount: Money, price: Pick<BookingPriceDto, 'total' | 'fx'>): Money {
+  const currency = price.total.currency;
+  if (amount.currency === currency) return amount;
+  const fx = price.fx;
+  if (fx?.from !== amount.currency || fx.to !== currency) {
+    throw new Error(`The booking has no rate from ${amount.currency} to ${currency}`);
+  }
+  return convert(amount, parseRate(fx.from, fx.to, fx.rate), 'floor');
+}

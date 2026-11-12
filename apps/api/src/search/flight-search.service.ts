@@ -1,0 +1,608 @@
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import type { z } from 'zod';
+
+import {
+  addDays,
+  compare,
+  equals,
+  localDate,
+  MAX_ADVANCE_DAYS,
+  subtract,
+  toWire,
+  type FlightSearchRequest,
+  type Money,
+} from '@suskii/shared';
+
+import { CatalogService } from '../catalog/catalog.service';
+import { toJsonValue } from '../common/json';
+import { APP_CONFIG, type AppConfig } from '../config/config';
+import type { Prisma } from '../generated/prisma/client';
+import { PrismaService } from '../infra/prisma.service';
+import { FxService, type Converter } from '../pricing/fx.service';
+import type { PricingContext } from '../pricing/pricing-engine';
+import { toPriceDto, type PriceDto } from '../pricing/pricing.schemas';
+import { PricingService } from '../pricing/pricing.service';
+import { itineraryKey } from '../suppliers/itinerary';
+import { OfferUnavailableError } from '../suppliers/supplier.errors';
+import type {
+  FlightSearchQuery,
+  FlightSupplier,
+  FlightService,
+  SupplierFlightOffer,
+} from '../suppliers/supplier.types';
+import { FLIGHT_SUPPLIERS } from '../suppliers/suppliers.module';
+
+import type { ClientContext } from './client-context';
+import {
+  filterFlights,
+  flightFacets,
+  paginate,
+  sortFlights,
+  type FlightFilters,
+  type FlightSort,
+  type PricedFlight,
+} from './results';
+import {
+  invalidSearch,
+  offerUnavailable,
+  searchExpired,
+  searchUnavailable,
+  supplierUnavailable,
+} from './search.errors';
+import type {
+  flightDatePricesSchema,
+  flightOfferSchema,
+  flightQuoteSchema,
+  flightSearchResultSchema,
+} from './search.schemas';
+import { SearchLogService } from './search-log.service';
+import { queryHash, SearchStore, type SearchMeta } from './search-store';
+import { SupplierRunner } from './supplier-runner';
+import { quotes } from '../telemetry/metrics';
+
+type FlightOfferDto = z.infer<typeof flightOfferSchema>;
+type FlightSearchResultDto = z.infer<typeof flightSearchResultSchema>;
+type FlightQuoteDto = z.infer<typeof flightQuoteSchema>;
+type FlightDatePricesDto = z.infer<typeof flightDatePricesSchema>;
+type DatePrice = FlightDatePricesDto['days'][number];
+
+/** Supplier searches for the days around a request run this many at a time. */
+const DATE_PRICE_CONCURRENCY = 3;
+
+interface StoredOffer {
+  id: string;
+  offer: SupplierFlightOffer;
+}
+
+export interface FlightListOptions extends FlightFilters {
+  sort: FlightSort;
+  currency: string;
+  cursor?: string | undefined;
+  limit: number;
+}
+
+const FIRST_PAGE = 20;
+
+/** What suppliers are asked for a search request (and again for a quote, by some suppliers). */
+function supplierQuery(request: FlightSearchRequest): FlightSearchQuery {
+  return {
+    slices: request.slices,
+    passengers: request.passengers,
+    cabinClass: request.cabinClass,
+    maxConnections: request.directOnly ? 0 : null,
+  };
+}
+
+/** Supplier total (base + taxes) converted for comparisons across suppliers and currencies. */
+function supplierTotalIn(fx: Converter, offer: SupplierFlightOffer, currency: string): Money {
+  return fx.convert(
+    {
+      minor: offer.price.base.minor + offer.price.taxes.minor,
+      currency: offer.price.base.currency,
+    },
+    currency,
+  );
+}
+
+export function flightPricingContext(
+  offer: SupplierFlightOffer,
+  client: ClientContext,
+  now: Date,
+): PricingContext {
+  const first = offer.slices[0];
+  return {
+    vertical: 'flights',
+    supplier: offer.supplier,
+    channel: client.channel,
+    userTier: client.userTier,
+    benefits: client.benefits,
+    originCode: first?.origin.code ?? null,
+    destinationCode: first?.destination.code ?? null,
+    originCountry: first?.origin.countryCode ?? null,
+    destinationCountry: first?.destination.countryCode ?? null,
+    carrierCode: offer.owner.code,
+    cabinClass: offer.cabinClass,
+    // Per-passenger fees apply to travellers with a seat (lap infants are excluded).
+    passengers: offer.passengers.adults + offer.passengers.children,
+    now,
+  };
+}
+
+/** A supplier extra in `currency`: converted without markup, rounded up so it never sells below cost. */
+export function servicePrice(fx: Converter, service: FlightService, currency: string): Money {
+  return fx.convert(service.price, currency, 'ceil');
+}
+
+export function toFlightOfferDto(
+  id: string,
+  offer: SupplierFlightOffer,
+  price: PriceDto,
+  fx: Converter,
+): FlightOfferDto {
+  const display = (amount: Money | null) =>
+    amount ? toWire(fx.convert(amount, price.currency)) : null;
+  return {
+    id,
+    supplier: offer.supplier,
+    owner: offer.owner,
+    slices: offer.slices,
+    baggage: offer.baggage,
+    conditions: {
+      refundable: offer.conditions.refundable,
+      refundPenalty: display(offer.conditions.refundPenalty),
+      changeable: offer.conditions.changeable,
+      changePenalty: display(offer.conditions.changePenalty),
+    },
+    cabinClass: offer.cabinClass,
+    passengers: offer.passengers,
+    price,
+    expiresAt: offer.expiresAt,
+    hold: offer.hold,
+    mealRequests: offer.mealRequests ?? false,
+    services: offer.services.map((service) => ({
+      id: service.id,
+      type: service.type,
+      weightKg: service.weightKg,
+      maxQuantity: service.maxQuantity,
+      price: toWire(servicePrice(fx, service, price.currency)),
+    })),
+  };
+}
+
+/**
+ * Flight search orchestration: validation, cache lookup by normalised query, parallel supplier
+ * calls with timeouts and circuit breakers, merge and de-duplication, pricing, facets, filters,
+ * pagination, offer detail and re-pricing into persisted quotes.
+ */
+@Injectable()
+export class FlightSearchService {
+  private readonly inflight = new Map<string, Promise<string>>();
+
+  constructor(
+    @Inject(FLIGHT_SUPPLIERS) private readonly suppliers: FlightSupplier[],
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
+    private readonly runner: SupplierRunner,
+    private readonly store: SearchStore,
+    private readonly catalog: CatalogService,
+    private readonly pricing: PricingService,
+    private readonly fx: FxService,
+    private readonly prisma: PrismaService,
+    private readonly searchLog: SearchLogService,
+  ) {}
+
+  async search(
+    request: FlightSearchRequest,
+    currency: string,
+    client: ClientContext,
+    limit = FIRST_PAGE,
+  ): Promise<FlightSearchResultDto> {
+    const started = performance.now();
+    await this.validate(request);
+    const { meta, items, cacheHit } = await this.resolve(request);
+    const result = await this.view(meta, items, { sort: 'best', currency, limit }, client);
+    const [first] = request.slices;
+    const last = request.slices[request.slices.length - 1];
+    this.searchLog.record({
+      vertical: 'flights',
+      origin: first?.origin ?? null,
+      destination: first?.destination ?? null,
+      departureDate: first?.departureDate ?? null,
+      returnDate: request.slices.length > 1 ? (last?.departureDate ?? null) : null,
+      sliceCount: request.slices.length,
+      travellers:
+        request.passengers.adults + request.passengers.children + request.passengers.infants,
+      cabinClass: request.cabinClass,
+      channel: client.channel,
+      cacheHit,
+      partial: meta.partial,
+      resultCount: meta.resultCount,
+      durationMs: performance.now() - started,
+      supplierOutcomes: meta.suppliers,
+    });
+    return result;
+  }
+
+  /**
+   * The cheapest current offer for a request, compared on the supplier total in USD. Used by the
+   * deals refresh (ADR-011); shares the cache and single-flight with customer searches.
+   */
+  async cheapestOffer(request: FlightSearchRequest): Promise<SupplierFlightOffer | null> {
+    await this.validate(request);
+    const { items } = await this.resolve(request);
+    const fx = await this.fx.converter();
+    const now = Date.now();
+    let best: { offer: SupplierFlightOffer; usd: Money } | null = null;
+    for (const { offer } of items.values()) {
+      if (Date.parse(offer.expiresAt) <= now) continue;
+      const usd = supplierTotalIn(fx, offer, 'USD');
+      if (!best || compare(usd, best.usd) < 0) best = { offer, usd };
+    }
+    return best?.offer ?? null;
+  }
+
+  /**
+   * The lowest total on each day around a one-way or return request ("Flexible dates"): every
+   * slice moves by the same number of days, so a return trip keeps its length. Each day is an
+   * ordinary search that shares the cache and single-flight with customer searches, and is priced
+   * for this client as results are. A day the suppliers cannot answer is `unavailable`, never an
+   * error: the strip is an aid, the search itself already answered.
+   */
+  async datePrices(
+    request: FlightSearchRequest,
+    currency: string,
+    client: ClientContext,
+  ): Promise<FlightDatePricesDto> {
+    await this.validate(request);
+    const span = this.config.FLEXIBLE_DATES_DAYS;
+    if (span === 0 || request.slices.length > 2)
+      return { currency, days: [], cheapestOffset: null };
+
+    const horizon = addDays(new Date().toISOString().slice(0, 10), MAX_ADVANCE_DAYS);
+    const candidates: { offset: number; request: FlightSearchRequest }[] = [];
+    for (let offset = -span; offset <= span; offset++) {
+      const shifted: FlightSearchRequest = {
+        ...request,
+        slices: request.slices.map((slice) => ({
+          ...slice,
+          departureDate: addDays(slice.departureDate, offset),
+        })),
+      };
+      if (shifted.slices.some((slice) => slice.departureDate > horizon)) continue;
+      candidates.push({ offset, request: shifted });
+    }
+
+    const pricer = await this.pricing.pricer('flights', currency);
+    const priceDay = async (candidate: (typeof candidates)[number]): Promise<DatePrice | null> => {
+      const [first, second] = candidate.request.slices;
+      const day = {
+        offset: candidate.offset,
+        departureDate: first?.departureDate ?? '',
+        returnDate: second?.departureDate ?? null,
+      };
+      if (candidate.offset !== 0) {
+        // A day already gone at the origin is left out, like any search for it would be refused.
+        try {
+          await this.validate(candidate.request);
+        } catch {
+          return null;
+        }
+      }
+      try {
+        const { items } = await this.resolve(candidate.request);
+        const now = new Date();
+        let lowest: Money | null = null;
+        for (const { offer } of items.values()) {
+          if (Date.parse(offer.expiresAt) <= now.getTime()) continue;
+          const { total } = pricer(offer.price, flightPricingContext(offer, client, now)).breakdown;
+          if (!lowest || compare(total, lowest) < 0) lowest = total;
+        }
+        return lowest
+          ? { ...day, status: 'priced', total: toWire(lowest) }
+          : { ...day, status: 'none', total: null };
+      } catch {
+        return { ...day, status: 'unavailable', total: null };
+      }
+    };
+
+    const days: DatePrice[] = [];
+    for (let index = 0; index < candidates.length; index += DATE_PRICE_CONCURRENCY) {
+      const batch = candidates.slice(index, index + DATE_PRICE_CONCURRENCY);
+      for (const day of await Promise.all(batch.map(priceDay))) if (day) days.push(day);
+    }
+    let cheapest: DatePrice | null = null;
+    for (const day of days) {
+      if (day.total && (!cheapest?.total || day.total.amountMinor < cheapest.total.amountMinor))
+        cheapest = day;
+    }
+    return { currency, days, cheapestOffset: cheapest?.offset ?? null };
+  }
+
+  /**
+   * Priced results for a request without a search analytics row: metasearch partners (ADR-081)
+   * share the cache and pricing with customer searches but are not travellers searching.
+   */
+  async priced(
+    request: FlightSearchRequest,
+    options: FlightListOptions,
+    client: ClientContext,
+  ): Promise<FlightSearchResultDto> {
+    await this.validate(request);
+    const { meta, items } = await this.resolve(request);
+    return this.view(meta, items, options, client);
+  }
+
+  /**
+   * The current result id of an itinerary (`itineraryKey`) for a request, from the cache or a
+   * fresh search; null when it is no longer offered or has expired.
+   */
+  async findItinerary(request: FlightSearchRequest, key: string): Promise<string | null> {
+    await this.validate(request);
+    const { items } = await this.resolve(request);
+    const now = Date.now();
+    for (const { id, offer } of items.values()) {
+      if (Date.parse(offer.expiresAt) <= now) continue;
+      if (itineraryKey(offer.slices, offer.slices[0]?.fareBrand ?? null, offer.cabinClass) === key)
+        return id;
+    }
+    return null;
+  }
+
+  async list(
+    searchId: string,
+    options: FlightListOptions,
+    client: ClientContext,
+  ): Promise<FlightSearchResultDto> {
+    const meta = await this.store.meta<FlightSearchRequest>('flights', searchId);
+    if (!meta) throw new NotFoundException();
+    const items = await this.store.items<StoredOffer>('flights', searchId);
+    if (!items && (meta.resultCount > 0 || Date.parse(meta.resultsExpireAt) <= Date.now()))
+      throw searchExpired(meta.request);
+    return this.view(meta, items ?? new Map(), options, client);
+  }
+
+  async offer(offerId: string, currency: string, client: ClientContext): Promise<FlightOfferDto> {
+    const { item } = await this.load(offerId);
+    const [pricer, fx] = await Promise.all([
+      this.pricing.pricer('flights', currency),
+      this.fx.converter(),
+    ]);
+    const { breakdown } = pricer(
+      item.offer.price,
+      flightPricingContext(item.offer, client, new Date()),
+    );
+    return toFlightOfferDto(item.id, item.offer, toPriceDto(breakdown), fx);
+  }
+
+  /** Re-prices with the supplier, persists a quote and reports any price change explicitly. */
+  async quote(offerId: string, currency: string, client: ClientContext): Promise<FlightQuoteDto> {
+    const { meta, item } = await this.load(offerId);
+    const supplier = this.suppliers.find((candidate) => candidate.name === item.offer.supplier);
+    if (!supplier) throw offerUnavailable(meta.request);
+    let fresh: SupplierFlightOffer;
+    try {
+      // Twice the usual allowance: a supplier may search again, then load the offer's extras.
+      fresh = await this.runner.call(
+        'flights',
+        supplier.name,
+        'quote',
+        (signal) => supplier.quoteOffer(item.offer, supplierQuery(meta.request), signal),
+        this.config.SUPPLIER_TIMEOUT_MS * 2,
+      );
+    } catch (error) {
+      if (error instanceof OfferUnavailableError) throw offerUnavailable(meta.request);
+      throw supplierUnavailable();
+    }
+    const [pricer, fx] = await Promise.all([
+      this.pricing.pricer('flights', currency),
+      this.fx.converter(),
+    ]);
+    const now = new Date();
+    const previous = pricer(
+      item.offer.price,
+      flightPricingContext(item.offer, client, now),
+    ).breakdown;
+    const current = pricer(fresh.price, flightPricingContext(fresh, client, now)).breakdown;
+    const quote = await this.prisma.offer.create({
+      data: {
+        vertical: 'flights',
+        supplier: supplier.name,
+        supplierOfferId: fresh.supplierOfferId,
+        payload: toJsonValue({
+          kind: 'flight',
+          offer: fresh,
+          request: meta.request,
+        }) as Prisma.InputJsonValue,
+        supplierTotalMinor: current.supplierTotal.minor,
+        supplierCurrency: current.supplierTotal.currency,
+        price: toPriceDto(current),
+        totalMinor: current.total.minor,
+        currency,
+        searchId: meta.searchId,
+        userId: client.userId,
+        expiresAt: new Date(fresh.expiresAt),
+      },
+    });
+    quotes.add(1, { vertical: 'flights' });
+    return {
+      quoteId: quote.id,
+      offer: toFlightOfferDto(item.id, fresh, toPriceDto(current), fx),
+      priceChange: equals(previous.total, current.total)
+        ? null
+        : {
+            previous: toWire(previous.total),
+            current: toWire(current.total),
+            difference: toWire(subtract(current.total, previous.total)),
+          },
+      expiresAt: fresh.expiresAt,
+    };
+  }
+
+  private async load(
+    offerId: string,
+  ): Promise<{ meta: SearchMeta<FlightSearchRequest>; item: StoredOffer }> {
+    const searchId = offerId.split('.')[0] ?? '';
+    const meta = await this.store.meta<FlightSearchRequest>('flights', searchId);
+    if (!meta) throw new NotFoundException();
+    const item = await this.store.item<StoredOffer>('flights', searchId, offerId);
+    if (!item || Date.parse(item.offer.expiresAt) <= Date.now())
+      throw offerUnavailable(meta.request);
+    return { meta, item };
+  }
+
+  /** Airports must exist and departures may not be before today in the origin's local date. */
+  private async validate(request: FlightSearchRequest): Promise<void> {
+    const codes = request.slices.flatMap((slice) => [slice.origin, slice.destination]);
+    const airports = await this.catalog.airportInfo(codes);
+    const now = new Date();
+    const issues = request.slices.flatMap((slice, index) => {
+      const found: { location: 'body'; path: string; code: string; message: string }[] = [];
+      for (const field of ['origin', 'destination'] as const) {
+        if (!airports.has(slice[field])) {
+          found.push({
+            location: 'body',
+            path: `slices.${index}.${field}`,
+            code: 'unknown_airport',
+            message: 'Unknown airport code',
+          });
+        }
+      }
+      const origin = airports.get(slice.origin);
+      if (origin && slice.departureDate < localDate(now, origin.timeZone)) {
+        found.push({
+          location: 'body',
+          path: `slices.${index}.departureDate`,
+          code: 'date_in_past',
+          message: 'date_in_past',
+        });
+      }
+      return found;
+    });
+    if (issues.length > 0) throw invalidSearch(issues);
+  }
+
+  /** The cached result set for the normalised query, or a fresh supplier fetch. */
+  private async resolve(request: FlightSearchRequest): Promise<{
+    meta: SearchMeta<FlightSearchRequest>;
+    items: Map<string, StoredOffer>;
+    cacheHit: boolean;
+  }> {
+    const query = supplierQuery(request);
+    const hash = queryHash({ version: 1, query });
+
+    const cachedId = await this.store.cachedSearchId('flights', hash);
+    let meta = cachedId ? await this.store.meta<FlightSearchRequest>('flights', cachedId) : null;
+    let items = meta ? await this.store.items<StoredOffer>('flights', meta.searchId) : null;
+    const cacheHit = Boolean(meta && (items !== null || meta.resultCount === 0));
+    if (!cacheHit) {
+      const searchId = await this.fetchOnce(hash, query, request);
+      meta = await this.store.meta<FlightSearchRequest>('flights', searchId);
+      items = await this.store.items<StoredOffer>('flights', searchId);
+    }
+    if (!meta) throw searchUnavailable();
+    return { meta, items: items ?? new Map<string, StoredOffer>(), cacheHit };
+  }
+
+  /** Identical concurrent searches share one supplier fetch (per process). */
+  private fetchOnce(
+    hash: string,
+    query: FlightSearchQuery,
+    request: FlightSearchRequest,
+  ): Promise<string> {
+    let pending = this.inflight.get(hash);
+    if (!pending) {
+      pending = this.fetch(hash, query, request).finally(() => this.inflight.delete(hash));
+      this.inflight.set(hash, pending);
+    }
+    return pending;
+  }
+
+  private async fetch(
+    hash: string,
+    query: FlightSearchQuery,
+    request: FlightSearchRequest,
+  ): Promise<string> {
+    const { results, outcomes } = await this.runner.searchAll(
+      'flights',
+      this.suppliers,
+      (supplier, signal) => supplier.search(query, signal),
+    );
+    if (results.length === 0) throw searchUnavailable();
+
+    const now = Date.now();
+    const fx = await this.fx.converter();
+    const toUsd = (offer: SupplierFlightOffer): Money => supplierTotalIn(fx, offer, 'USD');
+    // The same itinerary from two suppliers: keep the cheaper one.
+    const unique = new Map<string, SupplierFlightOffer>();
+    for (const offer of results.flatMap((result) => result.items)) {
+      if (
+        Date.parse(offer.expiresAt) <= now ||
+        Date.parse(offer.slices[0]?.departureUtc ?? '') <= now
+      )
+        continue;
+      const key = itineraryKey(offer.slices, offer.slices[0]?.fareBrand ?? null, offer.cabinClass);
+      const existing = unique.get(key);
+      if (!existing || compare(toUsd(offer), toUsd(existing)) < 0) unique.set(key, offer);
+    }
+
+    const searchId = this.store.newSearchId('flights');
+    const items = new Map<string, StoredOffer>();
+    [...unique.values()].forEach((offer, index) => {
+      const id = `${searchId}.${index.toString(36)}`;
+      items.set(id, { id, offer });
+    });
+    const meta: SearchMeta<FlightSearchRequest> = {
+      searchId,
+      vertical: 'flights',
+      request,
+      suppliers: outcomes,
+      partial: outcomes.some((outcome) => outcome.status !== 'ok'),
+      resultCount: items.size,
+      createdAt: new Date(now).toISOString(),
+      resultsExpireAt: this.store.resultsExpireAt(now),
+    };
+    await this.store.save('flights', hash, meta, items, this.config.SEARCH_CACHE_TTL_SECONDS);
+    return searchId;
+  }
+
+  private async view(
+    meta: SearchMeta<FlightSearchRequest>,
+    items: ReadonlyMap<string, StoredOffer>,
+    options: FlightListOptions,
+    client: ClientContext,
+  ): Promise<FlightSearchResultDto> {
+    const [pricer, fx] = await Promise.all([
+      this.pricing.pricer('flights', options.currency),
+      this.fx.converter(),
+    ]);
+    const now = new Date();
+    const priced: PricedFlight[] = [...items.values()]
+      .filter((item) => Date.parse(item.offer.expiresAt) > now.getTime())
+      .map((item) => ({
+        id: item.id,
+        offer: item.offer,
+        price: pricer(item.offer.price, flightPricingContext(item.offer, client, now)).breakdown,
+      }));
+    const facets = flightFacets(priced);
+    const filtered = sortFlights(filterFlights(priced, options), options.sort);
+    const { page, nextCursor } = paginate(filtered, options.cursor, options.limit);
+    return {
+      searchId: meta.searchId,
+      status: meta.partial ? 'partial' : 'complete',
+      request: meta.request,
+      currency: options.currency,
+      suppliers: meta.suppliers,
+      resultsExpireAt: meta.resultsExpireAt,
+      total: filtered.length,
+      nextCursor,
+      offers: page.map((item) => toFlightOfferDto(item.id, item.offer, toPriceDto(item.price), fx)),
+      facets: {
+        ...facets,
+        airlines: facets.airlines.map((entry) => ({ ...entry, minPrice: toWire(entry.minPrice) })),
+        stops: facets.stops.map((entry) => ({ ...entry, minPrice: toWire(entry.minPrice) })),
+        price: facets.price
+          ? { min: toWire(facets.price.min), max: toWire(facets.price.max) }
+          : null,
+      },
+    };
+  }
+}

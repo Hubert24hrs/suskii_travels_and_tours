@@ -1,0 +1,742 @@
+import { Inject, Injectable, Logger } from '@nestjs/common';
+
+import { AuditService } from '../audit/audit.service';
+import { REDACTED_CONTACT_PAYLOAD } from '../bookings/bookings.service';
+import { APP_CONFIG, type AppConfig } from '../config/config';
+import { contactContext } from '../crypto/encryption-contexts';
+import { FieldEncryption } from '../crypto/field-encryption';
+import { ObjectStorage } from '../documents/object-storage';
+import type { BookingStatus } from '../generated/prisma/client';
+import { PrismaService } from '../infra/prisma.service';
+
+import { AgentThreads } from './agent-threads';
+import { redactCarsBooking } from './cars-redaction';
+
+/**
+ * The purge rules of the daily retention sweep (ADR-039). Each table that grows with use names
+ * its rule (or another job, or why it stays) in `DATA_REGISTRY`; `data-registry.spec.ts` checks
+ * that every rule here is claimed by a table.
+ */
+export const RETENTION_RULES = [
+  'sessions',
+  'device-credentials',
+  'verification-tokens',
+  'idempotency-keys',
+  'booking-access-links',
+  'offers',
+  'webhook-events',
+  'notifications',
+  'search-logs',
+  'newsletter-pending',
+  'cookie-consents',
+  'closed-bookings',
+  // Cars (ADR-049 to ADR-053).
+  'bus-seat-holds',
+  'ticket-scans',
+  'ride-offers',
+  'ride-location-pings',
+  'ride-locations',
+  'ride-share-links',
+  'safety-incidents',
+  'driver-documents',
+  'driver-payouts',
+  'reconciliation-discrepancies',
+  'rental-licences',
+  'rental-photos',
+  // Partner supply (ADR-070).
+  'partner-clicks',
+  'partner-conversions',
+  // Verified reviews (ADR-077).
+  'rejected-reviews',
+  // Company invitations (ADR-078).
+  'company-invitations',
+  // Company wallet top-ups (ADR-090).
+  'company-top-ups',
+  // Combined trips (ADR-099).
+  'trips',
+  // Server-side ad conversions (ADR-079).
+  'ad-conversions',
+  // Metasearch landings (ADR-081).
+  'metasearch-landings',
+  // Assisted quotes (ADR-104).
+  'assisted-quotes',
+  // Suskii Agent (ADR-105).
+  'agent-conversations',
+  'agent-runs',
+  'agent-approvals',
+  // The assistant's working state, outside Prisma (ADR-103).
+  'agent-threads',
+  // Price intelligence (ADR-102).
+  'scrape-jobs',
+  'price-observations',
+  'price-snapshots',
+  // Support conversations (ADR-083) and WhatsApp contacts (ADR-084).
+  'support-conversations',
+  'whatsapp-contacts',
+  'supplier-customer-ip',
+  // Status page incidents (ADR-087).
+  'status-incidents',
+  // The data rights request and breach registers (ADR-089).
+  'privacy-requests',
+  'privacy-breaches',
+] as const;
+export type RetentionRule = (typeof RETENTION_RULES)[number];
+
+/** Days rows are kept after the event the rule names (closed bookings use years from config). */
+export const RETENTION_DAYS = {
+  /** After the session was revoked or expired (the account's session list shows live ones). */
+  sessions: 30,
+  /** After fingerprint sign-in was turned off for the phone (ADR-067). */
+  'device-credentials': 30,
+  /** After the email or password-reset link expired. */
+  'verification-tokens': 7,
+  /** After the stored response expired (24 hours after the write). */
+  'idempotency-keys': 0,
+  /** After the emailed booking link expired. */
+  'booking-access-links': 30,
+  /** After the quote expired, unless a booking was made from it. */
+  offers: 30,
+  /** After a processed payment webhook arrived (payloads can hold the payer's email). */
+  'webhook-events': 90,
+  /** The log of what was sent to whom. */
+  notifications: 180,
+  /** Anonymous search analytics: 13 months, for year-on-year comparisons. */
+  'search-logs': 400,
+  /** Newsletter sign-ups whose confirmation link was never used. */
+  'newsletter-pending': 30,
+  /** Cookie choices: a year in force plus a year to answer questions about them (ADR-042). */
+  'cookie-consents': 730,
+  /** After the hold lapsed: enough to answer disputes about a lost seat. */
+  'bus-seat-holds': 30,
+  /** Boarding scans: a year, for duplicate-boarding and fraud questions. */
+  'ticket-scans': 365,
+  /** Who was offered which ride: three months of dispatch history. */
+  'ride-offers': 90,
+  /** After the link expired. */
+  'ride-share-links': 30,
+  /** After the incident was resolved: a two-year safety record. */
+  'safety-incidents': 730,
+  /** Superseded or rejected driver documents, and every document of a rejected application. */
+  'driver-documents': 90,
+  /** After the car came back or the rental ended without one: the licence served its purpose. */
+  'rental-licences': 30,
+  /** Outbound partner clicks: 13 months, long enough for a network to report late bookings. */
+  'partner-clicks': 400,
+  /** After a moderator rejected the review: long enough to answer the traveller about it. */
+  'rejected-reviews': 90,
+  /** After the invitation expired (7 days after it was sent), used or not. */
+  'company-invitations': 30,
+  /** After the booking was made: long enough to send, retry and answer a question about it. */
+  'ad-conversions': 30,
+  /** Metasearch arrivals: 13 months, for year-on-year partner reports. */
+  'metasearch-landings': 400,
+  /** After the conversation was resolved and last touched: two years to answer a dispute. */
+  'support-conversations': 730,
+  /** After a request closed or became a booking: 13 months, as fare history is kept. */
+  'assisted-quotes': 400,
+  /** After the last message of a conversation with the assistant (ADR-105). */
+  'agent-conversations': 365,
+  /** Runs and their tool calls: 13 months of cost and quality history (ADR-105). */
+  'agent-runs': 400,
+  /** What agents prepared and who decided it: 13 months, as the runs behind them (ADR-107). */
+  'agent-approvals': 400,
+  /** A thread's checkpoints, after the conversation's last message (ADR-103). */
+  'agent-threads': 30,
+  /** What was asked of which site and how it ended: three months of operations history. */
+  'scrape-jobs': 90,
+  /** Prices seen on sites: 13 months, as fare history is kept (ADR-080). */
+  'price-observations': 400,
+  /** A page that could not be read into a price: a week to see why (ADR-102). */
+  'price-snapshots': 7,
+  /** After their last WhatsApp message, once none of their conversations is left. */
+  'whatsapp-contacts': 30,
+  /**
+   * The checkout IP a hotel supplier needs to book (ADR-086), when no booking call cleared it:
+   * a week covers payment and every ticketing retry.
+   */
+  'supplier-customer-ip': 7,
+  /** After the incident was resolved: a year of history for availability reports. */
+  'status-incidents': 365,
+  /** After a request was closed: three years of evidence that it was answered, and when. */
+  'privacy-requests': 1095,
+  /** After a breach was closed: six years of the record regulators expect to see. */
+  'privacy-breaches': 2190,
+} as const satisfies Record<
+  Exclude<
+    RetentionRule,
+    | 'closed-bookings'
+    | 'ride-location-pings'
+    | 'ride-locations'
+    | 'driver-payouts'
+    | 'reconciliation-discrepancies'
+    | 'rental-photos'
+    | 'partner-conversions'
+    | 'company-top-ups'
+    | 'trips'
+  >,
+  number
+>;
+
+/** Stored pages removed per sweep: a backlog drains over a few runs, never in one long one. */
+const SNAPSHOT_PRUNE_BATCH = 500;
+
+/** Bookings that will not change again: their money is settled and nothing is due. */
+const CLOSED_STATUSES: BookingStatus[] = [
+  'CONFIRMED',
+  'FAILED',
+  'CANCELLED',
+  'REFUNDED',
+  'EXPIRED',
+];
+const REDACTED_NAME = 'REDACTED';
+const DAY_MS = 86_400_000;
+/** Top-ups that were never paid are kept this long, to answer a company about them. */
+const UNPAID_TOP_UP_DAYS = 90;
+/** A trip nobody added a booking to is an abandoned plan: it goes after this long. */
+const EMPTY_TRIP_DAYS = 30;
+const BATCH = 200;
+
+const daysBefore = (now: Date, days: number): Date => new Date(now.getTime() - days * DAY_MS);
+const yearsBefore = (now: Date, years: number): Date => {
+  const cutoff = new Date(now);
+  cutoff.setUTCFullYear(cutoff.getUTCFullYear() - years);
+  return cutoff;
+};
+
+export type RetentionRun = Record<RetentionRule, number>;
+
+/**
+ * Applies the retention rules (ADR-039). Short-lived records go after their period. Closed
+ * bookings keep their financial facts (amounts, statuses, ledger) for
+ * FINANCIAL_RECORDS_RETENTION_YEARS after their last change; then the personal data still on
+ * them is cleared: contact, passenger names and documents, stored files and staff notes. The
+ * append-only audit log and ledger hold no personal values and stay. Idempotent: a second run
+ * finds nothing.
+ */
+@Injectable()
+export class RetentionService {
+  private readonly logger = new Logger(RetentionService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly encryption: FieldEncryption,
+    private readonly storage: ObjectStorage,
+    private readonly audit: AuditService,
+    private readonly threads: AgentThreads,
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
+  ) {}
+
+  /**
+   * Removes pages kept for diagnosis (ADR-102) once they are older than the cut-off: the object
+   * first, then the key, so a failed delete is tried again on the next run.
+   */
+  private async pruneSnapshots(cutoff: Date): Promise<number> {
+    const attempts = await this.prisma.scrapeAttempt.findMany({
+      where: { snapshotKey: { not: null }, createdAt: { lt: cutoff } },
+      select: { id: true, snapshotKey: true },
+      orderBy: { createdAt: 'asc' },
+      take: SNAPSHOT_PRUNE_BATCH,
+    });
+    let removed = 0;
+    for (const attempt of attempts) {
+      if (!attempt.snapshotKey) continue;
+      try {
+        await this.storage.delete(attempt.snapshotKey);
+      } catch {
+        continue;
+      }
+      await this.prisma.scrapeAttempt.update({
+        where: { id: attempt.id },
+        data: { snapshotKey: null },
+      });
+      removed += 1;
+    }
+    return removed;
+  }
+
+  async run(now = new Date()): Promise<RetentionRun> {
+    const before = (rule: keyof typeof RETENTION_DAYS) =>
+      new Date(now.getTime() - RETENTION_DAYS[rule] * DAY_MS);
+    const counts = (result: { count: number }) => result.count;
+    const run: RetentionRun = {
+      sessions: counts(
+        await this.prisma.session.deleteMany({
+          where: {
+            OR: [
+              { revokedAt: { lt: before('sessions') } },
+              { expiresAt: { lt: before('sessions') } },
+            ],
+          },
+        }),
+      ),
+      'device-credentials': counts(
+        await this.prisma.deviceCredential.deleteMany({
+          where: { revokedAt: { lt: before('device-credentials') } },
+        }),
+      ),
+      'verification-tokens': counts(
+        await this.prisma.verificationToken.deleteMany({
+          where: { expiresAt: { lt: before('verification-tokens') } },
+        }),
+      ),
+      'idempotency-keys': counts(
+        await this.prisma.idempotencyKey.deleteMany({
+          where: { expiresAt: { lt: before('idempotency-keys') } },
+        }),
+      ),
+      'booking-access-links': counts(
+        await this.prisma.bookingAccessLink.deleteMany({
+          where: { expiresAt: { lt: before('booking-access-links') } },
+        }),
+      ),
+      offers: counts(
+        await this.prisma.offer.deleteMany({
+          where: { expiresAt: { lt: before('offers') }, bookingItems: { none: {} } },
+        }),
+      ),
+      'webhook-events': counts(
+        await this.prisma.webhookEvent.deleteMany({
+          where: { receivedAt: { lt: before('webhook-events') }, processedAt: { not: null } },
+        }),
+      ),
+      notifications: counts(
+        await this.prisma.notification.deleteMany({
+          where: { createdAt: { lt: before('notifications') } },
+        }),
+      ),
+      'search-logs': counts(
+        await this.prisma.searchLog.deleteMany({
+          where: { occurredAt: { lt: before('search-logs') } },
+        }),
+      ),
+      'newsletter-pending': counts(
+        await this.prisma.newsletterSubscription.deleteMany({
+          where: { status: 'pending', createdAt: { lt: before('newsletter-pending') } },
+        }),
+      ),
+      'cookie-consents': counts(
+        await this.prisma.cookieConsent.deleteMany({
+          where: { createdAt: { lt: before('cookie-consents') } },
+        }),
+      ),
+      'closed-bookings': await this.anonymiseClosedBookings(now),
+      'bus-seat-holds': counts(
+        await this.prisma.busSeatHold.deleteMany({
+          where: { expiresAt: { lt: before('bus-seat-holds') } },
+        }),
+      ),
+      'ticket-scans': counts(
+        await this.prisma.busTicketScan.deleteMany({
+          where: { createdAt: { lt: before('ticket-scans') } },
+        }),
+      ),
+      'ride-offers': counts(
+        await this.prisma.rideOffer.deleteMany({
+          where: { createdAt: { lt: before('ride-offers') }, status: { not: 'open' } },
+        }),
+      ),
+      'ride-location-pings': counts(
+        await this.prisma.rideLocationPing.deleteMany({
+          where: { createdAt: { lt: daysBefore(now, this.config.RIDE_PING_RETENTION_DAYS) } },
+        }),
+      ),
+      'ride-locations': await this.coarsenRideLocations(
+        daysBefore(now, this.config.RIDE_PING_RETENTION_DAYS),
+        now,
+      ),
+      'ride-share-links': counts(
+        await this.prisma.rideShareLink.deleteMany({
+          where: { expiresAt: { lt: before('ride-share-links') } },
+        }),
+      ),
+      'safety-incidents': counts(
+        await this.prisma.safetyIncident.deleteMany({
+          where: { status: 'resolved', resolvedAt: { lt: before('safety-incidents') } },
+        }),
+      ),
+      'driver-documents': await this.pruneDriverDocuments(before('driver-documents'), now),
+      'rental-licences': await this.pruneRentalLicences(before('rental-licences')),
+      'rental-photos': await this.pruneRentalPhotos(
+        daysBefore(now, this.config.RENTAL_PHOTO_RETENTION_DAYS),
+        now,
+      ),
+      'driver-payouts': counts(
+        await this.prisma.driverPayout.deleteMany({
+          where: {
+            status: { not: 'pending' },
+            createdAt: { lt: yearsBefore(now, this.config.FINANCIAL_RECORDS_RETENTION_YEARS) },
+          },
+        }),
+      ),
+      'partner-clicks': counts(
+        await this.prisma.partnerClick.deleteMany({
+          where: { createdAt: { lt: before('partner-clicks') } },
+        }),
+      ),
+      'rejected-reviews': counts(
+        await this.prisma.review.deleteMany({
+          where: { status: 'rejected', moderatedAt: { lt: before('rejected-reviews') } },
+        }),
+      ),
+      'company-invitations': counts(
+        await this.prisma.companyInvitation.deleteMany({
+          where: { expiresAt: { lt: before('company-invitations') } },
+        }),
+      ),
+      // Unpaid top-ups after 90 days; paid ones are the company's money, kept for the period.
+      'company-top-ups': counts(
+        await this.prisma.companyWalletTopUp.deleteMany({
+          where: {
+            OR: [
+              {
+                status: { in: ['failed', 'expired', 'cancelled'] },
+                updatedAt: { lt: daysBefore(now, UNPAID_TOP_UP_DAYS) },
+              },
+              {
+                status: 'succeeded',
+                createdAt: {
+                  lt: yearsBefore(now, this.config.FINANCIAL_RECORDS_RETENTION_YEARS),
+                },
+              },
+            ],
+          },
+        }),
+      ),
+      // Plans nobody filled after 30 days; trips with bookings stay as long as financial
+      // records do, then go (their bookings and payments keep their own rows and rules).
+      trips: counts(
+        await this.prisma.trip.deleteMany({
+          where: {
+            OR: [
+              { bookings: { none: {} }, createdAt: { lt: daysBefore(now, EMPTY_TRIP_DAYS) } },
+              {
+                createdAt: {
+                  lt: yearsBefore(now, this.config.FINANCIAL_RECORDS_RETENTION_YEARS),
+                },
+              },
+            ],
+          },
+        }),
+      ),
+      'ad-conversions': counts(
+        await this.prisma.adConversion.deleteMany({
+          where: { createdAt: { lt: before('ad-conversions') } },
+        }),
+      ),
+      // Quotes and bookings keep working without the landing (the link is set to null).
+      'metasearch-landings': counts(
+        await this.prisma.metasearchLanding.deleteMany({
+          where: { createdAt: { lt: before('metasearch-landings') } },
+        }),
+      ),
+      // Resolved conversations only (their messages go with them); open ones are still owed.
+      'support-conversations': counts(
+        await this.prisma.supportConversation.deleteMany({
+          where: { status: 'resolved', updatedAt: { lt: before('support-conversations') } },
+        }),
+      ),
+      // Open requests are still owed an answer; the rest go once nobody can ask about them.
+      'assisted-quotes': counts(
+        await this.prisma.assistedQuote.deleteMany({
+          where: {
+            status: { notIn: ['requested', 'offered'] },
+            updatedAt: { lt: before('assisted-quotes') },
+          },
+        }),
+      ),
+      // Before the conversations: a thread without a conversation is purged too, so one deleted
+      // below loses its checkpoints on this run or the next.
+      'agent-threads': await this.threads.purgeIdle(before('agent-threads')),
+      // The assistant's conversations go with their messages; runs outlive them unlinked.
+      'agent-conversations': counts(
+        await this.prisma.agentConversation.deleteMany({
+          where: { lastMessageAt: { lt: before('agent-conversations') } },
+        }),
+      ),
+      'agent-runs': counts(
+        await this.prisma.agentRun.deleteMany({
+          where: { startedAt: { lt: before('agent-runs') } },
+        }),
+      ),
+      'agent-approvals': counts(
+        await this.prisma.agentApproval.deleteMany({
+          where: { createdAt: { lt: before('agent-approvals') } },
+        }),
+      ),
+      // Unread pages first, so a job that goes below leaves no object behind.
+      'price-snapshots': await this.pruneSnapshots(before('price-snapshots')),
+      'scrape-jobs': counts(
+        await this.prisma.scrapeJob.deleteMany({
+          where: { startedAt: { lt: before('scrape-jobs') } },
+        }),
+      ),
+      'price-observations': counts(
+        await this.prisma.priceObservation.deleteMany({
+          where: { observedAt: { lt: before('price-observations') } },
+        }),
+      ),
+      // After the conversations above: a contact goes only once nothing points at it.
+      'whatsapp-contacts': counts(
+        await this.prisma.whatsAppContact.deleteMany({
+          where: {
+            lastInboundAt: { lt: before('whatsapp-contacts') },
+            conversations: { none: {} },
+          },
+        }),
+      ),
+      'supplier-customer-ip': counts(
+        await this.prisma.bookingItem.updateMany({
+          where: {
+            customerIpEncrypted: { not: null },
+            createdAt: { lt: before('supplier-customer-ip') },
+          },
+          data: { customerIpEncrypted: null },
+        }),
+      ),
+      // Resolved incidents only (their updates go with them); open ones are still on the page.
+      'status-incidents': counts(
+        await this.prisma.statusIncident.deleteMany({
+          where: { resolvedAt: { lt: before('status-incidents') } },
+        }),
+      ),
+      // Closed requests and breaches only (a breach's notices go with it); open ones stay.
+      'privacy-requests': counts(
+        await this.prisma.privacyRequest.deleteMany({
+          where: { status: { not: 'open' }, closedAt: { lt: before('privacy-requests') } },
+        }),
+      ),
+      'privacy-breaches': counts(
+        await this.prisma.privacyBreach.deleteMany({
+          where: { status: 'closed', closedAt: { lt: before('privacy-breaches') } },
+        }),
+      ),
+      // Commission records are revenue: kept for the financial period after their last change.
+      'partner-conversions': counts(
+        await this.prisma.partnerConversion.deleteMany({
+          where: {
+            updatedAt: { lt: yearsBefore(now, this.config.FINANCIAL_RECORDS_RETENTION_YEARS) },
+          },
+        }),
+      ),
+      // Resolved ones only; an open discrepancy is kept until finance closes it.
+      'reconciliation-discrepancies': counts(
+        await this.prisma.reconciliationDiscrepancy.deleteMany({
+          where: {
+            status: 'resolved',
+            resolvedAt: { lt: yearsBefore(now, this.config.FINANCIAL_RECORDS_RETENTION_YEARS) },
+          },
+        }),
+      ),
+    };
+    await this.audit.record({
+      action: 'retention.swept',
+      actorType: 'system',
+      metadata: { ...run },
+    });
+    return run;
+  }
+
+  /**
+   * Finished rides keep their fare and booking, but pickup and drop-off are rounded to two
+   * decimal places (about 1 km) and the planned route is cleared (ADR-053).
+   */
+  private async coarsenRideLocations(cutoff: Date, now: Date): Promise<number> {
+    return this.prisma.$executeRaw`
+      UPDATE rides
+         SET pickup_lat = round(pickup_lat::numeric, 2)::float8,
+             pickup_lng = round(pickup_lng::numeric, 2)::float8,
+             dropoff_lat = round(dropoff_lat::numeric, 2)::float8,
+             dropoff_lng = round(dropoff_lng::numeric, 2)::float8,
+             polyline = '',
+             locations_redacted_at = ${now}
+       WHERE locations_redacted_at IS NULL
+         AND status IN ('completed', 'cancelled', 'no_driver')
+         AND updated_at < ${cutoff}`;
+  }
+
+  /**
+   * Driver documents that no longer serve vetting: superseded or rejected ones, and every
+   * document of a rejected application, once the period has passed. The row stays as metadata;
+   * the bytes and the wrapped key go, so any copy of the blob is unreadable.
+   */
+  private async pruneDriverDocuments(cutoff: Date, now: Date): Promise<number> {
+    let total = 0;
+    for (;;) {
+      const due = await this.prisma.driverDocument.findMany({
+        where: {
+          deletedAt: null,
+          OR: [
+            { supersededAt: { lt: cutoff } },
+            { status: 'rejected', reviewedAt: { lt: cutoff } },
+            { driver: { status: 'rejected', reviewedAt: { lt: cutoff } } },
+          ],
+        },
+        select: { id: true, storageKey: true },
+        take: BATCH,
+      });
+      if (due.length === 0) return total;
+      await this.prisma.driverDocument.updateMany({
+        where: { id: { in: due.map((document) => document.id) } },
+        data: { deletedAt: now, storageKey: null, wrappedKey: '' },
+      });
+      for (const { storageKey } of due) {
+        if (!storageKey) continue;
+        try {
+          await this.storage.delete(storageKey);
+        } catch (error) {
+          this.logger.warn({ err: error }, 'could not delete a stored driver document');
+        }
+      }
+      total += due.length;
+    }
+  }
+
+  /**
+   * Self-drive licences once the rental is over (returned, or released without a return): the
+   * row with its encrypted number goes, and the scan is deleted.
+   */
+  private async pruneRentalLicences(cutoff: Date): Promise<number> {
+    let total = 0;
+    for (;;) {
+      const due = await this.prisma.rentalLicence.findMany({
+        where: {
+          reservation: {
+            OR: [
+              { status: 'returned', returnAt: { lt: cutoff } },
+              { active: false, updatedAt: { lt: cutoff } },
+            ],
+          },
+        },
+        select: { id: true, storageKey: true },
+        take: BATCH,
+      });
+      if (due.length === 0) return total;
+      await this.prisma.rentalLicence.deleteMany({
+        where: { id: { in: due.map((row) => row.id) } },
+      });
+      await this.deleteFiles(due.map((row) => row.storageKey));
+      total += due.length;
+    }
+  }
+
+  /**
+   * Handover photos after the dispute window (RENTAL_PHOTO_RETENTION_DAYS after the return, or
+   * after a rental that never started was released): files and keys destroyed, the immutable
+   * row kept as a record that evidence existed.
+   */
+  private async pruneRentalPhotos(cutoff: Date, now: Date): Promise<number> {
+    let total = 0;
+    for (;;) {
+      const due = await this.prisma.rentalHandoverPhoto.findMany({
+        where: {
+          deletedAt: null,
+          reservation: {
+            OR: [
+              { status: 'returned', returnAt: { lt: cutoff } },
+              { active: false, updatedAt: { lt: cutoff } },
+            ],
+          },
+        },
+        select: { id: true, storageKey: true },
+        take: BATCH,
+      });
+      if (due.length === 0) return total;
+      await this.prisma.rentalHandoverPhoto.updateMany({
+        where: { id: { in: due.map((row) => row.id) } },
+        data: { storageKey: null, wrappedKey: '', deletedAt: now },
+      });
+      await this.deleteFiles(due.map((row) => row.storageKey));
+      total += due.length;
+    }
+  }
+
+  private async deleteFiles(keys: readonly (string | null)[]): Promise<void> {
+    for (const key of keys) {
+      if (!key) continue;
+      try {
+        await this.storage.delete(key);
+      } catch (error) {
+        this.logger.warn({ err: error }, 'could not delete a stored rental file');
+      }
+    }
+  }
+
+  /** Clears the personal data left on bookings closed for longer than the financial period. */
+  private async anonymiseClosedBookings(now: Date): Promise<number> {
+    const cutoff = new Date(now);
+    cutoff.setUTCFullYear(cutoff.getUTCFullYear() - this.config.FINANCIAL_RECORDS_RETENTION_YEARS);
+    let total = 0;
+    for (;;) {
+      const due = await this.prisma.booking.findMany({
+        where: { status: { in: CLOSED_STATUSES }, updatedAt: { lt: cutoff }, anonymisedAt: null },
+        select: { id: true, documents: { select: { storageKey: true } } },
+        orderBy: { updatedAt: 'asc' },
+        take: BATCH,
+      });
+      if (due.length === 0) return total;
+      for (const booking of due) {
+        let carsFiles: string[] = [];
+        await this.prisma.$transaction(async (tx) => {
+          await tx.booking.update({
+            where: { id: booking.id },
+            data: {
+              contactEncrypted: this.encryption.encrypt(
+                REDACTED_CONTACT_PAYLOAD,
+                contactContext(booking.id),
+              ),
+              contactEmailHash: 'anonymised',
+              accessTokenHash: null,
+              redactedAt: now,
+              anonymisedAt: now,
+            },
+          });
+          await tx.bookingPassenger.updateMany({
+            where: { bookingId: booking.id },
+            data: {
+              title: null,
+              gender: null,
+              givenNames: REDACTED_NAME,
+              surname: REDACTED_NAME,
+              dateOfBirth: null,
+              nationality: null,
+              passportEncrypted: null,
+              documentHint: null,
+              issuingCountry: null,
+              documentExpiry: null,
+              travellerId: null,
+              mealRequest: null,
+            },
+          });
+          await tx.bookingDocument.deleteMany({ where: { bookingId: booking.id } });
+          await tx.bookingNote.deleteMany({ where: { bookingId: booking.id } });
+          await tx.bookingAccessLink.deleteMany({ where: { bookingId: booking.id } });
+          // Published reviews stay, signed "Verified traveller" from now on (ADR-077).
+          await tx.review.updateMany({
+            where: { bookingId: booking.id },
+            data: { displayName: null },
+          });
+          await tx.payment.updateMany({
+            where: { bookingId: booking.id },
+            data: { ipHash: null, ipCountry: null, cardCountry: null, cardFingerprintHash: null },
+          });
+          await tx.$executeRaw`
+            UPDATE booking_items SET payload = payload - 'detailsEncrypted'
+             WHERE booking_id = ${booking.id}::uuid AND payload ? 'detailsEncrypted'`;
+          carsFiles = await redactCarsBooking(tx, booking.id);
+        });
+        for (const storageKey of [
+          ...booking.documents.map((doc) => doc.storageKey),
+          ...carsFiles,
+        ]) {
+          try {
+            await this.storage.delete(storageKey);
+          } catch (error) {
+            // The row is gone, so the object is unreachable; storage lifecycle rules catch it.
+            this.logger.warn({ err: error }, 'could not delete a stored booking document');
+          }
+        }
+        total += 1;
+      }
+    }
+  }
+}

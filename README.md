@@ -8,20 +8,23 @@ and Android) and a Next.js admin console.
 - Working guide for contributors and Claude Code: [`CLAUDE.md`](./CLAUDE.md)
 - Architecture decisions: [`docs/decisions/`](./docs/decisions)
 - Phase plans: [`docs/phases/`](./docs/phases)
+- What the owner still has to do (accounts, keys, legal), step by step: [`docs/owner/launch-checklist.md`](./docs/owner/launch-checklist.md)
+- Guides for developers: [`docs/guides/`](./docs/guides) (adding an agent, a tool or a prompt version; adding a web-data vendor or a site to read)
 
 ## Repository layout
 
 | Path              | What it is                                                          |
 | ----------------- | ------------------------------------------------------------------- |
 | `apps/api`        | NestJS API (REST under `/v1`), shared by every client               |
-| `apps/worker`     | Background workers (BullMQ queues arrive in later phases)           |
+| `apps/worker`     | Background workers (BullMQ queues and schedules)                    |
+| `apps/agent`      | The assistant's agents (LangGraph.js); reaches the API's tools only |
 | `apps/web`        | Next.js public website                                              |
 | `apps/admin`      | Next.js admin console                                               |
 | `apps/mobile`     | Expo React Native app                                               |
 | `packages/shared` | Domain constants, Zod schemas, types shared by API and clients      |
 | `packages/config` | Shared TypeScript, ESLint, Prettier and Vitest configuration        |
 | `infra/`          | Terraform and Helm (phase 12). Local services: `docker-compose.yml` |
-| `docs/`           | ADRs, phase plans, runbooks                                         |
+| `docs/`           | ADRs, phase plans, runbooks, guides, security and privacy records   |
 
 ## Prerequisites
 
@@ -46,24 +49,80 @@ cd suskii_travels_and_tours
 corepack enable
 pnpm install
 
-# 2. Optional: local environment overrides (defaults work out of the box)
+# 2. Local environment (the defaults work with docker compose)
 Copy-Item .env.example .env      # bash/zsh: cp .env.example .env
+# Optional: stable keys so sessions and MFA survive API restarts; paste the output into .env
+pnpm --filter @suskii/api keys:generate
 
 # 3. Start Postgres 16, Redis 7 and Mailpit (waits until all are healthy)
 pnpm infra:up
 
-# 4. Run every app in watch mode
+# 4. Create the database schema and load reference data (airports, roles, starter content)
+pnpm --filter @suskii/api db:deploy
+pnpm --filter @suskii/api db:seed
+
+# 5. Run every app in watch mode
 pnpm dev
+
+# 6. In a second terminal, once the API is up: fill the homepage deals and hotel prices
+pnpm --filter @suskii/worker refresh:once
 ```
 
-| Service            | URL                                                   |
-| ------------------ | ----------------------------------------------------- |
-| Web                | http://localhost:3000                                 |
-| Admin              | http://localhost:3001                                 |
-| API health         | http://localhost:4000/health                          |
-| Worker health      | http://localhost:4100/health                          |
-| Mailpit (email UI) | http://localhost:8025                                 |
-| Expo dev server    | http://localhost:8081 (scan the QR code with Expo Go) |
+The worker also refreshes deals every 3 hours and hotel destinations every 6 hours while it runs.
+It calls the API's internal routes with `INTERNAL_API_TOKEN`; the value in `.env.example` works
+locally and is refused in production (generate one with `keys:generate`).
+
+To get a local super admin, set `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` in `.env` before
+seeding, sign in, then enrol an authenticator app (`POST /v1/me/mfa/totp`): admin routes require an
+MFA-verified session. Emails (verification, password reset) appear in Mailpit; SMS codes use a mock
+adapter until an SMS provider is contracted.
+
+Search runs against mock suppliers by default (`FLIGHT_SUPPLIERS=mock`); their offers are synthetic
+and labelled `supplier: "mock"`. Try it once the API is up:
+
+```bash
+curl -s "http://localhost:4000/v1/catalog/places?q=lagos"
+curl -s -X POST http://localhost:4000/v1/flights/searches -H 'Content-Type: application/json' \
+  -d '{"slices":[{"origin":"LOS","destination":"LHR","departureDate":"2026-12-10"}],"passengers":{"adults":1,"children":0,"infants":0},"cabinClass":"economy"}'
+```
+
+To book end to end locally, open a search such as
+`http://localhost:3000/flights/search?trip=one_way&from=LOS&to=ABV&depart=2026-12-10&adults=1`,
+pick a fare and complete checkout. Payments use the mock provider: its test page takes no card and
+sends a signed webhook to the API. The confirmation email with the e-ticket or voucher appears in
+Mailpit, and documents are stored under `.data/objects`. Set `MOCK_REPRICE_RULES=LOS-DXB:500` to
+see the price-change consent step on Lagos-Dubai fares. With the worker running, unpaid bookings
+expire at their deadline and failed ticketing attempts are retried every minute.
+
+Flexible payment works locally too. Search an international route three or more weeks out, such as
+`http://localhost:3000/flights/search?trip=one_way&from=LOS&to=LHR&depart=2026-12-10&adults=1&refundable=1`:
+refundable fares offer "Reserve now, pay later", and Flex fares also offer installments, with the
+schedule shown before you commit. The booking page then takes each payment, and cancelling a partly
+paid plan refunds it through the mock provider. With the worker running, reminders go out 3 days
+and 1 day before each due date, missed payments default after the grace period and pending
+payments are reconciled. Real providers (`PAYMENT_PROVIDERS=paystack,flutterwave,stripe`) need
+test-mode keys in `.env` and their webhook URL, `/v1/payments/webhooks/<provider>`, registered in
+the provider dashboard; see ADR-016 for the go-live checklist.
+
+Packages, tours, visa assistance and add-ons are Suskii's own inventory, entered through the
+admin API; a fresh database has none. For local work, load clearly marked sample inventory with
+`pnpm --filter @suskii/api db:seed:demo` (refused in production), then open
+`http://localhost:3000/packages`, `/tours`, `/visa` or `/travel-add-ons`. Confirmed packages and
+tours get a voucher code and QR; visa bookings open an application page per applicant where
+documents are uploaded, encrypted, virus-scanned (mock scanner by default; run ClamAV with
+`docker compose --profile av up -d clamav` and `ANTIVIRUS_PROVIDER=clamav`) and viewed through
+short-lived signed links.
+
+| Service            | URL                                                      |
+| ------------------ | -------------------------------------------------------- |
+| Web                | http://localhost:3000                                    |
+| Admin              | http://localhost:3001                                    |
+| API health         | http://localhost:4000/health                             |
+| API readiness      | http://localhost:4000/ready                              |
+| API contract       | `apps/api/openapi.json` (OpenAPI 3.1)                    |
+| Worker health      | http://localhost:4100/health                             |
+| Mailpit (email UI) | http://localhost:8025                                    |
+| Expo dev server    | http://localhost:8081 (open it in the development build) |
 
 Run a single app with a filter, for example `pnpm --filter @suskii/api dev`.
 
@@ -75,16 +134,188 @@ Run a single app with a filter, for example `pnpm --filter @suskii/api dev`.
 | `pnpm lint`              | Type-aware ESLint everywhere                         |
 | `pnpm typecheck`         | TypeScript checks everywhere                         |
 | `pnpm test`              | Unit tests                                           |
-| `pnpm test:e2e`          | API end-to-end tests                                 |
+| `pnpm test:e2e`          | API and web end-to-end tests (needs Docker running)  |
+| `pnpm generate:api`      | Regenerate the OpenAPI document and typed API client |
 | `pnpm format`            | Format with Prettier                                 |
 | `pnpm infra:down`        | Stop local services (data is kept in Docker volumes) |
 | `docker compose down -v` | Stop local services and delete their data            |
+
+The web end-to-end suite (`apps/web/e2e`, Playwright) builds and starts its own API, worker refresh
+and web app on ports 4000 and 3000, so stop `pnpm dev` first, then run
+`pnpm --filter @suskii/web test:e2e`. It finishes with the Lighthouse gate (mobile performance 90+,
+accessibility and SEO 100). Set `E2E_BASE_URL` to test a stack that is already running instead,
+and `CHROME_PATH` if Lighthouse cannot find Chromium. Reports land in `apps/web/playwright-report`
+and `apps/web/lighthouse-report`.
+
+## Mobile app
+
+The app uses native modules (Keychain / Keystore, an encrypted cache, device attestation), so it
+runs in a development build of the app rather than Expo Go.
+
+- **Android**: with Android Studio and an emulator, `pnpm --filter @suskii/mobile android` builds
+  and installs the development build and starts Metro. Run `adb reverse tcp:4000 tcp:4000` so the
+  emulator reaches the local API on `localhost`; a physical phone needs
+  `EXPO_PUBLIC_API_BASE_URL=http://<your-computer's-LAN-IP>:4000` (plain http is allowed only for
+  development and e2e builds).
+- **iOS**: build the development client on EAS (`eas build --profile development --platform ios`)
+  once the Expo account exists, or run `pnpm --filter @suskii/mobile ios` on a Mac with Xcode.
+- **Tests**: `pnpm --filter @suskii/mobile test` (Jest). The Maestro journeys (the critical path,
+  a combined trip and more) run in the `Mobile` workflow on an Android emulator; to run them
+  locally, start the stack with
+  `pnpm --filter @suskii/web e2e:stack`, build the `e2e` APK (see `.github/workflows/mobile.yml`)
+  and run `bash apps/mobile/e2e/run-android.sh <apk> maestro-report`.
+- **Secret scan**: `pnpm --filter @suskii/mobile build`, then
+  `pnpm --filter @suskii/mobile scan:bundle dist`. Everything in the bundle is public, so only
+  `EXPO_PUBLIC_*` settings may reach it.
+- **Store builds** go through EAS (`Mobile release` workflow) and need the owner's Expo, Apple and
+  Google accounts.
+
+### Try the Android test build on a phone
+
+The `Mobile test APK` workflow publishes a sideloadable build at a fixed address:
+`https://github.com/Hubert24hrs/suskii_travels_and_tours/releases/download/mobile-test-apk/suskii-travels-test.apk`.
+It is published only after the `Phone check` workflow has installed that file on an emulator and
+booked with it against the online test server (ADR-100). The app finds the online test server by
+itself (`Test server` workflow, ADR-066), so installing it is enough.
+
+To use a stack on your own computer instead, your phone reaches it over your Wi-Fi (ADR-054):
+
+1. Find your computer's address on the network (Windows `ipconfig`, macOS
+   `ipconfig getifaddr en0`, Linux `hostname -I`), for example `192.168.1.20`. Phone and computer
+   must be on the same Wi-Fi, and the firewall must allow ports 3000 and 4000.
+2. With Docker running, build with the website pointed at that address, then start the stack
+   (Testcontainers starts Postgres and Redis, migrates and seeds sample data):
+
+   ```bash
+   pnpm install
+   NEXT_PUBLIC_API_BASE_URL=http://192.168.1.20:4000 pnpm build
+   E2E_PUBLIC_WEB_URL=http://192.168.1.20:3000 pnpm --filter @suskii/web e2e:stack
+   ```
+
+   In PowerShell set the variables first (`$env:NEXT_PUBLIC_API_BASE_URL = "http://192.168.1.20:4000"`).
+   Wait for `STACK READY`.
+
+3. Install the APK on the phone (allow installs from your browser), open it, go to **Account,
+   Test server**, enter `http://192.168.1.20:4000` and `http://192.168.1.20:3000`, save, then close
+   and reopen the app. Payments use the mock provider page; no real money moves.
+4. To take rides, start the stack with `E2E_DEMO_DRIVERS=true` in front of the `e2e:stack` command
+   (ADR-056). A sample driver accepts each ride, drives to the pick-up and asks in that terminal
+   for the PIN shown in the app. Type it to start the trip; the driver then follows the route and
+   completes it.
+5. To see Duffel's test-mode flights and hotels instead of the mock suppliers, start the stack
+   with `E2E_FLIGHT_SUPPLIERS=duffel` and/or `E2E_HOTEL_SUPPLIERS=duffel` in front of the
+   `e2e:stack` command. Put your Duffel test token in `DUFFEL_API_TOKEN`, either in the shell or
+   in the root `.env`, which is never committed. The stack refuses a live token.
+   - Hotels need Stays enabled on your Duffel account.
+   - Duffel Airways (ZZ) is Duffel's test airline.
+   - Bookings become test orders, so no money moves.
+
+   In PowerShell:
+
+   ```powershell
+   $env:E2E_FLIGHT_SUPPLIERS = "duffel"; $env:E2E_HOTEL_SUPPLIERS = "duffel"
+   $env:E2E_PUBLIC_WEB_URL = "http://192.168.1.20:3000"
+   pnpm --filter @suskii/web e2e:stack
+   ```
+
+   To check the token and both adapters without a phone, run the **Duffel sandbox check**
+   workflow (Actions tab). It uses the `DUFFEL_API_TOKEN` repository secret, with `journey` for
+   the full API booking journey.
+
+## Cars: buses, rides and car rental
+
+Ground transport runs on the same booking, payment and ledger pipeline as the other products
+(`docs/phases/cars.md`, ADR-049 to ADR-053).
+
+- **Sample data**: `pnpm --filter @suskii/api db:seed:demo` adds bus operators and departures,
+  Lagos ride places and fare rules, demo drivers and rental cars (all flagged as samples).
+- **Flags**: `CARS_BUSES_ENABLED`, `CARS_RIDES_ENABLED`, `CARS_RENTALS_ENABLED` and the feature
+  flags (`CARS_PRICE_BREAKDOWN_ENABLED`, `CARS_DEPARTURE_PLANNER_ENABLED`, `CARS_BUNDLES_ENABLED`,
+  `CARS_SAFETY_SUITE_ENABLED`, `CARS_OFFLINE_QR_ENABLED`) are on when unset outside production
+  and must be set explicitly in production. `GET /v1/cars/features` tells clients what is on.
+- **Keys**: `pnpm --filter @suskii/api keys:generate` also prints `CARS_TICKET_SIGNING_KEY` (the
+  Ed25519 key that signs boarding passes); without it the API signs with a key that changes on
+  every restart. Rotation keeps the old public key in `CARS_TICKET_PREVIOUS_PUBLIC_KEYS`
+  (`docs/runbooks/key-rotation.md`).
+- **Providers**: maps, KYC and payouts default to mock adapters (`MAPS_PROVIDER`,
+  `KYC_PROVIDER`, `PAYOUT_PROVIDER`); `MAPS_PROVIDER=osrm` with `OSRM_URL` uses a self-hosted
+  OSRM. With rides on, production refuses mock routing and KYC unless
+  `ALLOW_MOCK_PROVIDERS=true`.
+- **Trying it**: book a bus or a rental on `/buses` or `/rentals`. Rides need a signed-in rider
+  and an approved driver who is online near the pick-up. Locally,
+  `pnpm --filter @suskii/api rides:demo` (API built, sample data seeded, the API's `HMAC_SECRET`
+  and `FIELD_ENCRYPTION_KEY` in `.env`) lets the sample drivers take rides and asks you for the
+  rider's PIN (ADR-056). Operator agents (role
+  `operator_agent`, granted by staff with `ground:manage` when they add the account to an
+  operator) scan boarding passes in the app.
+- **Tests**: `buses`, `rides`, `drivers`, `rentals`, `cars-data`, `cars-payments` and `cars-p9`
+  in the API e2e suite; `e2e/cars.spec.ts` on the website; `cars.spec.ts` in the console; the
+  app's `cars-*`, `driver-screens`, `trip-planning` and `offline-scan` tests.
+
+## The assistant and prices from other websites
+
+Suskii Agent is a set of agents that answer travellers on the website, in the app and
+(optionally) on WhatsApp, and staff in the console. It is off in production until the owner
+switches it on, and search, booking and payment never depend on it
+(`docs/phases/ai-agent.md`, ADR-101 to ADR-107).
+
+- **What it may do.** Read what the traveller may read, prepare things a person decides (a
+  support handover, a price request, a proposal in the approvals queue), and ask the traveller
+  to confirm an action of their own on a card. It never approves or sends a refund, captures a
+  payment, posts to the ledger or confirms a booking: those are not tools, and the API does
+  not start with one registered. An answer is shown only after a guard in code checked its
+  figures, contacts and outcomes against what the tools returned.
+- **How it is built.** `apps/agent` is a separate service with no route to the platform but
+  the API's tool gateway (`/v1/internal/agent-tools`), where every call is checked against the
+  sealed grant of its run. Its working state lives in a database schema of its own.
+- **Trying it.** `pnpm dev` starts the agent service beside the API with a mock model that
+  says one fixed sentence; `AGENT_SERVICE=mock` answers inside the API without the service.
+  A real model needs `AGENT_MODEL_PROVIDER=anthropic` and `LLM_API_KEY`. The website's chat is
+  on `/assistant`, the app's under Account, the staff chat in the console under "Ask the
+  assistant".
+- **Measuring it.** Three evals run on every change with recorded answers and need no key:
+  `pnpm --filter @suskii/agent eval:agent-routing --recorded` (also `-grounding`, `-safety`).
+  Against a model: Actions, Agent evals, with the owner's key. None has run against a model
+  yet.
+- **Prices from other websites** (price intelligence, ADR-102) are observations, never offers:
+  shown as indicative with when and where they were seen, and sold only after a person
+  verified the price with a supplier (an assisted quote, ADR-104). Every site starts closed and
+  is read only after a person approved it with a recorded basis; none is approved today. Five
+  vendor adapters exist beside our own fetcher and the mock; none has been run against a live
+  account.
+- **Running it.** Staff pause everything from the console within seconds. Runbooks:
+  `docs/runbooks/ai-agent.md` and `docs/runbooks/price-intelligence.md`. What it may cost a
+  month, as estimates: `docs/owner/assistant-cost-estimate.md`.
+- **Extending it.** `docs/guides/adding-an-agent.md` and
+  `docs/guides/adding-a-scrape-provider-or-source.md`.
+
+## Deploying and releasing
+
+GCP Cloud Run behind Cloudflare is the default platform (ADR-059); the pipeline is ADR-060.
+
+- **Images.** `apps/<app>/Dockerfile`, built from the repository root, for example
+  `docker build -f apps/api/Dockerfile --target runtime -t suskii-api:local .` (`--target migrate`
+  for the database step).
+- **Rehearse a release locally.** Build the six images with the `:local` tags (API, its
+  `migrate` target, worker, agent, web, admin), then run `pnpm release:rehearse`. It deploys
+  them as production does, checks the agent service's two doors from the inside, refuses a
+  broken release and rolls back.
+- **A new environment.** `infra/terraform/README.md` covers the GCP project, Cloudflare zone,
+  secrets, GitHub environment and the first super admin (`staff:bootstrap`).
+- **Releases.** Merging to main deploys staging. A `v*` tag on main deploys staging, then
+  production after approval, with a canary and automatic rollback. Watching and rolling back:
+  `docs/runbooks/deploy-and-rollback.md`.
+- **Mobile.** `mobile-v*` tags build on EAS and submit to TestFlight and the Play internal track.
+  Store listing and privacy form content is in `docs/release/`.
+- **Kubernetes** instead of Cloud Run: `infra/helm/suskii`. AWS: `docs/deployment/aws.md`.
 
 ## Contributing
 
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org) (`feat:`, `fix:`,
   `chore:`, ...). A Git hook checks the message and formats and lints staged files.
-- Every pull request runs CI: format check, lint, typecheck, unit tests, API e2e tests and build.
+- Every pull request runs CI: format check, lint, typecheck, unit tests, API e2e tests, an OpenAPI
+  drift check and build. After changing an API endpoint, run `pnpm generate:api` and commit the
+  regenerated files.
 - Never commit `.env` files or credentials. Add new variables to `.env.example` with an empty or
   local-only value.
 
@@ -97,3 +328,4 @@ Run a single app with a filter, for example `pnpm --filter @suskii/api dev`.
 - **Scripts blocked in PowerShell** (`running scripts is disabled`): run
   `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once.
 - **Docker commands hang**: make sure Docker Desktop is running and uses the WSL 2 backend.
+- **ui-web tests say Chromium is missing**: run `pnpm --filter @suskii/ui-web exec playwright install chromium` once.

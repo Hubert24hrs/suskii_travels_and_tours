@@ -1,0 +1,87 @@
+{{- if .Values.agent.enabled }}
+{{- /* The agent service (ADR-101): the assistant's graphs behind one door. It has no Ingress:
+       only the API reaches it, with the run token, and its one way into the platform is the
+       API's tool gateway. Its database role sees the `agent` schema only (ADR-103). */}}
+{{- $name := printf "%s-agent" (include "suskii.fullname" .) -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "suskii.labels" . | nindent 4 }}
+    app.kubernetes.io/component: agent
+spec:
+  replicas: {{ .Values.agent.replicas }}
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  selector:
+    matchLabels:
+      {{- include "suskii.selector" (list . "agent") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "suskii.labels" . | nindent 8 }}
+        app.kubernetes.io/component: agent
+    spec:
+      serviceAccountName: {{ $name }}
+      automountServiceAccountToken: false
+      # Runs in flight get time to end: one takes two minutes at most.
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        {{- include "suskii.podSecurityContext" . | nindent 8 }}
+      {{- include "suskii.imagePullSecrets" . | nindent 6 }}
+      containers:
+        - name: agent
+          image: {{ include "suskii.image" (list . "agent") }}
+          ports:
+            - { name: http, containerPort: 4200 }
+          env:
+            - { name: NODE_ENV, value: production }
+            - { name: AGENT_PORT, value: '4200' }
+            - { name: API_INTERNAL_URL, value: {{ printf "http://%s-api" (include "suskii.fullname" .) | quote }} }
+            {{- if .Values.meshMtls }}
+            # Declared: a service mesh encrypts and authenticates pod-to-pod traffic (ADR-038).
+            - { name: API_INTERNAL_ALLOW_PLAINTEXT, value: 'true' }
+            {{- end }}
+            {{- include "suskii.plainEnv" (list "agent.env" .Values.agent.env (list "NODE_ENV" "AGENT_PORT" "API_INTERNAL_URL" "API_INTERNAL_ALLOW_PLAINTEXT")) | nindent 12 }}
+          envFrom:
+            - secretRef: { name: {{ .Values.secrets.agent }} }
+          # Ready once its own database role reads the checkpoint tables; alive while the
+          # process answers, so a database blip never restarts it.
+          startupProbe:
+            httpGet: { path: /ready, port: http }
+            periodSeconds: 3
+            failureThreshold: 40
+          readinessProbe:
+            httpGet: { path: /ready, port: http }
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 15
+            failureThreshold: 4
+          resources:
+            {{- toYaml .Values.agent.resources | nindent 12 }}
+          securityContext:
+            {{- include "suskii.containerSecurityContext" . | nindent 12 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - { name: tmp, emptyDir: { sizeLimit: 128Mi } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "suskii.labels" . | nindent 4 }}
+    app.kubernetes.io/component: agent
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "suskii.selector" (list . "agent") | nindent 4 }}
+  ports:
+    - { name: http, port: 80, targetPort: http }
+{{- end }}

@@ -1,0 +1,201 @@
+name: Phone check
+
+# The downloadable test APK on an Android emulator, and the website in a browser, against the
+# online test server (test-server.yml) over the internet, as a tester's phone reaches them
+# (ADR-100). The app has to find the server by itself from the published address; a guest books
+# and pays for a flight; an account builds a combined trip and pays for it once (ADR-099). The
+# website builds a trip of all five parts and books a flight and a hotel. Mock suppliers and
+# payments only; the bookings it leaves on the test server are sample data.
+#
+# mobile-test-apk.yml calls it on the APK it has just built and publishes only when it passes.
+# Run it by hand to check the published APK again, for example when a tester reports that the
+# app cannot reach the server: Actions, Phone check, Run workflow. It needs a running test server
+# (one starts every four hours; Actions, Test server, Run workflow starts one sooner).
+on:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      artifact:
+        description: Check the APK in this artifact of the calling run instead of the published one
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+  MAESTRO_VERSION: 2.11.0
+  MAESTRO_SHA256: 5384593cb4e7a106489e75a821d157dd43f4e438df6bc308b72e82c685e1283a
+  APK_NAME: suskii-travels-test.apk
+  APK_URL: ${{ github.server_url }}/${{ github.repository }}/releases/download/mobile-test-apk/suskii-travels-test.apk
+  SERVER_FILE_URL: ${{ github.server_url }}/${{ github.repository }}/releases/download/test-server/test-server.json
+
+jobs:
+  # The address file the app reads at launch. The checks need the server for about half an hour,
+  # so one about to stop does not count.
+  server:
+    name: Find the online test server
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      url: ${{ steps.find.outputs.url }}
+    steps:
+      - name: Read the published address and call it
+        id: find
+        run: |
+          curl -sSfL --retry 3 -o test-server.json "$SERVER_FILE_URL"
+          url=$(jq -r '.api // empty' test-server.json)
+          state=$(jq -r '.status // empty' test-server.json)
+          expires=$(jq -r '.expiresAt // empty' test-server.json)
+          commit=$(jq -r '.commit // empty' test-server.json)
+          if [ "$state" != running ] || ! [[ "$url" =~ ^https://[a-z0-9-]+\.trycloudflare\.com$ ]]; then
+            echo "::error::No test server is running. Start one (Actions, Test server, Run workflow) and run this again."
+            exit 1
+          fi
+          if [ "$(date -u -d "$expires" +%s)" -lt "$(date -u -d '+30 minutes' +%s)" ]; then
+            echo "::error::The test server stops at $expires. Start a new one (Actions, Test server, Run workflow) and run this again."
+            exit 1
+          fi
+          curl -fsS -m 20 --retry 3 "$url/ready" > /dev/null
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Test server: $url (commit \`$commit\`, until $expires). It answers from the internet." >> "$GITHUB_STEP_SUMMARY"
+
+  phone:
+    name: Test APK on an emulator against the online test server
+    needs: server
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    permissions:
+      contents: read
+      # Only to read the APK a calling run has just built.
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The file the QR code points at (or the one about to replace it), checked against the
+      # checksum published beside it.
+      - name: Download the APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT: ${{ inputs.artifact }}
+        run: |
+          mkdir -p phone-check
+          if [ -n "$ARTIFACT" ]; then
+            gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$ARTIFACT" --dir phone-check
+            source="built by this run"
+          else
+            curl -sSfL --retry 3 -o "phone-check/$APK_NAME" "$APK_URL"
+            curl -sSfL --retry 3 -o "phone-check/$APK_NAME.sha256" "$APK_URL.sha256"
+            source="as published"
+          fi
+          (cd phone-check && sha256sum --check --strict "$APK_NAME.sha256")
+          echo "APK $source: \`$(cut -d' ' -f1 "phone-check/$APK_NAME.sha256")\`, $(stat -c %s "phone-check/$APK_NAME") bytes, checksum matches." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install Maestro
+        run: |
+          # A pinned release checked against its SHA-256 (no install script piped to a shell).
+          curl -sSfL -o maestro.zip \
+            "https://github.com/mobile-dev-inc/maestro/releases/download/cli-${MAESTRO_VERSION}/maestro.zip"
+          echo "${MAESTRO_SHA256}  maestro.zip" | sha256sum --check --strict
+          rm -rf "$HOME/.maestro" && mkdir -p "$HOME/.maestro"
+          unzip -q maestro.zip -d "$HOME/.maestro" && mv "$HOME/.maestro/maestro"/* "$HOME/.maestro/"
+          "$HOME/.maestro/bin/maestro" --version
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # The same emulator as the build's own run (mobile.yml). The APK holds phone (arm64) code
+      # only, which this image runs through translation, so it is slower than a phone.
+      - name: Run the APK on an Android emulator
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        env:
+          SERVER_URL: ${{ needs.server.outputs.url }}
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 3
+          ram-size: 4096M
+          disable-animations: true
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash apps/mobile/e2e/run-hosted.sh "phone-check/$APK_NAME" "$SERVER_URL" maestro-report
+
+      - name: Report
+        run: echo "On the emulator the app found the server, a guest booked and paid for a flight, and an account built a trip of three parts and paid once." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the Maestro report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: phone-check-app
+          path: maestro-report/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # The website a phone's browser opens, from the same address: the journeys from
+  # apps/web/e2e that need nothing but the public site.
+  website:
+    name: Website on the online test server
+    needs: server
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the packages the tests import
+        run: pnpm exec turbo run build --filter=@suskii/web^...
+
+      - name: Install Chromium
+        run: pnpm --filter @suskii/web exec playwright install --with-deps chromium
+
+      # The trip books a rental car, and the server keeps its bookings for hours: each run takes
+      # one of sixteen weeks (30 to 172 days ahead, inside the 180 a car can be booked ahead), so
+      # runs on the same server rarely want the same days, and then there is a second car.
+      - name: Build a trip of five parts, and book a flight and a hotel
+        working-directory: apps/web
+        env:
+          E2E_BASE_URL: ${{ needs.server.outputs.url }}
+          NEXT_PUBLIC_API_BASE_URL: ${{ needs.server.outputs.url }}
+        run: |
+          export E2E_TRIP_START_DAYS=$(( 30 + 9 * ((GITHUB_RUN_ID + GITHUB_RUN_ATTEMPT) % 16) ))
+          echo "The trip starts $E2E_TRIP_START_DAYS days from today."
+          pnpm exec playwright test e2e/trip-builder.spec.ts e2e/booking.spec.ts \
+            --project=chromium \
+            --grep "trip builder|goes from search results to a confirmed|goes from hotel results to a confirmed"
+
+      - name: Report
+        run: echo "On the website a traveller built a trip of five parts and paid once, and booked a flight and a hotel." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the Playwright report
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: phone-check-website
+          path: |
+            apps/web/playwright-report/
+            apps/web/test-results/playwright/
+          if-no-files-found: ignore
+          retention-days: 14

@@ -16,7 +16,8 @@
       "types": "./vitest/base.d.mts",
       "default": "./vitest/base.mjs"
     },
-    "./tsconfig/*": "./tsconfig/*"
+    "./tsconfig/*": "./tsconfig/*",
+    "./eslint/react": "./eslint/react.mjs"
   },
   "scripts": {
     "lint": "eslint ."
@@ -26,6 +27,9 @@
     "eslint-config-expo": "catalog:",
     "eslint-config-next": "catalog:",
     "eslint-config-prettier": "catalog:",
+    "eslint-plugin-jsx-a11y": "catalog:",
+    "eslint-plugin-react": "catalog:",
+    "eslint-plugin-react-hooks": "catalog:",
     "globals": "catalog:",
     "typescript-eslint": "catalog:"
   },

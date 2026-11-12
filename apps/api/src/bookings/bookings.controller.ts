@@ -1,0 +1,444 @@
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Put,
+  Req,
+  StreamableFile,
+} from '@nestjs/common';
+import type { z } from 'zod';
+
+import { fromWire } from '@suskii/shared';
+
+import { DeviceAttested } from '../attestation/attestation.guard';
+import { ATTESTATION_HEADER } from '../attestation/attestation.schemas';
+import type { AuthenticatedRequest } from '../auth/auth-context';
+import { Public } from '../auth/decorators';
+import { Contract, fileResponse } from '../contract/contract';
+import { PushTokensService } from '../push/push-tokens.service';
+import { pushTokenRequestSchema, type PushTokenRequest } from '../push/push.schemas';
+import {
+  BOOKING_LIMITS,
+  DEVICE_LIMITS,
+  RateLimit,
+  SEARCH_LIMITS,
+} from '../rate-limit/rate-limit.decorator';
+import { clientContext } from '../search/client-context';
+
+import { BookingCancellationService } from './booking-cancellation.service';
+import { BookingDocumentsService } from './booking-documents.service';
+import {
+  BOOKING_TOKEN_HEADER,
+  bookingIdParamsSchema,
+  flightStatusSchema,
+  bookingLinkAcceptedSchema,
+  bookingLinkRequestSchema,
+  bookingSchema,
+  cancelBookingRequestSchema,
+  createBookingRequestSchema,
+  createdBookingSchema,
+  documentParamsSchema,
+  flightCancellationQuoteSchema,
+  paymentSessionSchema,
+  priceConsentRequestSchema,
+  flightSeatMapsSchema,
+  quoteIdParamsSchema,
+  quoteSchema,
+  scheduleChangeParamsSchema,
+  scheduleChangeRefundRequestSchema,
+  startPaymentRequestSchema,
+  type BookingLinkRequest,
+  type CancelBookingRequest,
+  type ScheduleChangeRefundRequest,
+  type CreateBookingRequest,
+  type StartPaymentRequest,
+} from './bookings.schemas';
+import { bookingCaller } from './booking-caller';
+import { BookingsService } from './bookings.service';
+import { CheckoutService } from './checkout.service';
+import { FlightCancellationService } from './flight-cancellation.service';
+import { ManageBookingService } from './manage-booking.service';
+import { PaymentPlansService } from './payment-plans.service';
+import { QuotesService } from './quotes.service';
+import { FlightSeatsService } from './flight-seats.service';
+import { FlightStatusService } from './flight-status.service';
+import { ScheduleChangesService } from './schedule-changes.service';
+
+const TAGS = ['Bookings'];
+
+const caller = bookingCaller;
+
+/**
+ * Checkout and booking routes (ADR-014, ADR-015). Guests and signed-in travellers both book;
+ * guests reach their booking with the access token returned at creation.
+ */
+@Public()
+@Controller()
+export class BookingsController {
+  constructor(
+    private readonly bookings: BookingsService,
+    private readonly checkout: CheckoutService,
+    private readonly quotes: QuotesService,
+    private readonly documents: BookingDocumentsService,
+    private readonly plans: PaymentPlansService,
+    private readonly pushTokens: PushTokensService,
+    private readonly cancellation: BookingCancellationService,
+    private readonly flightCancellation: FlightCancellationService,
+    private readonly manage: ManageBookingService,
+    private readonly scheduleChanges: ScheduleChangesService,
+    private readonly seats: FlightSeatsService,
+    private readonly flightStatus: FlightStatusService,
+  ) {}
+
+  @Get('quotes/:quoteId')
+  @RateLimit(SEARCH_LIMITS.quoteIp)
+  @Contract({
+    operationId: 'getQuote',
+    summary: 'A quote to check out from',
+    description:
+      'Priced for the caller. An expired quote answers 410 with the original search request.',
+    tags: TAGS,
+    params: quoteIdParamsSchema,
+    responses: { 200: quoteSchema },
+    errors: [404, 410],
+  })
+  quote(
+    @Param('quoteId') quoteId: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<z.infer<typeof quoteSchema>> {
+    return this.quotes.get(quoteId, clientContext(request));
+  }
+
+  @Get('quotes/:quoteId/seat-maps')
+  @RateLimit(SEARCH_LIMITS.quoteIp)
+  @Contract({
+    operationId: 'getQuoteSeatMaps',
+    summary: 'The seat map of each flight of a flight quote',
+    description:
+      "Seats as the airline has them now, at the airline's price in the quote's currency with no markup (ADR-094). `flights` is empty when the airline sells no seats through us. Send the chosen seats as `seats` when creating the booking; they are checked against the map again then and right before payment. 404 for a quote that is not a flight; 410 once it expired.",
+    tags: TAGS,
+    params: quoteIdParamsSchema,
+    responses: { 200: flightSeatMapsSchema },
+    errors: [404, 410, 503],
+  })
+  seatMaps(@Param('quoteId') quoteId: string): Promise<z.infer<typeof flightSeatMapsSchema>> {
+    return this.seats.forQuote(quoteId);
+  }
+
+  @Post('bookings')
+  @RateLimit(BOOKING_LIMITS.createIp, BOOKING_LIMITS.createUser)
+  @Contract({
+    operationId: 'createBooking',
+    summary: 'Book a quote',
+    description:
+      'Validates travellers against the offer and itinerary (422 `passengers-invalid` with issue codes), prices extras and the promo code, and creates the booking as PRICED. Guests prove they are not a bot with a Turnstile token (web) or a device attestation (mobile app, ADR-023), and receive a one-time access token.',
+    tags: TAGS,
+    headers: [ATTESTATION_HEADER],
+    body: createBookingRequestSchema,
+    responses: { 201: createdBookingSchema },
+    errors: [404, 409, 410, 422],
+    idempotent: true,
+  })
+  create(
+    @Body() body: CreateBookingRequest,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<z.infer<typeof createdBookingSchema>> {
+    return this.bookings.create(body, caller(request));
+  }
+
+  @Post('bookings/link')
+  @RateLimit(BOOKING_LIMITS.linkIp, BOOKING_LIMITS.linkReference)
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Contract({
+    operationId: 'requestBookingLink',
+    summary: 'Email the link to a booking',
+    description:
+      '"Manage booking": always answers 202 with the same body. When the reference and the contact email belong to the same booking, its contact address receives the link (a fresh access link for guests, valid for a day).',
+    tags: TAGS,
+    body: bookingLinkRequestSchema,
+    responses: { 202: bookingLinkAcceptedSchema },
+    errors: [400, 429],
+  })
+  async requestLink(
+    @Body() body: BookingLinkRequest,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<z.infer<typeof bookingLinkAcceptedSchema>> {
+    await this.manage.requestLink(body, caller(request).context);
+    return { status: 'accepted' };
+  }
+
+  @Get('bookings/:bookingId')
+  @Contract({
+    operationId: 'getBooking',
+    summary: 'A booking',
+    description: 'Poll while the status is AWAITING_PAYMENT, PAID or TICKETING.',
+    tags: TAGS,
+    params: bookingIdParamsSchema,
+    headers: [BOOKING_TOKEN_HEADER],
+    responses: { 200: bookingSchema },
+    errors: [404],
+  })
+  get(
+    @Param('bookingId') bookingId: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<z.infer<typeof bookingSchema>> {
+    return this.bookings.get(bookingId, caller(request));
+  }
+
+  @Post('bookings/:bookingId/payments')
+  @RateLimit(BOOKING_LIMITS.paymentIp)
+  @DeviceAttested('payment')
+  @Contract({
+    operationId: 'startBookingPayment',
+    summary: 'Re-check the price and open a hosted checkout (or pay from the wallet)',
+    description:
+      'Re-prices with the supplier first. A changed total answers 409 `price-changed` with `priceChange` (previous, current, difference, price); accept it with `price-consent`, then call this again. An offer that sold out answers 410 with the original search. Payment plans pay the next installment unless `installmentId` or `payInFull` says otherwise. `provider` picks one of `paymentOptions.providers` (422 when it cannot take this currency); `useWallet` pays at once when the wallet covers the amount (409 `wallet-insufficient` otherwise).',
+    tags: TAGS,
+    params: bookingIdParamsSchema,
+    headers: [BOOKING_TOKEN_HEADER, ATTESTATION_HEADER],
+    body: startPaymentRequestSchema,
+    responses: { 201: paymentSessionSchema },
+    errors: [403, 404, 409, 410, 422, 503],
+    idempotent: true,
+  })
+  pay(
+    @Param('bookingId') bookingId: string,
+    @Body() body: StartPaymentRequest,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<z.infer<typeof paymentSessionSchema>> {
+    return this.checkout.startPayment(bookingId, caller(request), body);
+  }
+
+  @Post('bookings/:bookingId/hold')
+  @HttpCode(HttpStatus.OK)
+  @RateLimit(BOOKING_LIMITS.holdIp)
+  @Contract({
+    operationId: 'holdBooking',
+    summary: 'Reserve now, pay later',
+    description:
+      'Holds the seats with the airline until `paymentOptions.hold.deadline` (flights whose fare allows it, without paid extras). Re-checks the price first (409 `price-changed`). 409 `hold-unavailable` when the airline will not hold it, `hold-limit` with too many unpaid reservations. Tickets are issued only after full payment.',
+    tags: TAGS,
+    params: bookingIdParamsSchema,
+    headers: [BOOKING_TOKEN_HEADER],
+    responses: { 200: bookingSchema },
+    errors: [404, 409, 410, 503],
+    idempotent: true,
+  })
+  hold(
+    @Param('bookingId') bookingId: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<z.infer<typeof bookingSchema>> {
+    return this.plans.create(bookingId, caller(request), 'hold');
+  }
+
+  @Post('bookings/:bookingId/installment-plan')
+  @HttpCode(HttpStatus.OK)
+  @RateLimit(BOOKING_LIMITS.holdIp)
+  @Contract({
+    operationId: 'createInstallmentPlan',
+    summary: 'Pay in installments',
+    description:
+      'Holds the seats and sets up the schedule from `paymentOptions.installments`; then pay the deposit with `payments`. If the deposit is not paid within the checkout window the hold is released. Tickets are issued after the last installment.',
+    tags: TAGS,
+    params: bookingIdParamsSchema,
+    headers: [BOOKING_TOKEN_HEADER],
+    responses: { 200: bookingSchema },
+    errors: [404, 409, 410, 503],
+    idempotent: true,
+  })
+  installments(
+    @Param('bookingId') bookingId: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<z.infer<typeof bookingSchema>> {
+    return this.plans.create(bookingId, caller(request), 'installments');
+  }
+
+  @Post('bookings/:bookingId/price-consent')
+  @HttpCode(HttpStatus.OK)
+  @Contract({
+    operationId: 'consentToBookingPrice',
+    summary: 'Accept a changed price',
+    description: 'Send the new total exactly as shown; if it moved again the answer is 409.',
+    tags: TAGS,
+    params: bookingIdParamsSchema,
+    headers: [BOOKING_TOKEN_HEADER],
+    body: priceConsentRequestSchema,
+    responses: { 200: bookingSchema },
+    errors: [404, 409],
+  })
+  consent(
+    @Param('bookingId') bookingId: string,
+    @Body() body: z.infer<typeof priceConsentRequestSchema>,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<z.infer<typeof bookingSchema>> {
+    return this.bookings.consent(bookingId, body.total, caller(request));
+  }
+
+  @Put('bookings/:bookingId/push-token')
+  @RateLimit(DEVICE_LIMITS.pushTokenIp)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Contract({
+    operationId: 'registerBookingPushToken',
+    summary: 'Receive pushes about this booking on this device',
+    description:
+      'For guests (with the booking token) and owners alike; account devices can use `PUT /v1/me/push-token` instead (ADR-022).',
+    tags: TAGS,
+    params: bookingIdParamsSchema,
+    headers: [BOOKING_TOKEN_HEADER],
+    body: pushTokenRequestSchema,
+    responses: { 204: null },
+    errors: [404],
+  })
+  async registerPushToken(
+    @Param('bookingId') bookingId: string,
+    @Body() body: PushTokenRequest,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<void> {
+    await this.bookings.load(bookingId, caller(request));
+    await this.pushTokens.registerForBooking(bookingId, body);
+  }
+
+  @Post('bookings/:bookingId/cancellation-quote')
+  @HttpCode(HttpStatus.OK)
+  @RateLimit(BOOKING_LIMITS.cancellationQuoteIp)
+  @Contract({
+    operationId: 'quoteFlightCancellation',
+    summary: 'Ask what cancelling a flight would refund',
+    description:
+      "For a booking with `flightCancellable`: the airline states what it refunds, and the traveller's share is held until `expiresAt`. Nothing is cancelled yet; cancel with `POST /v1/bookings/{bookingId}/cancel`, sending the quoted `refund`. 409 `not-cancellable` when the airline will not cancel it online (credits, other currency, departed): contact support (ADR-064).",
+    tags: TAGS,
+    params: bookingIdParamsSchema,
+    headers: [BOOKING_TOKEN_HEADER],
+    responses: { 200: flightCancellationQuoteSchema },
+    errors: [404, 409, 503],
+  })
+  quoteFlightCancellation(
+    @Param('bookingId') bookingId: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<z.infer<typeof flightCancellationQuoteSchema>> {
+    return this.flightCancellation.quote(bookingId, caller(request));
+  }
+
+  @Post('bookings/:bookingId/cancel')
+  @HttpCode(HttpStatus.OK)
+  @Contract({
+    operationId: 'cancelBooking',
+    summary: 'Cancel a booking',
+    description:
+      'Unpaid bookings are released (an airline reservation too). A partly paid plan is refunded per its policy (`paymentPlan.defaultFeeBps`). Confirmed packages, tours and add-ons are cancelled under their cancellation policy: `cancellation.refund` goes back automatically and the rest is kept. A flight with `flightCancellable` is cancelled under its refund quote: the airline cancels first, then the quoted refund goes back; without a live quote (or with a different `refund`), 409 `cancellation-quote-expired`. 409 `not-cancellable` for anything else confirmed (contact support).',
+    tags: TAGS,
+    params: bookingIdParamsSchema,
+    headers: [BOOKING_TOKEN_HEADER],
+    body: cancelBookingRequestSchema,
+    responses: { 200: bookingSchema },
+    errors: [404, 409, 503],
+  })
+  cancel(
+    @Param('bookingId') bookingId: string,
+    @Body() body: CancelBookingRequest,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<z.infer<typeof bookingSchema>> {
+    return this.cancellation.cancel(
+      bookingId,
+      caller(request),
+      body.refund ? fromWire(body.refund) : null,
+    );
+  }
+
+  @Get('bookings/:bookingId/flight-status')
+  @Contract({
+    operationId: 'getBookingFlightStatus',
+    summary: "Live status of a booking's flights on the day of travel",
+    description:
+      'Every flight of the booking with what is known of it now: state, expected times, delay, terminal, gate and baggage belt (ADR-095). A flight is followed from a day before it leaves until it has landed; before that it reads `scheduled` with `checkedAt` null. Readings are cached for a short time, so polling once a minute is enough. 404 for a booking without flights.',
+    tags: TAGS,
+    params: bookingIdParamsSchema,
+    headers: [BOOKING_TOKEN_HEADER],
+    responses: { 200: flightStatusSchema },
+    errors: [404],
+  })
+  getFlightStatus(
+    @Param('bookingId') bookingId: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<z.infer<typeof flightStatusSchema>> {
+    return this.flightStatus.forBooking(bookingId, caller(request));
+  }
+
+  @Post('bookings/:bookingId/schedule-changes/:changeId/accept')
+  @HttpCode(HttpStatus.OK)
+  @Contract({
+    operationId: 'acceptScheduleChange',
+    summary: "Accept the airline's new flight times",
+    description:
+      'For an open `scheduleChange` with `acceptable`: the airline is told the traveller accepts, and the booking then shows the new flights (the e-ticket follows). Accepting again answers the booking. To decline a significant change, take its `refundOffer`; otherwise use online cancellation when `flightCancellable`, or contact support. 409 `schedule-change-not-acceptable` when it can no longer be accepted online (ADR-065).',
+    tags: TAGS,
+    params: scheduleChangeParamsSchema,
+    headers: [BOOKING_TOKEN_HEADER],
+    responses: { 200: bookingSchema },
+    errors: [404, 409, 503],
+  })
+  acceptScheduleChange(
+    @Param('bookingId') bookingId: string,
+    @Param('changeId') changeId: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<z.infer<typeof bookingSchema>> {
+    return this.scheduleChanges.accept(bookingId, changeId, caller(request));
+  }
+
+  @Post('bookings/:bookingId/schedule-changes/:changeId/refund')
+  @HttpCode(HttpStatus.OK)
+  @Contract({
+    operationId: 'refundScheduleChange',
+    summary: 'Decline the airline change and take a full refund',
+    description:
+      'For a `scheduleChange` with a `refundOffer`: the airline cancels the booking first, then everything the traveller paid goes back to the original payments, with no fee, and the booking moves to `REFUND_PENDING` (ADR-073). 409 `refund-offer-unavailable` when the refund cannot be taken online (support then contacts the traveller), `refund-offer-changed` when `refund` differs from the current amount. 503 when the airline cannot be reached; the offer stays.',
+    tags: TAGS,
+    params: scheduleChangeParamsSchema,
+    headers: [BOOKING_TOKEN_HEADER],
+    body: scheduleChangeRefundRequestSchema,
+    responses: { 200: bookingSchema },
+    errors: [404, 409, 503],
+    idempotent: true,
+  })
+  refundScheduleChange(
+    @Param('bookingId') bookingId: string,
+    @Param('changeId') changeId: string,
+    @Body() body: ScheduleChangeRefundRequest,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<z.infer<typeof bookingSchema>> {
+    return this.scheduleChanges.refund(
+      bookingId,
+      changeId,
+      caller(request),
+      body.refund ? fromWire(body.refund) : null,
+    );
+  }
+
+  @Get('bookings/:bookingId/documents/:documentId')
+  @Contract({
+    operationId: 'downloadBookingDocument',
+    summary: 'Download an e-ticket, voucher or confirmation (PDF)',
+    tags: TAGS,
+    params: documentParamsSchema,
+    headers: [BOOKING_TOKEN_HEADER],
+    responses: { 200: fileResponse('application/pdf') },
+    errors: [404],
+  })
+  async document(
+    @Param('bookingId') bookingId: string,
+    @Param('documentId') documentId: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<StreamableFile> {
+    const booking = await this.bookings.load(bookingId, caller(request));
+    const { fileName, bytes } = await this.documents.read(booking, documentId);
+    return new StreamableFile(bytes, {
+      type: 'application/pdf',
+      disposition: `attachment; filename="${fileName.replace(/[^A-Za-z0-9._-]/g, '_')}"`,
+      length: bytes.byteLength,
+    });
+  }
+}

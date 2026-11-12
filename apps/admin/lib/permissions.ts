@@ -1,0 +1,62 @@
+import { permissionsFor, type Permission, type Role } from '@suskii/shared';
+
+import type { AdminKey } from './i18n';
+
+export interface NavItem {
+  href: string;
+  label: AdminKey;
+  /** Any one of these shows the item (the API still checks each route). */
+  anyOf: readonly Permission[];
+}
+
+/** Console sections in menu order, each behind the permissions its API routes require. */
+export const NAV_ITEMS: readonly NavItem[] = [
+  { href: '/', label: 'nav.dashboard', anyOf: ['reports:read'] },
+  { href: '/bookings', label: 'nav.bookings', anyOf: ['bookings:read'] },
+  { href: '/refunds', label: 'nav.refunds', anyOf: ['refunds:request'] },
+  { href: '/payment-reviews', label: 'nav.paymentReviews', anyOf: ['payments:review'] },
+  { href: '/vouchers', label: 'nav.vouchers', anyOf: ['bookings:manage'] },
+  { href: '/catalog', label: 'nav.catalog', anyOf: ['catalog:manage'] },
+  { href: '/pricing', label: 'nav.pricing', anyOf: ['pricing:manage'] },
+  { href: '/promos', label: 'nav.promos', anyOf: ['deals:manage'] },
+  { href: '/deals', label: 'nav.deals', anyOf: ['deals:manage', 'cms:manage'] },
+  { href: '/content', label: 'nav.content', anyOf: ['cms:manage'] },
+  { href: '/trust-signals', label: 'nav.trustSignals', anyOf: ['cms:manage'] },
+  { href: '/users', label: 'nav.users', anyOf: ['users:read'] },
+  { href: '/audit', label: 'nav.audit', anyOf: ['audit:read'] },
+  // Data rights requests and breaches (ADR-089).
+  { href: '/privacy', label: 'nav.privacy', anyOf: ['privacy:manage'] },
+  { href: '/visa', label: 'nav.visa', anyOf: ['visa:process'] },
+  { href: '/prime', label: 'nav.prime', anyOf: ['pricing:manage'] },
+  { href: '/referrals', label: 'nav.referrals', anyOf: ['referrals:review'] },
+  { href: '/reviews', label: 'nav.reviews', anyOf: ['reviews:moderate'] },
+  { href: '/support', label: 'nav.support', anyOf: ['support:manage'] },
+  { href: '/status', label: 'nav.status', anyOf: ['status:manage'] },
+  { href: '/companies', label: 'nav.companies', anyOf: ['users:read'] },
+  // Metasearch partners (ADR-081): the report needs reports:read; changes need pricing:manage.
+  { href: '/metasearch', label: 'nav.metasearch', anyOf: ['reports:read'] },
+  // Cars (ADR-049 to ADR-051).
+  { href: '/ground', label: 'nav.ground', anyOf: ['ground:manage'] },
+  { href: '/drivers', label: 'nav.drivers', anyOf: ['drivers:review'] },
+  { href: '/rides', label: 'nav.rides', anyOf: ['safety:manage', 'ground:manage'] },
+  { href: '/rentals', label: 'nav.rentals', anyOf: ['ground:manage'] },
+  { href: '/finance', label: 'nav.finance', anyOf: ['finance:reconcile'] },
+  // The assistant (ADR-101 to ADR-107): its switches, the staff chat, the two queues a person
+  // works, and the sites prices are read from. Reading needs ai:read; each change its own right.
+  { href: '/ai', label: 'nav.ai', anyOf: ['ai:read'] },
+  { href: '/assistant', label: 'nav.assistant', anyOf: ['ai:read'] },
+  { href: '/approvals', label: 'nav.approvals', anyOf: ['ai:read'] },
+  { href: '/assisted-quotes', label: 'nav.assistedQuotes', anyOf: ['ai:read'] },
+  { href: '/data-sources', label: 'nav.dataSources', anyOf: ['ai:read'] },
+  { href: '/ai-activity', label: 'nav.aiActivity', anyOf: ['ai:read'] },
+  { href: '/ai-insights', label: 'nav.aiInsights', anyOf: ['ai:read'] },
+  { href: '/knowledge', label: 'nav.knowledge', anyOf: ['ai:read'] },
+];
+
+export function grantedPermissions(roles: readonly Role[]): ReadonlySet<Permission> {
+  return permissionsFor(roles);
+}
+
+export function visibleNav(granted: ReadonlySet<Permission>): NavItem[] {
+  return NAV_ITEMS.filter((item) => item.anyOf.some((permission) => granted.has(permission)));
+}

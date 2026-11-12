@@ -1,0 +1,125 @@
+import type { Page } from '@playwright/test';
+
+import { isoDaysFromToday, test } from './fixtures';
+
+/**
+ * The server (Node) and the visitor's browser ship different ICU/CLDR data, so the same
+ * `Intl` call can return different text on each side (a comma, a space, a currency symbol).
+ * Server-rendered client components must still hydrate without a mismatch. The browser's Intl
+ * output is altered here in ways a real CLDR update does; the console guard fails the test on
+ * any hydration error.
+ */
+
+const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
+
+async function divergeBrowserIntl(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const nbsp = (text: string) => text.replace(/ /g, '\u00a0');
+    class DateFormat extends Intl.DateTimeFormat {
+      override format(date?: Date | number): string {
+        return nbsp(super.format(date));
+      }
+      override formatRange(start: Date | number | bigint, end: Date | number | bigint): string {
+        return nbsp(super.formatRange(start, end));
+      }
+    }
+    class NumberFormat extends Intl.NumberFormat {
+      override format(value: number | bigint | Intl.StringNumericLiteral): string {
+        return super.format(value).replace(/,/g, '\u202f');
+      }
+    }
+    Object.defineProperty(Intl, 'DateTimeFormat', { value: DateFormat });
+    Object.defineProperty(Intl, 'NumberFormat', { value: NumberFormat });
+  });
+}
+
+/**
+ * Resolves once React has hydrated every form and button in the page's main content, or the
+ * header's on a page with none (the status page is read-only).
+ */
+async function waitForHydration(page: Page): Promise<void> {
+  await page.waitForFunction(() => {
+    const inMain = [...document.querySelectorAll('main form, main button')];
+    const elements =
+      inMain.length > 0 ? inMain : [...document.querySelectorAll('header form, header button')];
+    return (
+      elements.length > 0 &&
+      elements.every((element) =>
+        Object.keys(element).some((key) => key.startsWith('__reactProps$')),
+      )
+    );
+  });
+}
+
+const PAGES: [name: string, path: (cityId: string, depart: string, back: string) => string][] = [
+  ['home', () => '/'],
+  [
+    'round-trip flight search',
+    (_, depart, back) =>
+      `/flights/search?trip=round_trip&from=LOS&to=DXB&depart=${depart}&return=${back}&adults=1`,
+  ],
+  [
+    'hotel search',
+    (cityId, depart, back) =>
+      `/hotels/search?dest=${cityId}&checkin=${depart}&checkout=${back}&room=2&room=1`,
+  ],
+  ['packages by month', (cityId, _, back) => `/packages?dest=${cityId}&month=${back.slice(0, 7)}`],
+  [
+    'packages by dates',
+    (cityId, depart, back) => `/packages?dest=${cityId}&from=${depart}&to=${back}`,
+  ],
+  ['tours', (_, depart) => `/tours?q=Zanzibar&date=${depart}`],
+  ['visa', (_, depart) => `/visa?nationality=NG&destination=GB&purpose=tourism&date=${depart}`],
+  ['package detail', () => '/packages/sample-zanzibar-beach-break?adults=2'],
+  ['tour detail', () => '/tours/sample-dubai-desert-evening?adults=1'],
+  ['visa product', (_, depart) => `/visa/sample-uae-tourist-visa?nationality=NG&date=${depart}`],
+  [
+    'standalone add-ons',
+    (cityId, depart, back) =>
+      `/travel-add-ons?type=insurance&dest=${cityId}&start=${depart}&end=${back}&adults=1`,
+  ],
+  // Cars (ADR-049): search forms around server-formatted prices and dates. The hub, the ride
+  // form and a car's booking form show signed-out visitors links only, so there is nothing for
+  // this check to wait on there.
+  ['bus search', (_, depart) => `/buses?from=Lagos&to=Ibadan&date=${depart}&seats=1`],
+  [
+    'rental search',
+    (_, depart, back) => `/rentals?city=Lagos&pickupAt=${depart}T10%3A00&returnAt=${back}T10%3A00`,
+  ],
+  // SEO pages from fare history (ADR-080): server-formatted fares and dates around the search
+  // form. City hubs and airline pages have no client widgets, so there is nothing to wait on.
+  ['route page with facts', () => '/flights/lagos-to-london'],
+  ['sign in', () => '/sign-in'],
+  ['register', () => '/register?ref=ABCDEFGH'],
+  ['manage booking', () => '/manage-booking'],
+  // Support (ADR-083): the start form, which hides the email for signed-in travellers.
+  ['help and support', () => '/support'],
+  // Group flight requests (ADR-093): the same airport fields and email rule as the forms above.
+  ['group flights', () => '/flights/groups'],
+  ['trip builder', () => '/trips'],
+  // Status page (ADR-087): server-formatted check and incident times.
+  ['service status', () => '/status'],
+];
+
+function hydrationTests(): void {
+  for (const [name, path] of PAGES) {
+    test(`${name} hydrates without a mismatch`, async ({ page, request }) => {
+      const airport = (await (await request.get(`${API}/v1/catalog/airports/DXB`)).json()) as {
+        cityId: string;
+      };
+      await divergeBrowserIntl(page);
+      await page.goto(path(airport.cityId, isoDaysFromToday(30), isoDaysFromToday(37)));
+      await waitForHydration(page);
+    });
+  }
+}
+
+test.describe('hydration with different Intl data in the browser', hydrationTests);
+
+// An Arabic browser gets Arabic pages (ADR-076): right to left, isolated values and a browser
+// whose default Intl locale uses Arabic-Indic digits, so a value formatted without the page's
+// locale would differ from the server's.
+test.describe('hydration in Arabic', () => {
+  test.use({ locale: 'ar' });
+  hydrationTests();
+});

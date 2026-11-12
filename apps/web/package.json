@@ -10,21 +10,45 @@
     "start": "next start --port 3000",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
-    "clean": "rimraf .next .turbo"
+    "test:e2e": "playwright test",
+    "lighthouse": "node --experimental-strip-types --no-warnings scripts/lighthouse.ts",
+    "clean": "rimraf .next .turbo playwright-report test-results",
+    "check:classes": "node --experimental-strip-types --no-warnings scripts/check-classes.ts",
+    "e2e:stack": "tsx e2e/stack-cli.ts"
   },
   "dependencies": {
+    "@suskii/api-client": "workspace:*",
+    "@suskii/design-tokens": "workspace:*",
+    "@suskii/i18n": "workspace:*",
     "@suskii/shared": "workspace:*",
+    "@suskii/ui-web": "workspace:*",
+    "lucide-react": "catalog:",
     "next": "catalog:",
+    "openapi-fetch": "catalog:",
     "react": "catalog:",
-    "react-dom": "catalog:"
+    "react-dom": "catalog:",
+    "uqr": "catalog:",
+    "web-vitals": "catalog:"
   },
   "devDependencies": {
+    "@axe-core/playwright": "catalog:",
+    "@fontsource/plus-jakarta-sans": "catalog:",
+    "@playwright/test": "catalog:",
     "@suskii/config": "workspace:*",
+    "@tailwindcss/postcss": "catalog:",
+    "@testcontainers/postgresql": "catalog:",
+    "@testcontainers/redis": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "chrome-launcher": "catalog:",
     "eslint": "catalog:",
+    "lighthouse": "catalog:",
+    "postcss": "catalog:",
     "rimraf": "catalog:",
+    "tailwindcss": "catalog:",
+    "testcontainers": "catalog:",
+    "tsx": "catalog:",
     "typescript": "catalog:"
   }
 }

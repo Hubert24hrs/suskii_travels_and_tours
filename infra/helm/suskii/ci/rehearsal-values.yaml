@@ -1,0 +1,58 @@
+# The Helm release rehearsal on kind (scripts/helm-rehearsal.mjs): local images, in-cluster
+# Postgres, Redis and S3 without TLS (declared, as the env schema demands), mock providers, one
+# replica each. Never use these values for a real environment.
+global:
+  environment: rehearsal
+  urls:
+    web: https://web.rehearsal.invalid
+    api: https://api.rehearsal.invalid
+    admin: https://admin.rehearsal.invalid
+
+meshMtls: true # declared for the rehearsal only: kind has no mesh
+
+api:
+  replicas: 1
+  autoscaling: { enabled: false }
+  clientIpHeader: ''
+  env:
+    LOG_LEVEL: info
+    ALLOW_MOCK_PROVIDERS: 'true'
+    DATABASE_ALLOW_PLAINTEXT: 'true'
+    REDIS_ALLOW_PLAINTEXT: 'true'
+    OBJECT_STORAGE: s3
+    OBJECT_STORAGE_ENDPOINT: http://rehearsal-s3:7070
+    OBJECT_STORAGE_ALLOW_PLAINTEXT: 'true'
+    OBJECT_STORAGE_PATH_STYLE: 'true'
+    OBJECT_STORAGE_REGION: us-east-1
+    OBJECT_STORAGE_BUCKET: suskii-documents
+  resources:
+    requests: { cpu: 100m, memory: 384Mi }
+    limits: { memory: 1Gi }
+
+worker:
+  env:
+    LOG_LEVEL: info
+    REDIS_ALLOW_PLAINTEXT: 'true'
+  resources:
+    requests: { cpu: 50m, memory: 256Mi }
+    limits: { memory: 768Mi }
+
+web:
+  replicas: 1
+  autoscaling: { enabled: false }
+  resources:
+    requests: { cpu: 50m, memory: 256Mi }
+    limits: { memory: 768Mi }
+
+admin:
+  resources:
+    requests: { cpu: 50m, memory: 192Mi }
+    limits: { memory: 512Mi }
+
+ingress:
+  enabled: false
+
+# kind's network plugin may not enforce policies on pod-to-pod traffic the same way; the policies
+# are validated with kubeconform in CI instead.
+networkPolicy:
+  enabled: false

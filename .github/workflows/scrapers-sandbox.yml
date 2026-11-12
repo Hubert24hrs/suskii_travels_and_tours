@@ -1,0 +1,92 @@
+name: Web-data vendor check
+
+# Asks each web-data vendor (Firecrawl, Apify, Browse AI, Oxylabs, Bright Data) whether its key
+# works and, when a page of Suskii's own website is given, reads that one page once through each
+# of them with our adapters (ADR-102). Manual only, with the owner's repository secrets; a
+# vendor whose secrets are missing is named and skipped, and the run fails when none is set.
+# It prints no key and no page. CI never calls a vendor.
+on:
+  workflow_dispatch:
+    inputs:
+      own_page:
+        description: A page of your own website to read once per vendor (https://...). Leave empty to check the keys only.
+        type: string
+        required: false
+        default: ''
+      country:
+        description: The country the read should come from (two letters).
+        type: string
+        required: false
+        default: NG
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scrapers-sandbox
+  cancel-in-progress: false
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+
+jobs:
+  sandbox:
+    name: Web-data vendor check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check the secrets are set
+        env:
+          FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+          BROWSE_AI_API_KEY: ${{ secrets.BROWSE_AI_API_KEY }}
+          OXYLABS_PASSWORD: ${{ secrets.OXYLABS_PASSWORD }}
+          BRIGHT_DATA_API_KEY: ${{ secrets.BRIGHT_DATA_API_KEY }}
+        run: |
+          if [ -z "$FIRECRAWL_API_KEY$APIFY_TOKEN$BROWSE_AI_API_KEY$OXYLABS_PASSWORD$BRIGHT_DATA_API_KEY" ]; then
+            echo "::error::No vendor has its secrets set. Add them under Settings, Secrets and variables, Actions (FIRECRAWL_API_KEY; APIFY_TOKEN; BROWSE_AI_API_KEY; OXYLABS_PASSWORD with the OXYLABS_USERNAME variable; BRIGHT_DATA_API_KEY with the BRIGHT_DATA_ZONE variable), then run this workflow again."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The API's workspace dependencies (shared, design tokens, ...), as CI builds them.
+      - name: Build the API's workspace packages
+        run: pnpm exec turbo run build --filter=@suskii/api^...
+
+      - name: Run the check
+        env:
+          OWN_PAGE: ${{ inputs.own_page }}
+          COUNTRY: ${{ inputs.country }}
+          FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+          BROWSE_AI_API_KEY: ${{ secrets.BROWSE_AI_API_KEY }}
+          OXYLABS_USERNAME: ${{ vars.OXYLABS_USERNAME }}
+          OXYLABS_PASSWORD: ${{ secrets.OXYLABS_PASSWORD }}
+          BRIGHT_DATA_API_KEY: ${{ secrets.BRIGHT_DATA_API_KEY }}
+          BRIGHT_DATA_ZONE: ${{ vars.BRIGHT_DATA_ZONE }}
+          PRICE_INTEL_BOT_URL: ${{ vars.PRICE_INTEL_BOT_URL }}
+          SANDBOX_APIFY_ACTOR_ID: ${{ vars.SANDBOX_APIFY_ACTOR_ID }}
+          SANDBOX_APIFY_INPUT: ${{ vars.SANDBOX_APIFY_INPUT }}
+          SANDBOX_BROWSE_AI_ROBOT_ID: ${{ vars.SANDBOX_BROWSE_AI_ROBOT_ID }}
+          SANDBOX_BROWSE_AI_INPUT: ${{ vars.SANDBOX_BROWSE_AI_INPUT }}
+        run: |
+          if [ -n "$OWN_PAGE" ]; then
+            pnpm --filter @suskii/api sandbox:scrapers --own-page "$OWN_PAGE" --country "${COUNTRY:-NG}"
+          else
+            pnpm --filter @suskii/api sandbox:scrapers
+          fi

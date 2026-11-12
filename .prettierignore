@@ -13,3 +13,22 @@ PROJECT_SPEC.json
 
 # Changelog entries are generated/edited by hand in a fixed format.
 CHANGELOG.md
+
+# Generated API contract artefacts (regenerate with `pnpm generate:api`)
+apps/api/openapi.json
+packages/api-client/src/schema.ts
+
+# Generated from docs/security/standards/mapping.json (`pnpm security:checklist`)
+docs/security/checklist.md
+
+# Generated from apps/api/src/privacy/processing-records.ts (`pnpm --filter @suskii/api privacy:records`)
+docs/privacy/records-of-processing.md
+
+# Generated from the site registry (`pnpm --filter @suskii/api price-intel:register`)
+docs/legal/scraping-register.md
+
+# Helm templates are Go templates, not YAML (checked with helm lint and kubeconform in CI)
+infra/helm/*/templates/
+
+# Snapshot of the API tool registry, written by an API test (UPDATE_AGENT_TOOLS_FIXTURE=1)
+apps/agent/evals/tools.json

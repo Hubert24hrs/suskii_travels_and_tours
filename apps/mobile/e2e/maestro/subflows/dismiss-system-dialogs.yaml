@@ -1,0 +1,9 @@
+# A busy emulator can show "<app> isn't responding" over the app under test (run-android.sh
+# also hides error dialogs). Waiting lets the system app recover; the app under test is untouched.
+appId: com.suskii.travels.e2e
+---
+- runFlow:
+    when:
+      visible: '.*isn.t responding'
+    commands:
+      - tapOn: Wait

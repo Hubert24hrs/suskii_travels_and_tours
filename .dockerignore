@@ -1,0 +1,30 @@
+# Build context for the images (ADR-058): sources and the lockfile only. Secrets, dependencies,
+# build output, caches and test artefacts never enter it.
+.env
+.env.*
+!.env.example
+**/node_modules
+.pnpm-store
+**/dist
+**/build
+**/out
+**/.next
+**/.turbo
+**/.expo
+**/coverage
+**/coverage-e2e
+**/test-results
+**/playwright-report
+**/lighthouse-report
+**/storybook-static
+**/*.tsbuildinfo
+.data
+.git
+.github
+.husky
+apps/mobile
+infra
+load
+docs
+**/*.log
+.DS_Store

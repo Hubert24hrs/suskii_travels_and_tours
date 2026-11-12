@@ -1,0 +1,399 @@
+import { money, type PropertyType } from '@suskii/shared';
+
+import type { PriceBreakdown } from '../pricing/pricing-engine';
+import type {
+  SupplierFlightOffer,
+  SupplierHotel,
+  SupplierHotelRate,
+} from '../suppliers/supplier.types';
+
+import { queryHash } from './search-store';
+import {
+  departureWindow,
+  filterFlights,
+  filterHotels,
+  flightFacets,
+  hotelFacets,
+  hotelNameKey,
+  mergeDuplicateHotels,
+  metresBetween,
+  paginate,
+  sortFlights,
+  stopsBucket,
+  withCollections,
+  type PricedFlight,
+  type PricedHotel,
+} from './results';
+
+const price = (total: number): PriceBreakdown => ({
+  currency: 'NGN',
+  fare: money(total, 'NGN'),
+  taxes: money(0, 'NGN'),
+  fees: [],
+  discount: null,
+  serviceTaxes: [],
+  total: money(total, 'NGN'),
+  memberSaving: null,
+  markup: null,
+  supplierTotal: money(total, 'NGN'),
+  fx: null,
+});
+
+const flight = (
+  id: string,
+  total: number,
+  opts: {
+    stops?: number;
+    duration?: number;
+    departs?: string;
+    owner?: string;
+    refundable?: boolean;
+    checked?: number;
+  },
+): PricedFlight => {
+  const slice = {
+    origin: {
+      code: 'LOS',
+      name: null,
+      cityName: null,
+      countryCode: 'NG',
+      timeZone: 'Africa/Lagos',
+    },
+    destination: {
+      code: 'ABV',
+      name: null,
+      cityName: null,
+      countryCode: 'NG',
+      timeZone: 'Africa/Lagos',
+    },
+    departureLocal: opts.departs ?? '2026-11-20T08:00',
+    departureUtc: `${opts.departs ?? '2026-11-20T08:00'}:00.000Z`,
+    arrivalLocal: '2026-11-20T09:15',
+    arrivalUtc: '2026-11-20T09:15:00.000Z',
+    durationMinutes: opts.duration ?? 75,
+    stops: opts.stops ?? 0,
+    arrivalDayOffset: 0,
+    fareBrand: null,
+    segments: [],
+    layovers: [],
+  };
+  const offer = {
+    supplier: 'mock',
+    supplierOfferId: id,
+    owner: { code: opts.owner ?? 'P4', name: opts.owner ?? 'P4' },
+    slices: [slice],
+    baggage: { carryOn: 1, checked: opts.checked ?? 1 },
+    conditions: {
+      refundable: opts.refundable ?? false,
+      refundPenalty: null,
+      changeable: true,
+      changePenalty: null,
+    },
+    cabinClass: 'economy',
+    passengers: { adults: 1, children: 0, infants: 0 },
+    price: { base: money(total, 'NGN'), taxes: money(0, 'NGN') },
+    expiresAt: '2030-01-01T00:00:00.000Z',
+    hold: { available: false, paymentRequiredBy: null, priceGuaranteedUntil: null },
+    services: [],
+  } as SupplierFlightOffer;
+  return { id, offer, price: price(total) };
+};
+
+const items = [
+  flight('a', 100_000, { stops: 1, duration: 300, departs: '2026-11-20T06:00', owner: 'QI' }),
+  flight('b', 150_000, {
+    stops: 0,
+    duration: 75,
+    departs: '2026-11-20T13:00',
+    owner: 'P4',
+    refundable: true,
+  }),
+  flight('c', 90_000, {
+    stops: 2,
+    duration: 600,
+    departs: '2026-11-20T02:00',
+    owner: 'W3',
+    checked: 0,
+  }),
+];
+
+describe('flight results', () => {
+  it('buckets departure windows and stops', () => {
+    expect(
+      ['2026-11-20T04:59', '2026-11-20T05:00', '2026-11-20T12:00', '2026-11-20T18:00'].map(
+        departureWindow,
+      ),
+    ).toEqual(['night', 'morning', 'afternoon', 'evening']);
+    expect(stopsBucket(flight('x', 1, { stops: 3 }).offer)).toBe(2);
+  });
+
+  it('sorts by price, duration, departure and a balanced best score', () => {
+    expect(sortFlights(items, 'cheapest').map((i) => i.id)).toEqual(['c', 'a', 'b']);
+    expect(sortFlights(items, 'fastest').map((i) => i.id)).toEqual(['b', 'a', 'c']);
+    expect(sortFlights(items, 'earliest').map((i) => i.id)).toEqual(['c', 'a', 'b']);
+    // The direct 75-minute flight wins "best" despite costing more.
+    expect(sortFlights(items, 'best')[0]?.id).toBe('b');
+  });
+
+  it('filters on every spec dimension', () => {
+    const ids = (filters: Parameters<typeof filterFlights>[1]) =>
+      filterFlights(items, filters).map((i) => i.id);
+    expect(ids({ stops: ['0', '1'] })).toEqual(['a', 'b']);
+    expect(ids({ airlines: ['W3'] })).toEqual(['c']);
+    expect(ids({ maxPrice: 100_000 })).toEqual(['a', 'c']);
+    expect(ids({ maxDurationMinutes: 300 })).toEqual(['a', 'b']);
+    expect(ids({ departureWindows: ['night'] })).toEqual(['c']);
+    expect(ids({ refundable: true })).toEqual(['b']);
+    expect(ids({ checkedBag: true })).toEqual(['a', 'b']);
+  });
+
+  it('computes facets with the cheapest price per bucket', () => {
+    const facets = flightFacets(items);
+    expect(facets.stops.map((s) => [s.stops, s.count, s.minPrice.minor])).toEqual([
+      [0, 1, 150_000n],
+      [1, 1, 100_000n],
+      [2, 1, 90_000n],
+    ]);
+    expect(facets.airlines[0]?.code).toBe('W3');
+    expect(facets.price).toEqual({ min: money(90_000, 'NGN'), max: money(150_000, 'NGN') });
+    expect(facets.refundable).toBe(1);
+    expect(facets.withCheckedBag).toBe(2);
+    expect(flightFacets([]).price).toBeNull();
+  });
+});
+
+describe('paginate and queryHash', () => {
+  it('pages with opaque cursors and ignores garbage cursors', () => {
+    const list = Array.from({ length: 7 }, (_, i) => i);
+    const first = paginate(list, undefined, 3);
+    expect(first.page).toEqual([0, 1, 2]);
+    const second = paginate(list, first.nextCursor ?? undefined, 3);
+    expect(second.page).toEqual([3, 4, 5]);
+    expect(paginate(list, second.nextCursor ?? undefined, 3)).toEqual({
+      page: [6],
+      nextCursor: null,
+    });
+    expect(paginate(list, 'not-a-cursor', 3).page).toEqual([0, 1, 2]);
+  });
+
+  it('hashes queries independently of key order', () => {
+    expect(queryHash({ a: 1, b: [{ y: 2, x: 1 }] })).toBe(queryHash({ b: [{ x: 1, y: 2 }], a: 1 }));
+    expect(queryHash({ a: 1 })).not.toBe(queryHash({ a: 2 }));
+  });
+});
+
+describe('hotel results', () => {
+  const rate = (total: number, refundable: boolean): SupplierHotelRate => ({
+    supplierRateId: `rate-${total}`,
+    roomName: 'Deluxe',
+    board: 'room_only',
+    refundable,
+    freeCancellationUntil: null,
+    price: { base: money(total, 'NGN'), taxes: money(0, 'NGN') },
+    payAtProperty: null,
+    expiresAt: '2026-12-01T00:00:00Z',
+  });
+  const hotel = (id: string, area: string | null, reviewScore: number): PricedHotel => {
+    const rates = [{ id: `${id}.r0`, rate: rate(50_000, true), price: price(50_000) }];
+    const supplierHotel = {
+      supplier: 'mock',
+      supplierHotelId: id,
+      name: id,
+      stars: 4,
+      reviewScore,
+      reviewCount: 10,
+      latitude: 6.4,
+      longitude: 3.4,
+      area,
+      cityName: 'Lagos',
+      countryCode: 'NG',
+      amenities: ['wifi'],
+      rates: rates.map((entry) => entry.rate),
+    } satisfies SupplierHotel;
+    return { id, hotel: supplierHotel, rates, cheapest: rates[0] as PricedHotel['cheapest'] };
+  };
+  const items = [
+    hotel('a', 'Victoria Island', 8.8),
+    hotel('b', 'Ikeja', 7.1),
+    hotel('c', 'Victoria Island', 9.2),
+    hotel('d', null, 9.5),
+  ];
+
+  it('filters by area and minimum rating', () => {
+    expect(filterHotels(items, { areas: ['Victoria Island'] }).map((item) => item.id)).toEqual([
+      'a',
+      'c',
+    ]);
+    expect(
+      filterHotels(items, { areas: ['Victoria Island', 'Ikeja'], minRating: 8 }).map(
+        (item) => item.id,
+      ),
+    ).toEqual(['a', 'c']);
+  });
+
+  it('counts areas in the facets, most common first', () => {
+    expect(hotelFacets(items).areas).toEqual([
+      { area: 'Victoria Island', count: 2 },
+      { area: 'Ikeja', count: 1 },
+    ]);
+  });
+
+  it('filters and counts by property type, leaving out hotels whose type is unknown', () => {
+    const typed = (item: PricedHotel, propertyType: PropertyType | null): PricedHotel => ({
+      ...item,
+      hotel: { ...item.hotel, propertyType },
+    });
+    const [a, b, c, d] = items as [PricedHotel, PricedHotel, PricedHotel, PricedHotel];
+    const mixed = [typed(a, 'hotel'), typed(b, 'apartment'), typed(c, 'hotel'), typed(d, null)];
+    expect(filterHotels(mixed, { types: ['apartment', 'villa'] }).map((item) => item.id)).toEqual([
+      'b',
+    ]);
+    expect(filterHotels(mixed, { types: ['hotel'] }).map((item) => item.id)).toEqual(['a', 'c']);
+    expect(hotelFacets(mixed).propertyTypes).toEqual([
+      { type: 'hotel', count: 2 },
+      { type: 'apartment', count: 1 },
+    ]);
+    // Suppliers that send no type add nothing to the facet.
+    expect(hotelFacets(items).propertyTypes).toEqual([]);
+  });
+
+  it('marks deals against the star class of the search, and collections by fixed rules (ADR-097)', () => {
+    const priced = (id: string, total: number, patch: Partial<SupplierHotel> = {}): PricedHotel => {
+      const base = hotel(id, null, 8.5);
+      const rates = [{ id: `${id}.r0`, rate: rate(total, true), price: price(total) }];
+      return {
+        ...base,
+        hotel: { ...base.hotel, ...patch },
+        rates,
+        cheapest: rates[0] as PricedHotel['cheapest'],
+      };
+    };
+    const search = withCollections([
+      priced('usual-1', 100_000),
+      priced('usual-2', 104_000),
+      priced('usual-3', 96_000),
+      priced('usual-4', 110_000),
+      // 25% below the usual 100,000 of the five four-star hotels.
+      priced('cheap', 75_000),
+      // Cheap, but guests rate it poorly: not offered as a deal.
+      priced('poor', 60_000, { reviewScore: 5.9, stars: 3 }),
+      priced('grand', 400_000, { stars: 5, amenities: ['wifi', 'spa'] }),
+      priced('flat', 90_000, { stars: 2, propertyType: 'apartment' }),
+    ]);
+    const marked = Object.fromEntries(search.map((item) => [item.id, item]));
+    expect(marked.cheap?.deal).toBe(25);
+    expect(marked.cheap?.collections).toEqual(['deals']);
+    expect(marked['usual-1']?.deal).toBeNull();
+    // One three-star hotel is too few to say what is usual, whatever its price.
+    expect(marked.poor?.deal).toBeNull();
+    expect(marked.grand?.collections).toEqual(['luxury', 'honeymoon']);
+    expect(marked.flat?.collections).toEqual(['long_stay']);
+
+    expect(filterHotels(search, { collection: 'deals' }).map((item) => item.id)).toEqual(['cheap']);
+    expect(filterHotels(search, { collection: 'luxury' }).map((item) => item.id)).toEqual([
+      'grand',
+    ]);
+    // The facet lists the collections this search has hotels for, in the order clients show them.
+    expect(hotelFacets(search).collections).toEqual([
+      { collection: 'deals', count: 1 },
+      { collection: 'luxury', count: 1 },
+      { collection: 'honeymoon', count: 1 },
+      { collection: 'long_stay', count: 1 },
+    ]);
+    // A search that was never marked has no collections.
+    expect(hotelFacets(items).collections).toEqual([]);
+  });
+});
+
+describe('merging one hotel across suppliers (ADR-071)', () => {
+  const listing = (
+    supplier: string,
+    name: string,
+    cost: number,
+    position: { latitude: number; longitude: number } = { latitude: 6.4281, longitude: 3.4219 },
+  ): SupplierHotel => ({
+    supplier,
+    supplierHotelId: `${supplier}-${name}-${cost}`,
+    name,
+    stars: 4,
+    reviewScore: null,
+    reviewCount: 0,
+    ...position,
+    area: null,
+    cityName: 'Lagos',
+    countryCode: 'NG',
+    amenities: [],
+    rates: [
+      {
+        supplierRateId: `r-${cost}`,
+        roomName: 'Double',
+        board: 'room_only',
+        refundable: false,
+        freeCancellationUntil: null,
+        price: { base: money(cost, 'USD'), taxes: money(0, 'USD') },
+        payAtProperty: null,
+        expiresAt: '2099-01-01T00:00:00Z',
+      },
+    ],
+  });
+  const cost = (hotel: SupplierHotel) => hotel.rates[0]?.price.base.minor ?? null;
+
+  it('reduces names to what identifies the property', () => {
+    expect(hotelNameKey('The Eko Hotel & Suites')).toBe('eko suites');
+    expect(hotelNameKey('EKO HOTEL AND SUITES')).toBe('eko suites');
+    expect(hotelNameKey('Hôtel Ikoyi, Lagos')).toBe('ikoyi lagos');
+    expect(hotelNameKey('Hotel')).toBe('');
+  });
+
+  it('measures distance in metres', () => {
+    const a = { latitude: 6.4281, longitude: 3.4219 };
+    expect(metresBetween(a, a)).toBe(0);
+    // A thousandth of a degree of latitude is about 111 m.
+    expect(Math.round(metresBetween(a, { latitude: 6.4291, longitude: 3.4219 }))).toBe(111);
+  });
+
+  it('keeps the cheaper listing of one hotel from two suppliers, in place', () => {
+    const merged = mergeDuplicateHotels(
+      [
+        listing('duffel', 'Eko Hotel & Suites', 30_000),
+        listing('duffel', 'Lagos Continental', 25_000),
+        listing('hotelbeds', 'EKO HOTEL AND SUITES', 28_000, {
+          latitude: 6.4285,
+          longitude: 3.4221,
+        }),
+      ],
+      cost,
+    );
+
+    expect(merged.map((hotel) => `${hotel.supplier}:${hotel.name}`)).toEqual([
+      'hotelbeds:EKO HOTEL AND SUITES',
+      'duffel:Lagos Continental',
+    ]);
+  });
+
+  it('keeps the first listing when the second is not cheaper', () => {
+    const merged = mergeDuplicateHotels(
+      [listing('duffel', 'Eko Hotel', 28_000), listing('hotelbeds', 'Eko Hotel', 28_000)],
+      cost,
+    );
+    expect(merged.map((hotel) => hotel.supplier)).toEqual(['duffel']);
+  });
+
+  it('never merges listings from one supplier, far apart, or with different names', () => {
+    const hotels = [
+      listing('duffel', 'Eko Hotel', 30_000),
+      listing('duffel', 'Eko Hotel', 20_000),
+      listing('hotelbeds', 'Eko Hotel', 10_000, { latitude: 6.45, longitude: 3.42 }),
+      listing('hotelbeds', 'Eko Lodge', 10_000),
+    ];
+    expect(mergeDuplicateHotels(hotels, cost)).toHaveLength(4);
+  });
+
+  it('keeps a priced listing over one it cannot price', () => {
+    const merged = mergeDuplicateHotels(
+      [listing('duffel', 'Eko Hotel', 30_000), listing('hotelbeds', 'Eko Hotel', 20_000)],
+      (hotel) => (hotel.supplier === 'duffel' ? null : cost(hotel)),
+    );
+    expect(merged.map((hotel) => hotel.supplier)).toEqual(['hotelbeds']);
+  });
+});

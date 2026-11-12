@@ -14,6 +14,7 @@ and travel add-ons, with flexible payment. It ships as:
 - `apps/admin`: Next.js admin console (RBAC, MFA mandatory)
 - `apps/api`: **one** NestJS API shared by all three clients (PostgreSQL + Redis)
 - `apps/worker`: BullMQ workers (fare refresh, deals, ticketing reconciliation, notifications, installments)
+- `apps/agent`: the assistant's agents (LangGraph.js); reaches the platform only through the API's tool gateway
 
 Primary market: Nigeria, then wider Africa, then global. Default currency `NGN`, default locale `en-NG`.
 
@@ -32,59 +33,226 @@ Primary market: Nigeria, then wider Africa, then global. Default currency `NGN`,
 
 ## Phase status
 
-| Phase | Name                                             | Status                |
-| ----- | ------------------------------------------------ | --------------------- |
-| 0     | Foundation and repo bootstrap                    | Done, awaiting review |
-| 1     | Design tokens and component libraries            | Not started           |
-| 2     | Backend core                                     | Not started           |
-| 3     | Search, catalog and supplier adapters            | Not started           |
-| 4     | Web homepage                                     | Not started           |
-| 5     | Flight and hotel booking flow (web)              | Not started           |
-| 6     | Payments, flexible payment and refunds           | Not started           |
-| 7     | Mobile app                                       | Not started           |
-| 8     | Packages, tours, visa and add-ons                | Not started           |
-| 9     | Accounts, Suskii Prime, referrals, notifications | Not started           |
-| 10    | Admin console                                    | Not started           |
-| 11    | Hardening                                        | Not started           |
-| 12    | Deployment and release                           | Not started           |
-| 13    | Optional: AI trip search                         | Not started           |
+| Phase | Name                                             | Status                                  |
+| ----- | ------------------------------------------------ | --------------------------------------- |
+| 0     | Foundation and repo bootstrap                    | Done                                    |
+| 1     | Design tokens and component libraries            | Done                                    |
+| 2     | Backend core                                     | Done                                    |
+| 3     | Search, catalog and supplier adapters            | Done                                    |
+| 4     | Web homepage                                     | Done                                    |
+| 5     | Flight and hotel booking flow (web)              | Done                                    |
+| 6     | Payments, flexible payment and refunds           | Done                                    |
+| 7     | Mobile app                                       | Done                                    |
+| 8     | Packages, tours, visa and add-ons                | Done                                    |
+| 9     | Accounts, Suskii Prime, referrals, notifications | Done                                    |
+| 10    | Admin console                                    | Done                                    |
+| 11    | Hardening                                        | Done                                    |
+| 12    | Deployment and release                           | Built; acceptance needs owner accounts  |
+| 13    | Optional: AI trip search                         | Built; model eval needs the owner's key |
+
+Cars (buses, rides and car rental; task `suskii-cars-v1`, outside the numbered phases): P0 to P11
+done (merged). Plan, decisions and status: `docs/phases/cars.md`; audit: `docs/audits/e2e-audit.md`.
+
+Feature parity (outside the numbered phases; the owner's feature lists for flights, hotels and
+car rental): audit in `docs/audits/feature-parity.md`, six parts in
+`docs/phases/feature-parity.md`. Part 1, flights (flexible-date prices, nearby airports, meal
+requests, group requests, other flights after an airline change; ADR-093), is built; Duffel meal
+requests wait for the owner's sandbox check. Part 2, seat selection at checkout (ADR-094), is
+built; Duffel seats wait for one sandbox run (`DUFFEL_SEAT_SELECTION`). Part 3, live flight
+status and delay alerts (ADR-095), is built and waits for the owner's flight-data provider
+(`FLIGHT_STATUS_PROVIDER`). Part 4, hotel photos, property types, room details and the app's
+hotel filters (ADR-096), is built; supplier photo hosts go in `IMAGE_REMOTE_HOSTS`. Part 5,
+hotel collections, deals, a pin map of the results, things to do and recent searches (ADR-097),
+is built; a street map waits for the owner's tile provider. Part 6, car rental rates by the
+week and month, airport branches, driver age, extras, one-way returns and cross-border cover
+(ADR-098), is built; the fleet's real rates and terms come from the owner. The audit reads 74 of
+89 lines built, 14 partly and 1 missing.
+
+Trip builder (outside the numbered phases; the owner's combined travel packages, ADR-099): a
+traveller plans a trip (Lagos to London, the dates, who travels), chooses a flight, a hotel, a
+rental car, an airport transfer and travel insurance, or only the parts they want, sees a price
+per part with one total and pays once. Built on the API, the website and the app
+(`docs/phases/trip-builder.md`); a discount for a combined trip waits for the owner. The phone
+check (ADR-100) runs it in the published test APK and on the website against the online test
+server.
+
+Suskii Agent (outside the numbered phases; the owner's LangGraph.js agent system and the
+price-intelligence layer, ADR-101 to ADR-107): sub-phase A (baseline, findings, plan and
+decisions), B (foundations: the agent catalogue and permissions, the conversation, run and
+settings tables, sealed grants, the tool gateway, the pause switch and the spend caps) and C
+(the price-intelligence engine: sites that start closed and are approved with a basis, the
+Firecrawl, Apify, Browse AI, Oxylabs and Bright Data adapters with our own fetcher and the mock,
+failover, budgets, kill switches, parser drift, observations and the register) and D (the
+agent service `apps/agent`: a supervisor graph with ten customer specialists, a guard in code
+on every answer, checkpoints in a schema of their own; the chat routes; sixteen tools for the
+customer agents; routing, grounding and safety evals on recorded answers) and E (confirmations
+a traveller taps and five tools that need one; flight status, airline changes and price watch
+for the assistant; assisted quotes, from a request through a person's verified offer to a
+booking a person confirms; six staff agents in the console with eight tools; the approvals
+queue) and F (the console: the assistant's switches and one agent's switch, the staff chat,
+approvals, assisted quotes, data sources with their health, runs with their tool calls,
+travellers' conversations masked and audited, estimated cost with a forecast, quality, the
+limits in force and the knowledge base the assistant answers rules from) and G (the
+clients: the website's chat on `/assistant`, price requests on the website and in the app,
+the app's assistant, the assistant on WhatsApp inside the support thread, what the assistant
+remembers for a traveller who agreed, a score for a conversation and a funnel, a price
+request and a combined trip as PDFs, and the journeys tested with the assistant off) and H
+(hardening and delivery: notes shown whatever a model wrote, candidate prompts in the shadow of
+a turn, recorded eval runs, a recipe proposed by rule for a site in drift, the monthly cost
+figure, alert rules, the runbook, the agent service's image with its place in the compose
+rehearsal, Terraform, the Helm chart and the release pipeline, a chat scenario in the load
+test, the security review, the guides and a cost estimate) are done
+(`docs/phases/ai-agent.md`). The website and the app offer the assistant only while
+`GET /v1/agent/status` says it is available. Nothing is deployed and Terraform is not applied.
+The vendor adapters wait for one run of `scrapers-sandbox.yml` with the owner's keys, and the
+agents for one run of `agent-eval.yml` with `LLM_API_KEY`: no eval has run against a model.
+Nothing of it runs in production until the owner sets `AGENT_ENABLED` and
+`PRICE_INTEL_ENABLED` and approves each web source.
+
+Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
+hotel merging, affiliate partner offers with click and conversion tracking. Built; each partner
+needs the owner's account, then one run of `partner-sandbox.yml` (`docs/phases/partner-supply.md`). Own rides and the own fleet stay off
+in production (ADR-069).
+
+Standards plan (agreed with the owner on 2026-10-27, US and European standards for African
+markets): item 1, all-in prices with a tax table per country, is built (`docs/phases/all-in-pricing.md`);
+the rates wait for the owner's accountant. Item 2, a one-tap full refund when the airline cancels or
+significantly changes a flight, is built (`docs/phases/refund-offer.md`). Item 3, payment methods
+(mobile money, transfers, USSD, Apple Pay and Google Pay, cash at an agent, Stripe 3D Secure), is
+built (`docs/phases/payment-methods.md`); the channel names wait for one sandbox payment per method.
+Item 4, search results in under 3 seconds on slow 3G and a mid-range Android with a data saver, is
+built and tested in CI (`docs/phases/fast-on-slow-3g.md`, 2.1 s median). Item 5, French, Swahili,
+Arabic (right to left) and Portuguese on the website and in the app, is built
+(`docs/phases/languages.md`); the translations wait for a native speaker's review. Item 6,
+verified reviews of finished trips with moderation, is built (`docs/phases/verified-reviews.md`).
+Item 7, company accounts (members in roles, a travel policy, approval before payment and spend
+reports), is built (`docs/phases/company-accounts.md`); the company wallet (prepaid funds admins
+add and bookers spend) is built (`docs/phases/company-wallet.md`) and waits for counsel on stored
+value and the owner's limits; invoiced credit comes next. Item 8, growth, runs in four parts (`docs/phases/growth.md`): part 1, ads with consent
+(Meta and TikTok tags after marketing consent, server-side Purchase events), is built and waits
+for the owner's pixel ids and tokens; part 2, SEO pages from fare history (route facts, flight
+hubs, airline pages), is built; part 3, metasearch (partner keys, the live price API, sealed deep
+links, landings that re-quote, partner attribution), is built and waits for partner agreements;
+part 4, Suskii Prime priced per country, is built and waits for the owner's prices per market.
+Item 9, 24/7 support, runs in three parts (`docs/phases/support.md`): part 1, conversations tied to
+bookings with a console inbox, SLA timers and a Prime queue, is built and waits for people on
+shift; part 2, WhatsApp through the Cloud API, is built and waits for the owner's Meta app,
+number and approved template; part 3, an after-hours assistant that answers from the FAQs and the
+traveller's booking (ADR-085), is built and waits for the owner's staffed hours, `LLM_API_KEY`
+and one run of the assistant eval. Item 10, Expedia Rapid hotels (ADR-086), is built and waits for
+the owner's Expedia Partner Solutions account, one sandbox run and certification
+(`docs/phases/expedia-rapid.md`). Item 11, 99.9% uptime and a status page, is built
+(`docs/phases/uptime.md`): objectives with burn-rate alerts, uptime checks from three regions,
+`GET /v1/status` and incidents in the console, on the website and in the app; it waits for the
+owner's on-call channel. Item 12, an accessibility audit against WCAG 2.2 AA, is built
+and checked in CI (`docs/phases/accessibility.md`, `docs/accessibility/wcag-2.2-aa.md`); the
+manual screen reader pass waits for devices and testers. Item 13, compliance, runs in two parts
+(`docs/phases/compliance.md`): part 1, payment pages that run only our scripts (PCI DSS SAQ A),
+the privacy obligations per country and a breach runbook, is built and waits for the owner's
+registrations and filings; part 2, rights request and breach registers with deadlines, alerts and
+records of processing generated from code, is built and waits for the owner's privacy officer.
+
+Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
+content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
+submission wait for the owner's accounts (`docs/phases/phase-12.md`, Outcome).
+
+Phase 13 status: AI trip search is built behind `AI_SEARCH_ENABLED` (website, app, API, evals);
+the pipeline scores 50/50 with recorded model answers. The 95% criterion against the real model
+needs `LLM_API_KEY` and one run of `ai-eval.yml` (`docs/phases/phase-13.md`, Outcome). Started
+at the owner's request while phase 12's acceptance still waits for accounts.
 
 ## Repository layout
 
 ```
 apps/
-  api/        NestJS 12 API (CJS output, URI versioning /v1, Jest)
+  api/        NestJS 12 API (CJS output, URI versioning /v1, Jest), Prisma 7, openapi.json
   worker/     Node ESM worker process (Vitest)
-  web/        Next.js 16 App Router
-  admin/      Next.js 16 App Router (noindex)
-  mobile/     Expo SDK 57 + Expo Router
+  agent/      Node ESM agent service: LangGraph 1.7 graphs, model adapters, evals (Vitest)
+  web/        Next.js 16 App Router (nonce CSP, Playwright e2e + Lighthouse in e2e/)
+  admin/      Next.js 16 App Router staff console (noindex, RBAC + MFA, Playwright e2e in e2e/)
+  mobile/     Expo SDK 57 + Expo Router + NativeWind 4 (Jest)
 packages/
-  config/     Shared TSConfig presets, ESLint flat-config factories, Prettier, Vitest base
-  shared/     Domain constants, Zod schemas, types, money/date utils (dual ESM/CJS via tsup)
-  design-tokens/ ui-web/ ui-native/ api-client/ i18n/   README only until their phase
-infra/        Terraform + Helm (phase 12). Local infra lives in the root docker-compose.yml
-docs/         decisions/ (ADRs), phases/ (phase plans), runbooks and security docs later
+  config/         Shared TSConfig presets, ESLint flat-config factories, Prettier, Vitest base
+  shared/         Domain constants, money, time zones, traveller rules, Zod schemas (ESM/CJS)
+  design-tokens/  Single token source -> Tailwind v4 theme (web), v3 preset (NativeWind), CSS vars
+  ui-web/         Radix-based web components (TS source), Storybook 10, Vitest browser + axe tests
+  ui-native/      NativeWind components (TS source), bottom sheets, Jest + RNTL tests
+  api-client/     Generated OpenAPI types + openapi-fetch client + TanStack Query hooks (TS source)
+  i18n/           Typed message catalogs (en-NG/GB/US), translator, Intl formatters (TS source)
+infra/        terraform/ (GCP platform + Cloudflare edge, applied per environment), helm/suskii (optional),
+              observability/ (Grafana dashboards, Prometheus alert rules)
+load/         k6 load test (load/k6/api.js), run in CI against the e2e stack
+scripts/      Repo-level tools: security-checklist.mjs (ASVS/MASVS checklist generator)
+docs/         decisions/ (ADRs), phases/ (plans), security/ (threat model, checklist, inventories), runbooks/,
+              guides/ (adding an agent, a web-data vendor or a site), owner/ (launch checklist, cost
+              estimate), release/ (store listing, privacy forms), deployment/ (AWS mapping)
 ```
 
 ## Commands
 
 Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 
-| Command                         | What it does                                                      |
-| ------------------------------- | ----------------------------------------------------------------- |
-| `pnpm install`                  | Install all workspaces (pnpm 10.33, Node 24 LTS >= 24.9 enforced) |
-| `pnpm infra:up`                 | `docker compose up -d --wait` (Postgres 16, Redis 7, Mailpit)     |
-| `pnpm infra:down`               | Stop local infra (data kept in named volumes)                     |
-| `pnpm dev`                      | Run every app in watch mode through Turborepo                     |
-| `pnpm build`                    | Build every workspace (dependencies first)                        |
-| `pnpm lint`                     | ESLint (type-aware) in every workspace                            |
-| `pnpm typecheck`                | `tsc --noEmit` in every workspace                                 |
-| `pnpm test`                     | Unit tests (Vitest for packages and worker, Jest for API)         |
-| `pnpm test:e2e`                 | API e2e tests (Nest testing module + supertest)                   |
-| `pnpm format` / `format:check`  | Prettier write / check                                            |
-| `pnpm --filter @suskii/api dev` | Run a single workspace                                            |
+| Command                                            | What it does                                                                      |
+| -------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `pnpm install`                                     | Install all workspaces (pnpm 10.33, Node 24 LTS >= 24.9 enforced)                 |
+| `pnpm infra:up`                                    | `docker compose up -d --wait` (Postgres 16, Redis 7, Mailpit)                     |
+| `pnpm infra:down`                                  | Stop local infra (data kept in named volumes)                                     |
+| `pnpm dev`                                         | Run every app in watch mode through Turborepo                                     |
+| `pnpm build`                                       | Build every workspace (dependencies first)                                        |
+| `pnpm lint`                                        | ESLint (type-aware) in every workspace                                            |
+| `pnpm typecheck`                                   | `tsc --noEmit` in every workspace                                                 |
+| `pnpm test`                                        | Unit tests (Vitest; Vitest browser for ui-web; Jest for API/native)               |
+| `pnpm build:storybook`                             | Static Storybook for ui-web                                                       |
+| `pnpm --filter @suskii/ui-web dev`                 | Storybook dev server on port 6006                                                 |
+| `pnpm test:e2e`                                    | API, web and admin e2e suites, one after the other (Docker or URLs)               |
+| `pnpm --filter @suskii/web test:e2e`               | Web e2e + Lighthouse against built web, API and worker (see notes)                |
+| `pnpm --filter @suskii/admin test:e2e`             | Admin e2e: staff journeys, audit log, axe (built admin and API)                   |
+| `pnpm --filter @suskii/web lighthouse [url]`       | Lighthouse gate on a running site (median of `LIGHTHOUSE_RUNS`)                   |
+| `pnpm --filter @suskii/web check:classes`          | Fail if a Tailwind class used in web/ui-web generates no CSS                      |
+| `pnpm --filter @suskii/worker refresh:once`        | Refresh every deal route and destination once (API must run)                      |
+| `pnpm generate:api`                                | Rebuild `apps/api/openapi.json` and the api-client schema                         |
+| `pnpm --filter @suskii/api db:deploy` / `db:seed`  | Apply migrations / seed reference data (idempotent)                               |
+| `pnpm --filter @suskii/api db:migrate`             | Create a migration after editing `prisma/schema.prisma`                           |
+| `pnpm --filter @suskii/api db:seed:demo`           | Sample packages, tours, add-ons and visa data (refused in prod)                   |
+| `docker compose --profile av up -d clamav`         | ClamAV for real scans (`ANTIVIRUS_PROVIDER=clamav`, about 1 GB)                   |
+| `pnpm --filter @suskii/api keys:generate`          | Print fresh JWT keys, encryption key and HMAC secret                              |
+| `pnpm --filter @suskii/api data:build`             | Refresh `prisma/data` from OurAirports (review the diff)                          |
+| `pnpm --filter @suskii/api airlines:sync`          | Upsert airlines from Duffel (needs `DUFFEL_API_TOKEN`)                            |
+| `pnpm --filter @suskii/mobile android`             | Build and run the development build on an Android emulator                        |
+| `pnpm --filter @suskii/mobile scan:bundle dist`    | Secret scan of the mobile export (`--self-test` checks the scanner)               |
+| `pnpm --filter @suskii/web e2e:stack`              | Run the e2e stack (API, worker refresh, web) for Maestro flows                    |
+| Actions, Test server, Run workflow                 | Hosted test server for phones (`test-server.yml`, 5.5 h; also every 4 h, ADR-092) |
+| Actions, Phone check, Run workflow                 | Published test APK on an emulator and the website, against that server (ADR-100)  |
+| `node scripts/brand-assets.mjs`                    | Rebuild app and web icons, splash and header mark from `brand/` (ADR-068)         |
+| `pnpm format` / `format:check`                     | Prettier write / check                                                            |
+| `pnpm security:checklist` (`--check` in CI)        | Regenerate `docs/security/checklist.md` from the reviewed mapping                 |
+| `pnpm --filter @suskii/api test:cov`               | API unit tests with the 80% gates (also `@suskii/shared`)                         |
+| `pnpm --filter @suskii/ui-web test:visual`         | Screenshot tests (baselines from the `visual-baselines` workflow)                 |
+| `k6 run load/k6/api.js`                            | Load test a running stack (`API_URL`, `LOAD_SCALE`, `LOAD_DURATION`, `LOAD_CHAT`) |
+| `promtool check rules` / `test rules`              | Validate `infra/observability/alerts` (CI pins promtool)                          |
+| `pnpm --filter @suskii/api keys:reencrypt`         | Rewrite field encryption under the current key (dry run first)                    |
+| `pnpm --filter @suskii/api sessions:revoke`        | Incident sign-out (`--user`, `--staff` or `--all`, dry run first)                 |
+| `pnpm --filter @suskii/api eval:natural-search`    | AI trip search eval: 50 messages, fails below 95% (`--recorded`: no model)        |
+| `pnpm --filter @suskii/api eval:support-assistant` | Support assistant eval: 40 conversations, 90% and no unsafe answer (`--recorded`) |
+| `pnpm --filter @suskii/agent eval:agent-routing`   | Agent evals (also `-grounding`, `-safety`): `--recorded`, or the model with a key |
+| `pnpm --filter @suskii/api sandbox:duffel`         | Duffel flights, seats and Stays test-mode check (test token, `--book`)            |
+| `pnpm --filter @suskii/api test:sandbox`           | Our API's booking journey against Duffel test mode (manual workflow only)         |
+| `pnpm --filter @suskii/api privacy:records`        | Regenerate `docs/privacy/records-of-processing.md` (a unit test checks it)        |
+| `pnpm --filter @suskii/api sandbox:partners`       | Hotelbeds, Expedia, Viator and Travelpayouts check (owner keys, read-only)        |
+| `pnpm --filter @suskii/api sandbox:messaging`      | Exchange rates and one test text per provider (owner keys, `--to +234...`)        |
+| `pnpm --filter @suskii/api sandbox:scrapers`       | Web-data vendor keys, and one page of our own site each (`--own-page`)            |
+| `pnpm --filter @suskii/api price-intel:register`   | Print the scraping register of this environment (`--blank --write`: the page)     |
+| `pnpm --filter @suskii/api rides:demo`             | Sample drivers take local rides; type the rider's PIN (not in prod)               |
+| `pnpm --filter @suskii/api staff:bootstrap`        | First super admin of a new environment (`--email`, `--yes`; once)                 |
+| `pnpm release:rehearse`                            | Compose deploy with the agent service, broken release, rollback (`:local` images) |
+| `node scripts/helm-rehearsal.mjs`                  | Same on kind with the Helm chart (needs kind and Helm; runs in CI)                |
+| `pnpm smoke --api URL [--web URL] [--admin URL]`   | Post-deploy smoke tests (public routes only, safe on production)                  |
+| `pnpm check:migrations` / `pnpm test:scripts`      | Expand/contract guard on new migrations / node:test script suites                 |
+| `pnpm check:workflows`                             | Fail on a job condition GitHub cannot read (it would refuse the workflow file)    |
+| `docker compose --profile s3 up -d s3`             | S3-compatible store for `OBJECT_STORAGE=s3` locally (ADR-057)                     |
+| `pnpm --filter @suskii/api dev`                    | Run a single workspace                                                            |
 
-Local ports: web `3000`, admin `3001`, API `4000`, worker health `4100`, Expo Metro `8081`,
+Local ports: web `3000`, admin `3001`, API `4000`, worker health `4100`, agent `4200`, Expo Metro `8081`,
 Postgres `5432`, Redis `6379`, Mailpit SMTP `1025` and UI `8025`. Docker ports bind to `127.0.0.1` only.
 
 Tooling notes for agents:
@@ -96,6 +264,48 @@ Tooling notes for agents:
   single agent guide.
 - The API's Jest runs need `node --experimental-vm-modules` on Node >= 24.9 (NestJS 12 is ESM-only).
   Use the package scripts rather than calling `jest` directly.
+- ui-web tests need Chromium: `pnpm --filter @suskii/ui-web exec playwright install chromium`, or
+  set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to an existing binary.
+- React Native Testing Library 14 APIs are async: `await render(...)`, `await fireEvent.press(...)`.
+- Prisma 7: the client is generated into `apps/api/src/generated/prisma` (gitignored, `postinstall`)
+  and uses the `pg` driver adapter; `prisma.config.ts` loads the root `.env` for CLI commands.
+  Prisma blocks `migrate reset` from agents without the user's consent; create a fresh database or
+  use `prisma migrate diff` instead.
+- Mobile Jest mocks the native modules in `apps/mobile/jest.setup.js` (Expo Router, secure store,
+  MMKV, crypto, localization, file system, web browser, screen capture). Screen tests render
+  through `renderWithApp()` and fake the API with `mockApi({ 'GET /v1/...': () => json(...) })`
+  (`src/test/app.tsx`); typed fixtures live in `src/test/fixtures.ts`. Mock `../config` in a test
+  that needs `attestation: 'mock'`.
+- `expo prebuild` generates `apps/mobile/android` and `ios` (gitignored, continuous native
+  generation); it also rewrites the `android`/`ios` scripts, which already use `expo run:*`.
+- E2E tests reuse running services when `E2E_DATABASE_URL` / `E2E_REDIS_URL` are set (the database
+  is truncated, so never point them at data you care about).
+- Web e2e (`apps/web/e2e`) runs from build output: build web, API and worker first (turbo does this
+  for `test:e2e`). The global setup boots Postgres and Redis (Testcontainers, or
+  `WEB_E2E_DATABASE_URL` / `WEB_E2E_REDIS_URL`), migrates, seeds, starts the API on 4000 and web on
+  3000 (stop dev servers first) and runs one worker refresh. `E2E_BASE_URL` targets a running stack
+  instead. Lighthouse uses `CHROME_PATH` (Playwright's headless shell works best) or Playwright's
+  Chromium. The stack makes Lagos-Dubai fares change at the payment re-check
+  (`MOCK_REPRICE_RULES`) for the price-consent test, and runs `db:seed:demo` for the in-house
+  journeys (sample packages, tours, add-ons and visa products).
+- Admin e2e (`apps/admin/e2e`) also runs from build output (admin and API; stop servers on 3001
+  and 4000 first). Postgres comes from Testcontainers or as a new database on the server named by
+  `ADMIN_E2E_DATABASE_URL` (dropped afterwards); Redis from `ADMIN_E2E_REDIS_URL`. `provision.ts`
+  creates through the API a seeded super admin, one staff persona per test (`personas.ts`) and
+  paid tour and visa bookings; the API refuses a TOTP code twice, so never sign the same persona
+  in from two tests. The audit project runs after the journeys. The stack sets
+  `RATE_LIMIT_ENABLED=false` because every persona signs in from one IP within a minute.
+- `MOCK_FLIGHT_STATUS_RULES=LOS-KAN:delayed:45` (or `:cancelled`) makes the mock flight data
+  report a route late or cancelled; with `FLIGHT_STATUS_PROVIDER=mock`, book a flight that
+  leaves within `FLIGHT_STATUS_WINDOW_HOURS` to see the status card and get the alert.
+- `MOCK_SCHEDULE_CHANGE_RULES=LOS-ABV:90` makes the mock move the first flight of ticketed
+  orders on that route on their first schedule-change check (set `next_change_check_at` in the
+  past, or wait `SCHEDULE_CHANGE_CHECK_HOURS`). The change lives in memory: a restart forgets it.
+- `e2e:stack` uses the mock suppliers. `E2E_FLIGHT_SUPPLIERS` / `E2E_HOTEL_SUPPLIERS=duffel`
+  switch it to Duffel's test mode for phone or browser testing. That needs a `duffel_test_` token
+  in `DUFFEL_API_TOKEN`, from the shell or the root `.env`. The e2e suites never set them.
+- `next dev` would write its own `AGENTS.md`/`CLAUDE.md` into the app folder; `agentRules: false`
+  in both Next configs keeps this file the only agent guide.
 
 ## Conventions
 
@@ -120,6 +330,1284 @@ Tooling notes for agents:
 - Webhooks are the source of truth for payment status.
 - REST under `/v1` (Nest URI versioning); infra probes such as `/health` are version-neutral.
 
+### API conventions (apps/api)
+
+- Every route has a `@Contract()` (Zod params/query/body/responses, `operationId`, documented
+  errors). Responses are filtered through their schema, so return plain objects with ISO date
+  strings. Register reusable schemas with `named('Name', schema)`. Run `pnpm generate:api` after
+  any contract change and commit both generated files (an e2e test and CI check them).
+- Routes are authenticated by default. `@Public()` opts out; `@RequirePermissions(...)` and
+  `@AdminRoute(...)` (staff + MFA session + IP allowlist) authorise. Inject the caller with
+  `@CurrentAuth()`. Permissions come from `ROLE_PERMISSIONS` in `@suskii/shared`.
+- Always check resource ownership (answer 404 for other users' resources, never 403).
+- Throw `ProblemDetailsException(status, slug, title, detail?)` for client errors; auth helpers
+  live in `src/auth/errors.ts`. Never put values, tokens or PII in details.
+- Writes that create bookings, payments or refunds set `idempotent: true` in the contract.
+- Add stricter limits with `@RateLimit(...)` (policies in `rate-limit.decorator.ts`).
+- Record security-relevant actions with `AuditService.record()` (add the action to `AuditAction`),
+  inside the same transaction as the change when possible. Metadata: ids and reasons only.
+- Hash low-entropy or personal values with `HmacService` (per-purpose keys); encrypt stored secrets
+  with `FieldEncryption` using a record-bound context string. Contexts live in
+  `src/crypto/encryption-contexts.ts` and every encrypted column (or JSON key) in
+  `ENCRYPTED_FIELDS`, which `keys:reencrypt` walks to rotate keys; a test fails when a column named
+  `*Encrypted`/`*Ciphertext` is missing there (ADR-038).
+- Production refuses plaintext Postgres, Redis and worker-to-API hops unless the matching
+  `*_ALLOW_PLAINTEXT` flag declares a private, otherwise encrypted path (ADR-038). Social sign-in
+  needs a nonce from `POST /v1/auth/social/nonce`.
+- External providers sit behind abstract classes (`EmailProvider`, `SmsProvider`,
+  `BreachedPasswordChecker`, `FxProvider`, `FlightSupplier`, `HotelSupplier`, `PaymentProvider`) with mock adapters for
+  tests and local development. Production refuses mock adapters unless `ALLOW_MOCK_PROVIDERS=true`.
+
+### Money, pricing and search (apps/api, packages/shared)
+
+- Money is `Money = { minor: bigint, currency }` from `@suskii/shared` (`money()`, `add`,
+  `multiplyRatio`, `allocate`, `convert`, `formatMoney`). Every operation that can create a fraction
+  takes an explicit rounding mode. On the wire it is `{ amountMinor, currency }` (`moneySchema` /
+  `priceSchema` in `src/pricing/pricing.schemas.ts`); never send floats or decimal strings.
+- Prices come from `PricingService.pricer()` (markup, conversion, fees, promo). Markup and supplier
+  cost are internal and never leave the API. No pricing rule or promo is seeded.
+- Supplier adapters live in `src/suppliers/<vendor>` and map vendor payloads to the domain types in
+  `supplier.types.ts`; vendor types never leave the adapter. Enable them with `FLIGHT_SUPPLIERS` /
+  `HOTEL_SUPPLIERS` (comma-separated). Adapters throw the `SupplierError` subclasses and honour the
+  `AbortSignal`; the runner adds timeouts and circuit breakers.
+- Search state lives in Redis (`SearchStore`); result ids embed a fresh search id and expire after
+  30 minutes (`410` with the original request). Quotes persist an `Offer` row, which bookings use.
+- Flight quotes go through `FlightSupplier.quoteOffer()` (default: `reprice`). Duffel takes one
+  order per offer request, so its adapter searches again and quotes the same flights from a fresh
+  offer request; cached searches stay shared. Never book a Duffel offer straight from a search.
+- Flight extras are whole-trip bags per passenger (`FlightService`). Duffel lists services only
+  on a single offer, per passenger and segment: its adapter fetches them on quote and re-check,
+  bundles one weight across every segment, sells it only at one price for every seated
+  passenger (id `<offer>.bag<kg>`), and `book()` refuses a bag that is gone or repriced (ADR-063).
+- Hotel suppliers: `mock`, `duffel` (Stays), `hotelbeds` (ADR-071; signed APItude calls,
+  rate checks before payment, no idempotency key so ambiguous bookings go to review) and
+  `expedia` (ADR-086; Rapid, property ids by polygon, price checks before quote and booking,
+  Expedia Collect only). When more than one returns results, `mergeDuplicateHotels` keeps the
+  cheaper copy of a hotel (same normalised name within 250 m, different suppliers only).
+- A hotel supplier whose search returns only the cheapest price (Duffel Stays) sets
+  `ratesComplete: false` and implements `rates()`; the hotel page loads the full list once per
+  search (`SearchStore.completeItem`, rate ids `.f<n>`; search rates are `.r<n>`) and falls back to
+  the search rates when the supplier cannot answer. Only rates paid in full from the supplier
+  balance are sold (ADR-062).
+- Tax on Suskii's own service comes only from `tax_rules` (ADR-072): `PricingService` loads the
+  `TAX_SELLER_COUNTRY` rules with markups and fees, and the engine adds `serviceTaxes` lines inside
+  `total` (`margin`: markup plus fees less the discount; `full`: fare plus fees less the discount;
+  supplier taxes are never taxed again). Never compute tax in a client or hard-code a rate; receipts
+  print the booking's stored lines. A `full` rule reaching Cars is refused while `CARS_VAT_BPS` is set.
+- Times: store local wall time + IANA zone + UTC instant (`localToUtc`, `utcToLocal` in shared).
+- `X-Suskii-Client: web/<version>` or `mobile-<platform>/<version>` selects the sales channel.
+
+### Bookings and payments (apps/api, ADR-014, ADR-015)
+
+- Booking status changes only through `BookingTransitions.apply()` (state machine check, optimistic
+  guard on the current status, `booking_status_history` row and audit entry in the caller's
+  transaction). Never update `bookings.status` directly.
+- Load bookings with `BookingsService.load(id, caller)`: owners by session, guests by the
+  `X-Booking-Token` header (stored as an HMAC); everyone else gets 404.
+- Rows whose encrypted fields bind to their id get it from `uuidv7()` before the insert. Contexts:
+  `booking:{id}:contact`, `booking-passenger:{id}:passport`, `traveller:{id}:passport`. Responses
+  only ever show masked contact details and the last three passport characters.
+- Payment outcomes come only from verified webhooks (`PaymentEventsService`); the mock provider's
+  page completes through the same signed-webhook path. Money the booking cannot take is flagged
+  `requiresRefund`, audited and refunded automatically, never silently applied.
+- Supplier `book()` calls use the booking item id as idempotency key; `idempotentBooking` decides
+  whether an ambiguous failure (timeout) may be retried or goes to REFUND_PENDING for review.
+  Wrap the call that creates an order or a booking in `creating()` and throw
+  `SupplierAmbiguousError` for an unreadable or unconfirmed answer: a 5xx or lost connection
+  after sending may have booked, and only suppliers that dedupe on the key retry it.
+- Ticketed flights cancel online only through `FlightCancellationService` (ADR-064): a refund
+  quote held in Redis, the supplier's confirmation first, then the ledger fee and
+  `refundBookingBalance` in one transaction. The traveller's refund is `travellerRefund()`
+  (their share, rounded down, never above what they paid); never refund before the airline has
+  cancelled.
+- Airline schedule changes (ADR-065) come only through `ScheduleChangesService`: the sweep
+  reads due orders (`booking_items.next_change_check_at`, booked by ticketing), stores each
+  change in `flight_schedule_changes` and tells the traveller. Acceptance goes to the supplier
+  first. The booking's slices follow the airline's only once no change is open; never edit an
+  item's itinerary elsewhere.
+- A significant change (ADR-073: a cancelled flight, another airport, more connections, or a move
+  of `SIGNIFICANT_CHANGE_DOMESTIC_HOURS` / `_INTERNATIONAL_HOURS`) is marked when it is found and
+  carries `refundOffer`: everything the traveller paid, taken only through
+  `ScheduleChangesService.refund()`. The supplier cancels first, and only when its refund covers
+  what we paid it; a short one withdraws the offer to support. Never fund an airline's refund.
+- Binary responses (PDFs) use `fileResponse()` in the contract and return a `StreamableFile`.
+  Stored idempotent responses are encrypted (they can contain guest tokens).
+
+### Payments, ledger, plans and refunds (apps/api, ADR-016 to ADR-019)
+
+- Providers implement `PaymentProvider` in `src/payments/<vendor>`: hosted checkout only, webhook
+  signature over the raw body, `verify()` against the provider before an outcome counts (Paystack,
+  Flutterwave), refunds with an idempotency key where the provider supports one. `PaymentProviders`
+  routes by currency in `PAYMENT_PROVIDERS` order. Vendor payloads never leave the adapter; parse
+  provider amounts with `parseMoney`, never floats.
+- Checkout offers methods, not providers (ADR-074): each adapter declares `methodsFor(currency)`
+  and maps a method to its own channel name, kept inside the adapter, and
+  `PaymentProviders.choose(currency, provider, method)` routes. `apple_google_pay` is Apple Pay or
+  Google Pay; `wallet` is the Suskii wallet balance (`useWallet`). Clients send the chosen method
+  only when they list more than one.
+- Every money movement is a `LedgerService.post()` in the caller's transaction with a business
+  idempotency key (`payment:{id}:captured`, ...). Never write ledger tables or balances directly;
+  the database rejects unbalanced, negative-customer or updated entries. What a booking has paid is
+  its ledger balance (`BookingFundsService.paid`), not a sum of payments.
+- Reconciliation and other non-webhook confirmations go through the webhook pipeline with a
+  synthetic event id (`reconcile:{reference}:{status}`), so dedupe and postings stay in one place.
+- Plans: `PaymentPlansService` creates holds and installment plans (flights with supplier holds,
+  no paid extras) and closes them (cancel, default, expiry) under the plan's policy. Amounts,
+  deposit, fees and grace come from config; never hard-code them.
+- Captured card payments are scored by `PaymentRiskService` in the capture transaction; at or
+  above `PAYMENT_RISK_REVIEW_SCORE` the booking stays PAID with an open `PaymentRiskReview` and
+  nothing fulfils it until finance approves (reject refunds in full). Never fulfil a PAID booking
+  around this check (ADR-040).
+- Refunds: `RefundsService.createAutomatic()` for non-discretionary cases (approved at once);
+  staff refunds go through the admin API with maker-checker (the requester cannot approve).
+  A refund never exceeds its source balance. An ambiguous call to a provider without idempotency
+  keys goes to `needs_review`, never a blind retry. `finalizeBooking` moves REFUND_PENDING to
+  REFUNDED when nothing is left and no refund is open.
+- Emailed booking links carry a guest token in the URL fragment (`#access=`), stored as an HMAC
+  (`BookingAccessLinks`); the web page moves it to session storage and strips it from the URL.
+- Ledger reconciliation (`LedgerReconciliationService`, hourly) compares each captured payment,
+  settled refund and finished driver payout with its postings (and the provider) and raises
+  `reconciliation_discrepancies` for `finance:reconcile`; it never corrects anything. Driver
+  earnings leave only through `DriverPayoutsService` (`payout_sent`/`settled`/`failed`, one
+  pending payout per driver and currency); never post to `driver-earnings` elsewhere except
+  ride settlement (ADR-051).
+
+### Web (apps/web)
+
+- Pages render per request (nonce CSP, ADR-010); cache API reads through `lib/api.ts`
+  (`revalidate` + tags). Never read `localStorage` during render; restore it in an effect.
+- An answer one booking can change for the next visitor (which rental cars are free on the dates
+  asked, a bus trip's seat map) is read with `revalidate: 0`. A cached list keeps offering what
+  was just taken, also to the first visitor after the cache has expired.
+- Node and browsers ship different CLDR data, so `Intl` text in a server-rendered client component
+  can differ at hydration. Render it in an element with `suppressHydrationWarning` (as
+  `FieldButton` and `NativeSelect` do) and switch browser-only values (the visitor's time zone)
+  after `useHydrated()`. `e2e/hydration.spec.ts` alters the browser's `Intl`: add new pages there.
+- Copy comes from `@suskii/i18n`: server components use `getI18n()`; client components get a
+  message subset through `I18nProvider` or labels as props. E2E tests use the catalog too.
+- Languages (ADR-076): `en-NG`, `en-GB`, `en-US`, `fr`, `sw`, `ar`, `pt`. A new string goes in
+  every catalog (the type check fails otherwise; `catalogs.test.ts` checks placeholders, plural
+  forms and English left behind). The language is the footer cookie, else `Accept-Language`
+  (`negotiateLocale`), else `en-NG`; URLs stay the same. Format through `format`/`t` (Latin
+  digits via `intlLocale`), never `Intl` with the bare locale. The date picker names months and
+  days with Intl outside English; pass its `today` and `selected` label templates from the catalog.
+- Arabic pages are right to left (`<html dir>` from `localeDirection`). Use logical utilities
+  only (`ms-`/`me-`, `ps-`/`pe-`, `inset-s-`/`inset-e-`, `border-s-`, `rounded-s-`, `text-start`);
+  the website's lint rule and ui-web's guard test refuse `ml-`, `left-`, `text-right` and the like.
+  Mirror arrows with `rtl:-scale-x-100`; keyboard handlers read the computed `direction`.
+- Only the spacing scale exists (0-6, 8, 10, 12, 16, 20) plus named sizes (`max-w-page`,
+  `max-w-dialog`, `max-w-popover`, `max-h-menu`). Unknown classes produce no CSS silently: run
+  `check:classes` after a build.
+- Keep the homepage JavaScript small (ADR-013): client code imports `@suskii/shared/lite`, loads
+  schemas with `loadShared()`, opens popovers and dialogs through `useDeferredOverlay`, and puts
+  heavy or rarely used code behind `lazy()`/`next/dynamic`. The e2e budget test fails above 170 kB (ADR-043).
+- Use `AppLink` for string hrefs (typed routes). Card art comes from `/art`; real photos go through
+  `next/image` with hosts from `IMAGE_REMOTE_HOSTS`.
+- New pages need metadata (`pageMetadata`), a canonical path and, for inner pages, breadcrumbs;
+  add them to the sitemap when indexable.
+- Forms the API protects with Turnstile (sign-up, guest checkout, newsletter) render the widget
+  on first focus (`useTurnstile`); without a site key they send a development token the API's mock
+  accepts. The app sends a device attestation instead.
+- Client components call the API with `browserApi()` (typed openapi-fetch, `lib/browser-api.ts`);
+  documented headers such as `Idempotency-Key` go in `params.header`. Guest booking tokens live in
+  session storage through `lib/booking-token.ts`.
+- Result filters and sort live in the URL (`useUrlParams`). Fetched state is keyed by its inputs
+  instead of being reset inside effects (the React Compiler lint rejects `setState` in effects).
+- Search is one round trip (ADR-075): the search forms start the POST (`lib/search-handoff.ts`)
+  and the results page shows the first page it answers with, asking for another page only when
+  the sort, filters or page change. Pass the page size (`limit`, 10 under the data saver, else 20) everywhere a search is started or paged. The `slow-3g` e2e project fails above 3 s from
+  pressing Search to the first fare; keep heavy work on the results page behind `AfterPaint`.
+- Data saver (`getDataSaver()`: the `__Host-suskii_data_saver` cookie, else `Save-Data: on`)
+  means 10 results per page and city art instead of photos; new image-heavy sections honour it.
+- Checkout, payment and booking pages are private: `noIndex` metadata and robots.txt disallow.
+- Never import a message catalog (`getMessages`) into a client component: the whole catalog then
+  ships with every page using it. Pass a subset through `I18nProvider` (the root layout gives the
+  error boundary only `pages.error`).
+- Client widgets inside server pages get their message subset from a plain module
+  (`*-messages.ts`): a server component cannot call a function exported from a client module.
+  Country names come from `format.country` (Intl `DisplayNames`).
+- Signed-in calls use the API's cookies. `browserApi()` refreshes an expiring session first and
+  sends `X-CSRF-Token` on unsafe methods (`lib/session.ts`); refresh only through
+  `ensureFreshSession()` (Web Lock, single flight), never with a direct call. Account pages are
+  client components under `AccountShell`, `noIndex`, and disallowed in robots.txt.
+- Payment plans on the web show the schedule, fee, total and missed-payment policy before the
+  traveller commits, and never with paid extras. Money on screen comes from API `Money` values
+  (`format.money`); never compute totals or fees client-side except to preview the documented
+  policy (`defaultRefund` floor rounding).
+
+### Mobile (apps/mobile, ADR-020 to ADR-024)
+
+- Screens live in `src/screens`; files under `app/` only re-export them (typed routes). Copy comes
+  from `useT()` (the full catalog, bundled with the app); there are no hard-coded strings.
+- Home's lists follow the chosen tab (`HomeSection` in `components/home-sections.tsx`): flight
+  deals under Flights only, hotel destinations under Hotels, cars to rent under Cars, the first
+  packages and tours under theirs. A tab with nothing to list stays empty; never fill it with
+  another product's content, and fetch a tab's list only while that tab is shown.
+- Talk to the API through `useApp().api` (bearer token from memory, one refresh-and-retry on a
+  401, `X-Suskii-Client: mobile-<os>/<version>`); never call `fetch` directly. Reads (GET, HEAD)
+  give up after `READ_TIMEOUT_MS` (20 s) as a `NetworkError`, so screens fall back to saved
+  copies; writes and uploads have no timeout (their Idempotency-Key covers a retry). The refresh is
+  single flight (`SessionStore`) because the API revokes a session on refresh-token reuse.
+- Secrets (tokens, guest booking tokens, cache key, App Attest key id) go in `secureStorage`
+  (Keychain / Keystore, this device only). Personal data kept offline goes in `secureCache()`
+  (AES-256 MMKV); `preferences` holds settings only. Never use AsyncStorage for either.
+- `appConfig` (`src/config.ts`) is the only reader of `EXPO_PUBLIC_*`. Those values are inlined
+  in the bundle and public; a secret there fails the bundle scan. The `e2e` variant (test APK)
+  may override the API and website origins from Account, Test server (ADR-054); no other variant
+  reads that setting.
+- openapi-fetch middleware must not return the response it was given: Expo's fetch answers with
+  its own class, which fails openapi-fetch's `instanceof Response` check (return nothing).
+- Incoming URLs go through `resolveIncomingUrl()` (allowlist); add a path there and in the app
+  link paths in `app.config.ts`, with a test. Guest access tokens never reach the router.
+- Payments: `startPayment()` then `openHostedCheckout()` (system browser session, never a
+  WebView); the trip screen polls, webhooks decide. Guest checkout and payment attach
+  `attestationHeader()`. The API client feeds `X-Suskii-Attestation-Result` back to
+  `noteAttestationResult()`; the iOS key counts as attested only after `valid` (ADR-023).
+- Maestro flows live in `e2e/maestro` and run in order from `e2e/run-android.sh` (critical path,
+  bus, offline trip, an in-house tour with the route restored, a message to support, a combined
+  trip paid once, then Google sign-up and sign-in again); add new journeys there. `device.sh`
+  holds the device set-up and `run_flow`; check a new flow with `maestro check-syntax`.
+- The phone check (ADR-100, `e2e/run-hosted.sh`, `phone-check.yml`) runs the test APK against the
+  online test server with nothing routed to the runner. A flow it runs must work on a server that
+  keeps its data for hours: take anything unique (an account's address) from `-e`, never a fixed
+  value. `mobile-test-apk.yml` publishes only after it passes; never publish the APK another way.
+- Wrap checkout, payment and document screens in `useSensitiveScreen()`.
+- Flight checkout offers the quote's first extra (a checked bag) per traveller with a seat, as the
+  website does; bags send `extras` and switch reserving and installments off (ADR-063).
+- Hermes implements only part of `Intl`. `src/polyfills.ts`, loaded first from `index.ts`, adds
+  `PluralRules`, `RelativeTimeFormat`, `ListFormat`, `DisplayNames` and `Locale`; `@suskii/i18n` joins date
+  ranges itself where `formatRange` is missing. Shared code that starts using another `Intl` API
+  needs a polyfill there and a case in `polyfills.test.ts` (Jest runs on Node's full `Intl`).
+  A new language needs its polyfill data there too (ADR-076).
+- The app's language comes from the device (`negotiateLocale` over `getLocales()`), and React
+  Native mirrors the layout in Arabic (`supportsRTL`), so NativeWind's left and right styles
+  flip by themselves; mirror direction-bearing icons explicitly.
+- Push permission is requested only after a booking or from Account (`followBooking`,
+  `followAccount`), never on launch.
+- Results screens show the page the search answers with (`initialData` while the filters are
+  the defaults) and send `limit` (10 when `useApp().dataSaver` is on, else 20) on every search
+  and page (ADR-075).
+- Test builds find the hosted test server at launch (`discoverHostedServer`, ADR-066); read the
+  API and website origins through `appConfig` getters (they can change at runtime) and
+  `webHost()`, never cache them at module load. A server chosen under Test server wins.
+- Sheets are React Native modals (`Sheet` in ui-native); give pickers a `testID` (the field,
+  `{testID}-sheet`, `{testID}-done`, days `{testID}-day-YYYY-MM-DD`, steppers
+  `{testID}-{type}-add`).
+- Sign-in (ADR-067): registration signs straight in through `useAuth().register()`;
+  `SocialButtons` offers Google and Apple at the top of Sign in and Register (the mock on test
+  stacks, the system Apple sheet on iPhone, otherwise the website relay with a bound nonce). Only
+  the API's answer hides them; unknown shows both and a press asks again. Sign in always shows
+  the fingerprint button (a hint until it is set up); fingerprint sign-in keeps its device
+  credential only in `biometrics` (secure store behind the biometric prompt). Signing out keeps
+  it; `forgetAccount()` (deletion) clears it.
+- Give interactive elements used by Maestro a stable `testID` (fields: the form path, such as
+  `passengers.0.surname`; choices: `{testID}-{value}`; suggestions: `{testID}-option-{key}`).
+- Account screens wrap their content in `RequireAccount` and live under `app/account/*`.
+  Deleting the account or signing out goes through `useAuth().forgetAccount()` / `signOut()`,
+  which clear tokens and run `forgetAccountData()` (account trips, booking copies and documents
+  that are not guest trips, scanning keys, cached queries). `AppProvider` runs the same when the
+  API refuses the refresh token (`SessionStore.onRevoked`); keep new account data in that one
+  function. Files with personal data (the data
+  export) are written to the cache, handed to the share sheet and deleted when it closes.
+- Visa uploads come from the system document picker (`lib/visa-upload.ts`), which deletes its
+  cache copy once read; the raw bytes are the request body. Voucher QR codes are drawn on the
+  device from the offline booking copy (`uqr`), never fetched as images.
+
+### In-house products (apps/api, ADR-025 to ADR-028)
+
+- Packages, tours, visa assistance and add-ons are `ItemPayload` kinds (`package`, `tour`,
+  `visa`, `addon`) on the one booking pipeline: quotes are `Offer` rows with supplier `suskii`,
+  priced by `priceItem`; the pre-payment re-check reads the catalog (`InhouseCatalog.reprice`).
+  Never build a parallel booking flow.
+- Seats change only through `reserveSeats` (conditional update in the booking-create
+  transaction, 409 `sold-out`) and `settleSeats`, which `BookingTransitions.apply()` calls.
+- Vouchers and visa applications are created by `InhouseFulfilment` in the confirming
+  transaction. Voucher codes are stored as an HMAC (`booking-voucher`) plus ciphertext; the QR
+  payload is `SUSKII-V1:` and the code, never personal data.
+- Confirmed in-house bookings are cancelled through `BookingCancellationService` under the
+  product's tiers (fee to the ledger, refund of the tier's share, or `withdraw` when nothing is
+  refunded). Visa assistance is not self-cancellable.
+- Visa documents: only `VisaDocumentsService` reads or writes them (per-document key wrapped with
+  `visa-document:{id}`, name with `visa-document:{id}:name`); content is served only through
+  `ownerLink`/`officerLink` signed URLs and the content route. Uploads are raw request bodies
+  read with a size limit after the ownership check. Scanning goes through `AntivirusScanner`
+  (production refuses the mock unless `ALLOW_MOCK_PROVIDERS=true`).
+- Add-on links (`addon-links`) are short-lived HMAC tokens; add-on details are encrypted per
+  booking item (`booking-item:{itemId}:addon-details`).
+- Real inventory, prices and visa rules come only from the admin routes. Demo data comes only
+  from `db:seed:demo` and is flagged `sample` (clients show a badge).
+
+### Accounts, Prime, referrals and notifications (apps/api, ADR-029 to ADR-032)
+
+- Every Prisma model has an entry in `DATA_REGISTRY` (`src/privacy/data-registry.ts`): its
+  export section, deletion treatment (`delete`, `redact`, `retain`, `none`) and retention
+  (`account`, `reference`, a `RetentionService` rule, its own job, its parent, or `append-only`;
+  ADR-039). A table that grows with use needs a purge rule. A new model
+  fails compilation and `data-registry.spec.ts` until it has one; add new personal data to the
+  export (`DataExportService`) and to `AccountDeletionService` in the same change.
+- Sensitive account actions (export, deletion) take a proof checked by `ReauthService`
+  (password, texted code or a sign-in in the last 10 minutes, plus MFA). Deletion answers 409
+  with `blockers` while anything is unsettled and keeps financial records without contact data.
+- Members are tier `prime` only while a paid-up term runs (`currentPrime()`). The access token's
+  `prm` claim is for searches; quotes, bookings and the payment re-check re-read the database
+  (`withCurrentTier()`). Benefits apply in `priceOffer()` and never price below supplier cost.
+- Plan prices may name a country (ADR-082): resolve them only with `resolvePlanPrice()` from
+  `@suskii/shared`, with the edge's country (`requestContext().country` / `client.country`),
+  never a client-supplied value; the membership payload keeps `priceCountry` for the re-check.
+  The website passes its own edge country (`edgeCountry()`) for displayed prices only.
+- A Prime purchase is the in-house item `membership` on the booking pipeline (owner required,
+  one `guests` entry, no PDF, no self-cancellation); `InhouseFulfilment` starts the term.
+- Send user messages through `NotificationService.notify(userId, content)` with a category and
+  per-channel renderings (`src/messaging/messages.ts`); it applies the preference matrix and
+  logs each attempt. Booking and payment email are mandatory; marketing needs recorded consent.
+  Push data carries only an in-app path the app allowlists (`resolveNotificationPath`).
+- Fingerprint sign-in (ADR-067) issues device credentials only through `DeviceCredentialsService`
+  (fresh session, HMAC stored, five per account); `SessionService.revokeAllForUser` and incident
+  revocation end them with the sessions. Mock Google and Apple tokens (`SOCIAL_MOCK_ENABLED`) are
+  for test stacks only and production refuses them; a bound nonce needs its `bindingSecret`.
+- Referral rewards come from `REFERRAL_*` settings (zero by default) and are paid only through
+  `LedgerService` (`referral_reward`); a fraud flag sends the referral to review, never to a
+  silent rejection or payout.
+
+### Admin API and console (apps/api, apps/admin, ADR-033 to ADR-036)
+
+- Every `/v1/admin` route has `@AdminRoute(permission)` and every admin mutation declares the
+  audit actions it records (`audit: [...]` in its contract). The OpenAPI build fails otherwise;
+  the route matrix (`admin-matrix.e2e-spec.ts`) checks a new route automatically, and
+  `admin-audit.e2e-spec.ts` fails until a new mutation has a case there.
+- Cookie-authenticated admin calls must come from an `ADMIN_ORIGINS` origin (every method);
+  bearer tokens are not origin-checked but still need staff, MFA and the permission.
+- The riskiest admin mutations (roles, disable, MFA reset, refund approval, trust-signal verify,
+  markups, fees, tax rules, Prime plans, driver approval and reinstatement, company suspension, metasearch partner keys, releasing the assistant's pause, its autonomy levels and one agent's switch, approving a site for price intelligence, switching it back on and its budgets) also carry `@StepUp()`: an authenticator check within
+  `STEP_UP_WINDOW_MINUTES` (sign-in or `POST /v1/me/mfa/step-up`), else 403 `step-up-required`.
+  The console's API client prompts and repeats the write itself (ADR-037).
+- Staff sessions are short (`STAFF_SESSION_*`) and every account has a device cap; end sessions
+  only through `SessionService` or `revokeSessionsWhere` (Redis denylist included), and in an
+  incident with `pnpm --filter @suskii/api sessions:revoke`.
+- Admin edits validate the merged record with the public schema (`checkMerged`), record
+  `fieldChanges()` in the audit metadata (names only for free text), and deactivate or
+  unpublish rather than delete where history matters. Editing a verified trust signal clears its
+  verification; only `trust-signals:verify` (super admin) verifies, with an https evidence URL.
+- Console pages live in `components/pages/<area>.tsx`; files under `app/(console)/` only render
+  them. A new section needs a `NAV_ITEMS` entry whose permissions match its API routes: the shell
+  mounts a page only for staff whose roles open its section, and staff without the dashboard land
+  on their first section.
+- Data goes through `$api` (openapi-react-query) or `adminApi`; query keys start with
+  `['get', path]`, so invalidate by path. Cursor lists use `useCursorPages`; errors become
+  `ApiProblem` (`problemOf`, `problemMessage`; add new problem slugs to `admin.problems`).
+- Forms take decimals and percentages: convert with `minorFromInput` / `bpsFromPercent` (and
+  back), map API issues with `fieldIssues`, and never send floats. Destructive actions use
+  `ConfirmAction`. Copy comes from `@suskii/i18n/admin` (`t`, `label` for enum values).
+- Admin e2e tests sign each persona in once (`signIn` uses the next TOTP step) and look up alerts
+  with `alertWith` (Next's route announcer is an empty alert) and toasts with `expectToast`.
+- The assistant's pages (`/ai`, `/assistant`, `/approvals`, `/assisted-quotes`, `/data-sources`,
+  `/ai-activity`, `/ai-insights`, `/knowledge`) show for `ai:read`; each action is shown only
+  to staff who hold its permission and is checked again by the API. A page that reads a
+  list which changes after a write invalidates by path prefix (`useRefresh` with a predicate),
+  so a dialog and a preview never show what was true before the change. The audit page takes
+  `?area=assistant` (the API's `area` filter); small model and vendor amounts go through
+  `usdFineFromMicro`.
+
+### Cars (apps/api ground, buses, rides, drivers, rentals, planning; ADR-049 to ADR-053)
+
+- Every Cars product and feature sits behind `CarsFlags.enabled()` (`CARS_*_ENABLED`; unset is on
+  outside production, off in production). Routes take `@CarsFeatureRoute('...')` and answer 404
+  while off; clients read `GET /v1/cars/features` and hide what is off. In the app, unknown (API
+  unreachable) is not off: Home and the Cars hub still list buses, rides and rentals beside
+  `ServerUnreachable` (retry; Test server in the test build), never an endless spinner.
+- Buses: seats are held only through `BusHoldsService` (Redis Lua, all or nothing, 10 minutes,
+  `BUS_MAX_ACTIVE_HOLDS`) and sold through the booking pipeline. Boarding passes are signed by
+  `TicketSigner` (`SUSKII-T1.<kid>.<claims>.<signature>`, ids and the boarding window only) and
+  re-signed on every read; the payload is never stored. Scans go through `BusTicketsService`
+  (`scan`, `sync` for offline scanners); the first scan wins and later ones are audited.
+- Rides: status changes only through `RideTransitions.apply()`; one acceptance wins (conditional
+  update plus a unique live ride per driver). Driver positions enter only through
+  `RideDriverService.location()` (service area, speed between fixes, late fixes never rewind);
+  riders and share links see `roundPoint()` positions. SOS, PIN lockout and route deviation go
+  through `SafetyService.raise()`.
+- Drivers: NIN and licence numbers are encrypted (`driver:{id}:nin`, `:licence`) with HMACs for
+  uniqueness; documents only through `DriverDocumentsService`; earnings leave only through
+  `DriverPayoutsService`.
+- Rentals: availability is the database exclusion constraint (with `RENTAL_TURNAROUND_HOURS`),
+  never an application check; handover records are immutable and photos are sealed per file.
+- Rental prices (ADR-098): the car's days come only from `rentalVehicleCost()` (thirty-day
+  blocks, seven-day blocks, single days; a part never costs more than the next longer block) and
+  extras from `rentalExtrasCharge()`, both in `@suskii/shared`. A car's options (extras,
+  cross-border terms, return branches) are JSON on the vehicle, read only through
+  `rentalOptions()` and priced by `rentalOptionCharges()` for the quote and again in
+  `InhouseCatalog.reprice`: never sell an option at a stored price or after the car stopped
+  offering it. Fees join `rentalBase()`; the deposit is never part of it.
+- The driver's age is the renter's word (optional on the wire, null for a chauffeured rental);
+  the licence review before check-out stays the real check. It is personal data: in the export
+  and cleared by `redactCarsBooking`. Fields added to a rental payload are optional, because
+  stored quotes and bookings predate them; readers default each one.
+- Fare breakdown lines come from `carsPriceBreakdown()` (allocated from the priced fare, so they
+  add up and show no margin); `priceBreakdown` is an additive field. The departure planner and
+  trip suggestions (`TripPlanningService`) load bookings through `BookingsService.load()`, use
+  the `RIDE_SCHEDULE_*` window and only ever prefill searches.
+- Demo drivers (`rides:demo`, `E2E_DEMO_DRIVERS=true` on `e2e:stack`, ADR-056) act only on
+  `sample` drivers through `RideDriverService` and never read the PIN (the tester types it);
+  keep them out of `src` so they never ship, and keep the production refusal.
+- Maps, KYC and payouts sit behind `MapsProvider` (mock, OSRM), `KycProvider` and
+  `PayoutProvider` with mock adapters; production refuses mock routing and KYC while rides are on.
+- The app: Cars screens follow the mobile rules above. Offline boarding (`lib/offline-scan.ts`)
+  keeps ticket keys, the scan queue and boarded tickets in `secureCache()`. Each queued scan
+  names its agent and uploads only under that agent; sign-out uploads the queue, clears the keys
+  and boarded tickets, and keeps unsent scans for their agent for 48 hours
+  (`OFFLINE_SCAN_MAX_AGE_MS`). The camera is used only on the operator scan screen.
+- Personal data in Cars is mapped in `docs/privacy/cars-data-map.md`; metrics in
+  `telemetry/metrics.ts` and `operations-metrics.ts`; runbooks for safety incidents, stuck rides,
+  the driver document backlog and an offline scanner are in `docs/runbooks/`.
+- The website has no Server Actions; preferences post to `app/preferences/[name]/route.ts`
+  (route handlers keep the CSRF and origin checks in one place). Semver 6 is overridden to 7
+  (`semver@<7`) so Babel's graph never needs `semver@6.3.1`, which the trust policy refuses.
+
+### Partner offers and affiliate tracking (apps/api/src/partners, ADR-069, ADR-070)
+
+- Merchant supply (we sell at our price) goes through the supplier interfaces; affiliate supply
+  (the partner sells, we earn commission) goes through `src/partners`. Never take payment for an
+  affiliate product: the traveller books on the partner's site.
+- Programmes live in `partner-programs.ts` (category, network, brand, allowed hosts, landing
+  page); adding a partner is one entry. Offers never carry raw partner URLs: links are
+  `PartnerLinks.href()` (AES-GCM, context `partner-link`, expiry `PARTNER_LINK_TTL_HOURS`), and
+  `/v1/go/{token}` only redirects to the programme's hosts (or Travelpayouts' tracking hosts).
+- Clicks are recorded only by `PartnerClicksService.follow()` (ids only: no IP, browser or URL);
+  the click id is the network's `sub_id`. An expired link still redirects, without the viewer.
+- Network calls go through `AffiliateLinker` (mock, Travelpayouts) and `ActivityPartner` (mock,
+  Viator); vendor payloads stay in the adapter, failures fall back (untracked link, offers
+  without activities and `partial: true`), never an error page.
+- Conversions are recorded only by `PartnerConversionsService` from postbacks with the network's
+  secret (constant-time compare); states move forward only, amounts are minor units. They are
+  commission records counted per partner, never joined to people for advertising (store forms,
+  ADR-070).
+- `PARTNER_OFFERS_ENABLED` is off in production unless set; production then refuses the mock
+  network and mock activities.
+- Clients show offers through `PartnerOffers` (web `components/partners`, app
+  `src/components/partners`): links open the API's `/v1/go/{token}` (web: new tab with
+  `rel="noopener sponsored"`; app: `openBrowserAsync` with `appConfig.apiBaseUrl`), the card always
+  shows `partners.disclosure`, and nothing renders while offers are off or empty. Fetch them in the
+  browser or the app, never on the server, so the link seals the signed-in traveller.
+
+### Flight extras (apps/api/src/search, catalog, support; ADR-093)
+
+- Flexible dates: `FlightSearchService.datePrices()` runs one ordinary cached search per day
+  (`FLEXIBLE_DATES_DAYS` each side, one-way and return only). Clients call
+  `POST /v1/flights/date-prices` only when the URL has `flex=1` (the form's box or the results'
+  button); never price other days on a plain search, and never store or estimate a day's price.
+- The strip sits above the fares and keeps its space while it loads (`FlexibleDatesLoading`);
+  nearby airports (`GET /v1/catalog/airports/{iataCode}/nearby`) sit under the list. Nothing may
+  move the fares once they are painted (ADR-075).
+- Meal requests: a passenger's `meal` is accepted only when the offer has `mealRequests: true`
+  (the supplier's word), never for a lap infant, and the child's meal only for a child
+  (`passengerSchema`, `BookingsService.preparePassengers`). A new supplier sets `mealRequests`
+  only once its adapter passes the request on. The value is sensitive: no logs, audit metadata,
+  analytics or ad events; deletion and retention clear it with the passenger's details.
+- Group requests are support conversations with `topic = 'group_booking'`
+  (`GroupRequestsService`); a new kind of request is a new `SUPPORT_TOPICS` value on the nullable
+  `topic` column, not a category enum value (expand/contract). The assistant is never consulted
+  on a conversation with a topic.
+- "See other flights" beside a refund offer is only the booked search
+  (`flightRequestToParams()` in `@suskii/shared`); refunding and rebooking stay separate steps.
+
+### Flight seats (apps/api/src/bookings/flight-seats.service.ts, ADR-094)
+
+- Seat maps come only from `FlightSupplier.seatMaps()` through `FlightSeatsService`; a supplier
+  that does not implement it sells no seats. `GET /v1/quotes/{quoteId}/seat-maps` is a supplier
+  call: clients make it only when the traveller presses "Choose seats". Nothing holds a seat.
+- A chosen seat is an entry in `booking_items.services` with `type: 'seat'` (`isSeat()`,
+  `seatServiceId()`), never in the offer's `services` list (clients read that as the bag). Code
+  that walks `itemServices()` must handle both kinds; `flight` is the segment's index across
+  all slices and `passengerIndex` the booking position.
+- Choices are validated by `seatChoiceIssue()` (`@suskii/shared`) and against a fresh map at
+  booking (`422 seats-invalid` with `reason`); the payment re-check reads the map again
+  (`FlightSeatsService.recheck`) and `book()` gets the seats with the price paid. Never book a
+  different seat in place of one that has gone.
+- Seats are charged at the airline's price with no markup, as `price.seats` lines inside the
+  total, and rule out holds and installments like paid bags. Changing a seat after booking is
+  not built.
+- The Duffel adapter sells seats only with `DUFFEL_SEAT_SELECTION` (off until the sandbox check
+  with `--book` has passed once). The mock's `sellsSeats` and `takenSeats` are test hooks.
+- Clients: the website's picker is a lazy chunk (`components/checkout/seat-picker.tsx`); the
+  app's sits under the traveller cards (nothing may move above the nationality field: Maestro).
+  The map stays left to right in every language.
+
+### Live flight status (apps/api/src/flight-status, bookings/flight-status.service.ts, ADR-095)
+
+- Flight data comes only through `FlightStatusProvider` (`FLIGHT_STATUS`, null while
+  `FLIGHT_STATUS_PROVIDER=none`). A query holds the airline, the flight number, the airports,
+  the day and the scheduled times: never send a provider a traveller, a booking or a contact
+  detail (the e2e test asserts the keys). A real adapter keeps the vendor's payloads to itself,
+  joins the enum, gets a boot check, a row in the outbound hosts and, if it receives personal
+  data after all, a recipient in the records of processing.
+- A flight is followed only through `FlightStatusService`: ticketing books the first reading
+  (`next_status_check_at`), `checkDue()` (the worker's sweep) and `forBooking()` (a traveller's
+  read, cached `FLIGHT_STATUS_CACHE_SECONDS`) both go through `refresh()`, which stores the
+  reading and decides the alert under a lock on the booking item. Never write `flight_statuses`
+  or send a status alert elsewhere.
+- What the traveller is told comes from `flightAlert()` in `@suskii/shared` (thresholds from
+  `FLIGHT_DELAY_ALERT_*`): once per cancellation or diversion, once per delay and per move of
+  it, never after departure. Emails name the flight and times; pushes say only that something
+  changed (ADR-022).
+- A day-of cancellation is information only. Refund offers still come from the airline's
+  change on the order (`ScheduleChangesService`, ADR-073).
+- Clients show the card only for flights with `checkedAt` and poll once a minute while one has
+  not finished; nothing renders before a flight is followed. The e2e stack follows flights
+  within 72 hours and delays Lagos to Kano by 45 minutes (`MOCK_FLIGHT_STATUS_RULES`).
+
+### Hotel content (apps/api/src/search, suppliers; ADR-096)
+
+- A property's type, description, photos and room details come only from its supplier
+  (`SupplierHotel.propertyType`/`description`/`photos`, `SupplierHotelRate.room`), every part
+  optional. An adapter maps what its calls already return and never invents content; only the
+  demo supplier makes its own, from a random sequence of its own so names and prices never move.
+- Text reaches clients through `plainDescription()` (`@suskii/shared`) and is rendered as text;
+  photo URLs through `presentPhotos()` (https with a host and no credentials, or our own
+  `/art/hotels` drawings). Never pass a supplier's HTML or an unchecked URL to a client.
+- The website shows a supplier's photograph only from a host in `IMAGE_REMOTE_HOSTS` and through
+  `next/image` (`shownPhotos()` in `components/results/hotel-photos.tsx`, hosts from
+  `lib/image-hosts.ts`); our drawings load from this origin by path. The app loads photographs
+  over https and drawings from `appConfig.webBaseUrl` (`photoSource()`). Both leave photos out
+  under the data saver. Card pictures are decorative; gallery pictures are named.
+- The `types` filter matches only hotels whose supplier gave a type; the `propertyTypes` facet
+  counts only those. Both clients show the filter only when the facet has more than one type.
+- The app's hotel filters live in a sheet and are applied on the API; the list keeps its place
+  while a filter loads (`keepPreviousData`).
+
+### Hotel discovery (packages/shared hotel-collections, apps/api/src/search; ADR-097)
+
+- Collections (`deals`, `family`, `luxury`, `honeymoon`, `long_stay`) and the deal percentage come
+  only from `hotelCollections()` and `dealPercent()` in `@suskii/shared`, applied by
+  `withCollections()` to a priced search before filters and paging. They are fixed rules over
+  supplier data and the search's own prices: no model ranks or labels a hotel, and a client
+  never computes either. A changed rule changes its `results.collections.help.*` text in every
+  catalog (the rule is shown to the traveller).
+- A deal compares a hotel with the median of its star class in the same search (at least
+  `DEAL_MIN_CLASS_SIZE` hotels, guest score `DEAL_MIN_SCORE` or more, `DEAL_MIN_PERCENT` below).
+  Never show a "was" price or call a hotel a deal on a supplier's word.
+- The map view draws pins from coordinates and loads no tiles and no map library: nothing goes
+  to a map provider. Streets and directions are a link to a maps app (OpenStreetMap on the
+  website, `openMaps()` in the app). A tile map needs a provider in the CSP, the outbound hosts
+  and the records of processing first (ADR-097). The list stays the complete alternative; the
+  website's map is a lazy chunk and `view=map` lives in the URL.
+- "Continue your search" keeps the last hotel searches on the device only
+  (`lib/recent-hotel-searches.ts` on both clients: checked again when read, dropped after
+  check-in, cleared with the account's data in the app). Never send them to the API.
+- "Things to do" on a hotel page is `PartnerOffers` with the hotel's country and city (ADR-069);
+  "Tonight in {city}" on the website's hotels page takes its instant from the browser's clock, so
+  it renders there and sits under the destinations, where it moves nothing (ADR-075).
+- "Today" or "tonight" somewhere is the place's own date: `todayIn(timeZone)` in `@suskii/shared`
+  (UTC for a place without a zone), the rule the hotel search checks a check-in with. Never date
+  a link or a default by the visitor's or the device's calendar: late in a Lagos evening it is
+  already tomorrow in Dubai, and the search refuses that date as in the past. A test of such a
+  date pins the clock (`page.clock.setFixedTime`): a suite that only runs by day never meets it.
+
+### Combined trips (apps/api/src/trips, packages/shared trips; ADR-099)
+
+- A trip is a group of the account's own ordinary bookings, one per part (`flight`, `hotel`,
+  `car`, `transfer`, `insurance`; `tripComponentOf()` in `@suskii/shared`), with a plan of
+  places, dates and head counts. Never build a second booking flow for a trip: each part is
+  searched, booked, re-checked, fulfilled, cancelled and refunded as an ordinary booking.
+- Parts change only through `TripsService` (`addPart`, `removePart`, `remove`): the booking is
+  loaded with `BookingsService.load()` and must be the caller's by session, unpaid, in the trip's
+  currency, wanted by the plan, not a company booking, without a payment plan and in no other
+  trip. Every `/v1/trips` route acts on the caller's own trips (404 otherwise). Never set
+  `bookings.trip_id` elsewhere.
+- One payment: `TripCheckoutService.startPayment()` confirms each part's price with its supplier,
+  then creates one `trip_payments` row and one `payments` share per booking
+  (`trip_payment_id`). Never take a trip's money any other way, and never offer a plan, a wallet
+  or a company payment for a trip. A change to a trip's parts closes the checkout it has open
+  (`TripsService.closeOpenCheckout`), so the traveller only ever pays what the trip shows.
+- The webhook for a trip payment (`PaymentEventsService.processTripPayment`) settles each share
+  through `applyReceived` under its booking's lock; a share that cannot be applied, or every
+  share when the amount is wrong, is flagged and refunded, never applied in part. A booking's
+  ledger postings and balance stay its own. Refunds of a share go to the trip payment's provider
+  reference (`providerRef()` in `RefundsService`).
+- Code that counts payments per person or address counts a trip payment once, not its shares
+  (`PaymentRiskService.assess`: the velocity signals of ADR-040). A share is still reviewed and
+  held on its own.
+- Code that lists pending payments for a booking must leave trip shares to the trip
+  (`tripPaymentId: null` in reconciliation; `abandonOpenPayments` does not close them at the
+  provider). Reconciliation covers trip payments on their own (`reconcileTripPayments`,
+  `checkTripPayments`, discrepancy subject `trip_payment`).
+- The total is the sum of the parts' own all-in prices. A discount for a combination is a
+  pricing rule the owner decides, never something a client or the trip computes.
+- A trip with a payment, started or made, is never deleted. A plan holds no names, contacts or
+  documents; keep it that way (the export, retention and the store forms say so).
+- Clients: the plan form and the trip page (website `/trips`, `/trips/{id}`; app
+  `/trips/plan`, `/trips/built/{id}`). Each part opens the ordinary search from
+  `tripSearchQuery()`. While a part is being chosen the client remembers the trip and the part
+  (`lib/trip-builder.ts`: session storage on the website, memory in the app); checkout adds the
+  booking with `addTripPart` only when the quote is that part (`quoteTripComponent()`), says so
+  first and offers to book on its own. The website's trip page is a payment page
+  (`isPaymentPage()`), private and not indexed; the app's trip screen is wrapped in
+  `useSensitiveScreen()`.
+- The booking answer's `trip` field is additive; fields added to a trip answer stay optional for
+  older app builds.
+
+### Suskii Agent (apps/api/src/agent, packages/shared agent; ADR-101 to ADR-107)
+
+- The agents run in a separate service and reach the platform only through the tool gateway
+  (`POST /v1/internal/agent-tools/{tool}`, the agent service's own `AGENT_TOOLS_TOKEN`). Never
+  give the agent service a database connection to `public`, another route or the worker's token.
+- A run acts for the caller in its sealed grant (`AgentGrants`, context `agent-grant`): user,
+  roles, channel, audience and scopes from `agentScopesFor()`. Never take a user id, an owner, a
+  role or a scope from a model, a tool argument or the agent service.
+- A tool is an `AgentTool` registered in `src/agent/tools` by a provider of `AgentModule`: a
+  name `area.action`, a tier (`read`, `propose`, `commit`), a scope, the agents that may call
+  it, a Zod `input` and a Zod `output`. It calls the ordinary services as the grant's caller
+  (`BookingsService.load()` and the like) and returns facts under keys: only fields the output
+  schema names reach a model, so never put a name, a contact detail, a document, a ticket
+  number, a confirmation code or a payment detail in one. Throw `AgentToolError('not_found')`
+  for another person's record, as the API answers 404.
+- What an agent never does is never a tool (`isForbiddenAgentTool`: approving or sending a
+  refund, capturing, paying out, posting to the ledger, changing a price rule, confirming a
+  booking, deciding an approval). The registry refuses such a name and the API does not start.
+  A `commit` tool never runs from the gateway: it becomes a confirmation a person taps.
+- The agent module depends on the domain modules whose services its tools call, never the
+  other way round: nothing in search, booking or payment may import from `src/agent` or ask
+  whether the assistant is on.
+- The gateway decides in a fixed order (on, grant, paused, the run's call limit, tool, agent,
+  scope, tier and autonomy, arguments) and records every call in `agent_tool_calls` with
+  argument names only. Refusals are codes from `AGENT_TOOL_DENIALS`; never return or log why a
+  tool failed in words.
+- The pause switch is `AgentPause` (Redis key `agent:pause`, fails closed). Check it before a
+  run starts and before a tool runs; never cache it. Pausing needs `ai:manage` only; releasing
+  it and changing autonomy (`AgentSettingsService`) carry `@StepUp()`.
+- Spend goes through `AgentBudget` (the `agent` scope of `AiSearchBudget`): reserve before the
+  first model call of a run, settle to the billed cost.
+- Messages are sealed per message (`agent-message:{id}:body`); runs and tool calls hold ids,
+  counts and codes, never what was said. A new agent table joins `DATA_REGISTRY`, the export,
+  account deletion, retention and the records of processing in the same change, and
+  `resetState` in the e2e helpers.
+- Clients read `GET /v1/agent/status` and offer the assistant only while `available` is true;
+  an answer they cannot read hides it. Search, booking and payment never depend on it: the
+  website's off-mode suite (`E2E_AGENT=off`, a CI step) runs the assistant, search and
+  booking specs on a stack without it. A page that offers or needs the assistant gets a case
+  in `assistant.spec.ts`'s off-mode block.
+- The clients draw what the API stored (an answer the guard passed, cards a tool built, the
+  confirmation card) and compose nothing. The website's entry is the server-rendered link in
+  `site-header.tsx`, never a client button on every page (the homepage budget has no room);
+  `/assistant` and `/assistant/preferences` answer 404 while the assistant is off, and the
+  preferences page stays open while it is paused, so erasing is always possible. The app
+  keeps the open conversation's id and a guest's token in `assistantSession`
+  (`lib/assistant.ts`, secure store) and offers the assistant from Account.
+- Chat (`src/agent/chat`): `POST /v1/agent/chat` stores the message (sealed), starts the run in
+  the background and answers 202; events are read from the run's log in Redis as a stream
+  (`GET /v1/agent/runs/{id}/stream`) or by polling. One run per conversation
+  (`AgentChatService`); spend is reserved before the run and settled to the usage the models
+  reported at `AGENT_MODEL_PRICES`. The agent service gets a `scrubQuery()` copy of the words
+  and never the original. `AGENT_SERVICE=mock` answers inside the API (tests, a stack without
+  the service); in e2e tests script it with `MockAgentClient.use()`.
+- A tool's result is shaped for the guard (`src/agent/tools/tool-support.ts`): money as
+  `{ amountMinor, currency }`, lengths and times as text (`durationText`, `wallTime`,
+  `utcTime`) so a model never calculates, counts the model may say (`found`, `nights`), a
+  status under a key ending in `Status` with a value the outcome check knows (`statuses()` in
+  `account-tools.ts`), and `cards` built by `card()` with a path inside the site. Why nothing
+  came back is `problems`: codes from `problemCodes()` and `issueCodes()`, never a sentence.
+  Wrap a service call that can refuse in `guarded()`. Price for the caller with
+  `AgentToolCallers.client(grant)`; a supplier's names go through `supplierText()`; demo
+  inventory is marked `sample`.
+- After adding or changing a tool, refresh the agent's snapshot of the registry
+  (`UPDATE_AGENT_TOOLS_FIXTURE=1` on `agent-tools.e2e-spec.ts` writes
+  `apps/agent/evals/tools.json`) and re-run the agent's tests.
+- A handover is `support.handover`: an ordinary support conversation (ADR-083) under the topic
+  `assistant_handover`, whose first message is the traveller's own last messages, never a
+  model's words. A new topic is a `SUPPORT_TOPICS` value with a label in every catalog.
+- A handover names an aim, never a promise: the tool returns the support conversation's own
+  reply target as text (`teamAimsToReplyBy`) and `priorityQueue`, and the assistant gives no
+  other time. What staff are told goes only through `AgentHandoverNotes` (an internal note:
+  agents, tool names and outcome codes, never a traveller's or a model's words).
+- The assistant on WhatsApp (`src/agent/whatsapp`, ADR-084) answers only through
+  `AgentWhatsApp`, which registers with support's `WhatsAppAnswerers` (support never imports
+  the agent), runs a guest's message with `AgentChatService.answerWhatsApp` and writes only
+  through `SupportAssistant.write`. `AGENT_WHATSAPP_ENABLED` is off unless set, in every
+  environment. One handover per thread and nothing after it or after a person's reply; a run
+  that ends in a confirmation, a failure or a cap is the handover. `support.handover` opens
+  nothing on that channel. Never give such a run an account scope, never send STOP text to
+  a model, and keep the first answer's disclosure.
+- What the assistant remembers (`src/agent/memory`, ADR-105) changes only through
+  `AgentMemoryService` (`setEnabled`, `put`, `remove`); nothing is kept while
+  `assistant_memory_at` is null, and switching it off erases every row. A value passes
+  `agentMemoryValue()` (`@suskii/shared`): a code the catalog knows or one of a fixed set. A
+  new preference is a key in `AGENT_MEMORY_KEYS` with such a rule and a label in every
+  catalog: never free text, never a meal or anything that can show health or religion. The
+  assistant stores only through `memory.remember`'s card; both clients put a value into
+  words with `memoryValueText()`.
+- A conversation's score is set only through `AgentConversationsService.rate()` by its
+  owner; staff see counts, a mean in tenths and the funnel (`AgentInsightsService`, computed
+  at read time). A new search tool joins `SEARCH_TOOLS` there, or the funnel misses it.
+- Planning tools (`src/agent/tools/planning-tools.ts`): `fares.trend` always returns
+  `FARE_TREND_BASIS` (a trend over fares already found, never a forecast; the rule is
+  `fareTrend()` in `route-facts.ts`); `documents.passports` returns counts from
+  `passportValidity()` with `PASSPORT_REMINDER`, never a name, a number or a date of a
+  document; `company.policy` reads the caller's own membership.
+- A `commit` tool has a `prepare()` beside its `run()` (the registry refuses one without the
+  other). `prepare()` reads the records and returns the card (`kind`, `title`, `lines`,
+  `amounts` under the codes of `AGENT_CONFIRMATION_AMOUNTS`, `ref`) and `expected`: what must
+  still hold at the tap. `run()` gets `expected` back and does what the card showed or throws
+  `AgentToolError('refused')`; it calls the ordinary service with
+  `AgentToolCallers.booking(grant, request)`. A card holds trip facts and money, never a name
+  or a contact.
+- Confirmations change only through `AgentConfirmationsService` (`ask`, `decide`): one pending
+  per conversation, a new message expires it, the tap claims the row with a conditional update
+  and runs the tool with a grant built from the traveller's session. Never run a commit tool
+  any other way, never take "yes" in the chat for a tap, and never add a route an agent could
+  call to decide one. The assistant is resumed with the stored `result` only.
+- Staff agents (`STAFF_AGENTS`) answer only in the console, through `/v1/admin/ai`
+  (`AgentChatService.sendForStaff`): the agents on offer are `staffAgentsFor()` over the
+  scopes the person's own permissions open, and a conversation is its owner's alone
+  (`loadForStaff`; the travellers' routes never open one). A staff tool lives in
+  `src/agent/tools/staff-tools.ts`, names a staff scope, returns counts, amounts, ids and
+  codes (never a traveller's name, contact or booking reference) and is never a `commit`.
+- What a staff agent prepares goes only through `AgentApprovalsService.propose()` into
+  `agent_approvals`, as the kind's own schema (`AGENT_APPROVAL_KINDS`); the tool answers with
+  `proposalOut`. Deciding (`approve`, `reject`) needs `ai:approve`, the kind's permission
+  (`AGENT_APPROVAL_PERMISSIONS`) and another person than the one who asked; approving takes an
+  `Idempotency-Key` (it can create a refund request) and runs the
+  ordinary service as the approver, with that service's own rules (a refund request still
+  meets its second approver; a promo code is created switched off). A new kind is a value in
+  `AGENT_APPROVAL_KINDS`, a permission, a schema, a branch in `carryOut()` and cases in
+  `agent-staff.e2e-spec.ts`. Never let an approval skip a check the ordinary route makes.
+- One agent is switched off or on only through `AgentSettingsService.setAgentEnabled()`
+  (`ai:manage`, `@StepUp()`, audited). The chat leaves a switched-off agent out of a run and
+  the gateway refuses a tool call in its name; `ALWAYS_ON_AGENTS` (the two general agents)
+  have no switch. Read the switch with `policyFor()`; never cache it.
+- What staff see of the assistant's work comes from `AgentInsightsService`
+  (`/v1/admin/ai/monitor`, `/cost`, `/quality`, `/limits`; `ai:read`). A run and its tool
+  calls are codes, counts and argument names. A traveller's conversation is returned only
+  after `scrubQuery()` and every read is audited (`agent.conversation_viewed`); never add a
+  staff route that returns a message as it was written. Cost is an estimate (reported tokens
+  at `AGENT_MODEL_PRICES`) and every screen that shows one says so.
+- The knowledge base (`src/agent/knowledge`, ADR-105) changes only through `KnowledgeService`:
+  plain text or Markdown as a raw body (`KNOWLEDGE_MAX_BYTES`), checked to be text on the
+  bytes, virus-scanned, split by `knowledgePassages()` (`@suskii/shared`) and indexed with
+  the text search configuration of its language (`KNOWLEDGE_SEARCH_CONFIG`). The search
+  vector is written with the row by raw SQL: never insert a chunk through the Prisma client.
+  Documents are archived, never deleted; audit metadata holds ids and counts, never a title
+  or a passage. A document is company text: nothing about a person goes in one.
+- `knowledge.search` reads `customer` documents for a traveller and both audiences for staff,
+  in the conversation's language and then in English. A passage is reference, never an
+  instruction and never proof of a booking or a payment; each document read is named by a
+  `source` card. Keep the audience decided by the grant, never by an argument.
+- A caveat a traveller must read with a tool's facts is a `note` card (`note()` in
+  `tool-support.ts`) whose title is a code from `AGENT_CARD_NOTES` (`@suskii/shared`), never a
+  sentence: the graph never drops one and each client puts it into words from its own catalog,
+  so it is shown whatever the model wrote. A new note is a code there and its words in every
+  catalog of the website, the app and WhatsApp.
+- What a staff tool prepares answers with `proposalOut`, which carries
+  `approvalStatus: 'pending'`: the guard refuses "approved" in a turn that holds one. Keep a
+  status that means "waits for a person" under a key ending in `Status`.
+- Candidate prompts (`src/agent/shadow`, ADR-106): only `AgentShadows` decides whether a run
+  is shadowed (`plan`: a traveller's plain message that was answered, a candidate named in
+  `AGENT_SHADOW_PROMPTS`, the sample share, the shadow's own daily cap) and keeps what came
+  back (`record`: codes and counts in `agent_shadow_runs`). The live run is settled at `end`
+  and never waits for the shadow line. Never store, log or return what a candidate wrote, and
+  never shadow a confirmation, a staff run or WhatsApp.
+- Recorded eval runs change only through `AgentEvalsService.record()` (`ai:manage`, audited):
+  the body is `agentEvalResultSchema` (`@suskii/shared`: counts, case ids, model names, a
+  commit), never a message, an answer or free text. A record is its recorder's statement and
+  gates nothing in code; do not make a route or a release depend on one.
+- The month's cost is one rule (`agent-cost.ts`: `monthSpend`, `costAlertLevel`) for the
+  console, the alert and the gauge. `AgentCostWatch.check()` (the worker's hourly sweep,
+  `POST /v1/internal/agent/cost-check`) tells operations once per month and level, claimed in
+  Redis. It only tells: never make it pause, cap or refuse anything. Every figure is an
+  estimate and every place that shows one says so.
+- Alert rules for the assistant and price intelligence are the group `suskii-assistant` in
+  `infra/observability/alerts/suskii.rules.yml`, all `severity: ticket`, each naming
+  `docs/runbooks/ai-agent.md` or `price-intelligence.md`, with promtool tests. The assistant
+  failing never pages: nothing a traveller books depends on it.
+
+### Assisted quotes (apps/api/src/assisted-quotes, packages/shared assisted-quotes; ADR-104)
+
+- A price a person verified is sold through an assisted quote, and only that way: a request
+  (`requested`), staff's verified supplier price with where the proof is kept (`offered`: an
+  ordinary `Offer`, vertical and item kind `assisted`, supplier `suskii`), the ordinary
+  checkout and payment, then a person's confirmation. Quotes change only through
+  `AssistedQuotesService`; never create an `assisted` offer elsewhere.
+- A quote is its account's (404 for anyone else, also on the offer's quote and at booking),
+  needs a session, and holds a title in a few words, places, dates and head counts
+  (`assistedQuoteInputSchema` refuses text that looks like a contact detail). Five open per
+  account; a request lapses after `ASSISTED_QUOTE_REQUEST_HOURS`, an offer after
+  `ASSISTED_QUOTE_VALID_MINUTES`; both are checked on every read.
+- The price is the verified supplier price through `PricingService.pricer('assisted', ...)`
+  (fee rules of the vertical `assisted`, code `assisted_quote`; none seeded), never below it.
+  The price seen on the web is a reference on the quote for staff, never the offer's price.
+- A paid assisted booking stays in `TICKETING` until staff act: `TicketingService.confirmByHand`
+  (the supplier's reference, with proof) moves it to `CONFIRMED`; `abandon` moves it to
+  `REFUND_PENDING` and refunds everything. The ticketing sweep skips the vertical. Nothing is
+  charged after payment: a price that moved is `unbookable` and a new offer.
+- An assisted booking is the asker's own: never a company booking, no payment plan, no PDF, no
+  review. Fields of the `assisted` section in quote and booking answers stay optional for
+  older app builds.
+- `ASSISTED_QUOTES_ENABLED` (on outside production, off in production unless set;
+  `assistedQuotesEnabled()` in `assisted-quotes-flag.ts`) stops what starts something new: a
+  request, an offer, a payment for an offer (the re-check refuses it), and what a traveller
+  reads (404). It never closes staff's queue or the ways out (`close`, `booked`,
+  `unbookable`): a booking someone paid for must still be booked or refunded. Keep a new
+  route on the right side of that line. The list is `GET /v1/me/assisted-quotes` (a path
+  under `/v1/quotes` would be read as a quote id).
+- Travellers' screens: the website's `/quotes` and `/quotes/{id}` (private, not indexed) and
+  the app's `/account/quotes`; both refuse contact details with the shared rule before a
+  request is sent and book only through the ordinary checkout. The push path for an answered
+  request is `/account/quotes`.
+- A price request and a combined trip print as PDFs (`src/documents/plan-pdf.ts`; routes
+  `/v1/quotes/assisted/{id}/pdf`, `/v1/trips/{id}/pdf`): the caller's own (404 otherwise),
+  drawn from the records when asked for and never stored, with no name, contact or payment
+  detail, and each says what it is not (an offer or a plan is not a booking; an unpaid part
+  is not reserved; a price seen elsewhere was a reference). Running text goes through
+  `Writer.paragraph`. The website saves with `savePdf()`; the app shares with
+  `sharePlanPdf()` and deletes its cache copy when the sheet closes.
+
+### The agent service (apps/agent; ADR-101, ADR-103, ADR-106, ADR-107)
+
+- It holds no database connection to `public`, no API route but the tool gateway, and no copy:
+  what it says without a model is a notice code (`AGENT_NOTICES`) the clients put into words.
+- The graph (`src/graph/graph.ts`) is built per run, with the grant and the limits in a closure
+  (`RunDeps`). Never put the grant, or anything a checkpoint must not hold, in the state or in
+  a run's `configurable`: LangGraph copies those into checkpoint metadata.
+- An answer is shown only after the `check` node passed it: figures and contacts against the
+  turn's tool results and `turn.said` (the traveller's own words), outcomes against the
+  statuses the tools returned, no instructions read back, no tool named, no request for a
+  secret. The rules are in `@suskii/shared` (`agent-grounding.ts`). The model's drafts and the
+  guard's notes live in `turn.messages` and are never sources. One rewrite, then a notice.
+- Model vendors stay in `src/model/<vendor>-model.ts` behind `AgentModel`; the SDK retries
+  nothing and hosted tracing is refused at start-up. `MockAgentModel` replays scripted turns
+  (`scripted()`), and unscripted says one fixed sentence (asked about the "status" it calls
+  `platform.status` once).
+- A run is for travellers or for staff (`context.audience`), never both: staff runs keep only
+  staff agents, are routed by `STAFF_ROUTER_PROMPT` (never by the travellers' keyword rules in
+  `pre-router.ts`) and fall back to the executive assistant. Staff agents work under
+  `staffRules`; a new one needs a role, a route line and a prompt there.
+- A prompt is a versioned record (`src/prompts/prompts.ts`): change its text and its version
+  together. A change to a prompt, a tool or a model keeps the three evals passing on recorded
+  answers (`src/evals/*.test.ts`, fixtures in `evals/`) and is re-run against the model
+  (`agent-eval.yml`) before it answers travellers. A recorded answer that is wrong on purpose
+  stays wrong: the tests name them.
+- `apps/api/test/agent-service.e2e-spec.ts` starts this service from source (tsx) beside the
+  API and runs the whole chain; it needs no build of this workspace.
+- A candidate (`CANDIDATE_PROMPTS`) has the id of the prompt it would replace and a higher
+  version, and answers nobody. A shadow turn (`runs.ts`) starts from where the live turn
+  started, keeps its checkpoints in memory and has a gateway that only replays what the live
+  turn's tools returned: it cannot call a tool, start a confirmation or hold the thread, and
+  it reports one line after `end` with no words in it. Making a candidate live is moving its
+  text and version into the live prompt, after the evals (`docs/guides/adding-an-agent.md`).
+- The eval commands take `--json <file>`: the result as the console records it. A new figure
+  of a suite joins `AGENT_EVAL_FIGURES` in `@suskii/shared`, or the record is refused.
+- `GET /health` says the process is up and `GET /ready` that the checkpoint store answers;
+  both answer without a token and say nothing else. Every other route needs the run token and
+  answers 404 without it. The image (`apps/agent/Dockerfile`) runs as `node` on a read-only
+  file system; the platform's start-up probe is `/ready` and its liveness probe `/health`.
+- Delivery is built and not applied: `deploy_agent` in Terraform (internal ingress only, its
+  own identity, database URL and secrets; `agent_internal_url` goes into `AGENT_URL` by
+  hand), `agent.enabled` in the Helm chart (a network policy lets in the API alone), the agent
+  image in the deploy workflow wherever the service exists, and the compose release rehearsal,
+  which checks both doors from the inside (the run door and the tool gateway). A new setting
+  of this service goes in its own env schema, `.env.example`, `agent_env` in Terraform and the
+  chart's values; its secrets are its own, never the API's.
+
+### Price intelligence (apps/api/src/price-intel, packages/shared price-intel; ADR-102)
+
+- A price read from a website is an observation, never an offer: `indicative: true`, shown with
+  when and where it was seen, and sold only through an assisted quote (ADR-104). Search, booking
+  and payment never import `src/price-intel` or ask whether it is on.
+- A site is a `PriceSource` with one `SourcePolicy` and starts in `review`. Its status changes
+  only through `PriceSourcesService` (`approve`, `block`, `review`: a conditional update claims
+  the decision, audited); approval takes step-up and a basis `basisIssue()` accepts. Who may
+  read a site comes only from `readableVendors()`: the mock for a site in review, the policy's
+  chain once approved, nobody for a blocked or inactive one. Never decide that anywhere else.
+- A field whose change alters what the approver agreed to goes in `APPROVED_FIELDS` (it sends
+  an approved site back to review). A field with a default gets it in `priceSourceInputSchema`
+  only, never in the patch schema: Zod applies a default inside an optional field, and a change
+  must carry only what was sent (`price-sources.spec.ts`).
+- Reads go only through `PriceIntelService.read()` (fresh observations first, single flight,
+  the router, extraction, judging, storing) and vendors only through `ProviderRouter.read()`;
+  never call a `ScrapeProvider` directly. The router owns failover (`FAILURE_REACTIONS`: one
+  reaction per failure class), the proxy ladder (never above the policy's `maxProxyClass`, and
+  only classes priced in `PRICE_INTEL_COSTS`), budgets, breakers, the throttle and the hard
+  caps, and ends in `ScrapeExhausted`. Nothing loops.
+- An adapter (`providers/<vendor>-scrape-provider.ts`) maps one vendor: vendor types stay
+  inside it, it honours the `AbortSignal`, throws `ScrapeError` with a failure class, never
+  retries by itself and takes its key from the environment. What only that vendor needs for a
+  site (an actor and its input, a robot) lives in the site's `vendorSettings`, which refuses a
+  name that looks like a credential. A new vendor is an adapter, a value in `SCRAPE_VENDORS`,
+  prices in `DEFAULT_SCRAPE_COSTS`, its settings with a boot check, cases in
+  `providers.spec.ts`, a section in `sandbox:scrapers` and a row in the outbound hosts.
+- No code of ours solves a challenge, rotates identities or hides who is reading. Getting past
+  a block is a vendor's product, used only within the class the approver allowed; the `direct`
+  fetcher names itself and obeys the robots file.
+- An address Suskii fetches is built by `buildUrl()` from the site's stored template and
+  checked values and passes `assertFetchable()`; the `direct` fetcher connects only through
+  `pinnedLookup`. Never take an address or a host from a model, a tool argument or a request.
+- Fetched content is untrusted data: never run it, follow it, log it or put it in a model's
+  context. `extract()` yields only `PUBLIC_ITEM_FIELDS`, a price in minor units and an
+  availability, and drops text that `looksPersonal`. A new public field joins
+  `PUBLIC_ITEM_FIELDS`; nothing about a person ever does (the e2e reads a page holding a
+  reviewer's name and contact details and asserts none is stored).
+- An observation is judged by `judgeObservation()` (`@suskii/shared`) before it is stored;
+  `rejected` ones are kept for staff and shown to nobody; a stale one is always marked
+  `stale`. A page is kept (7 days) only when nothing could be read from it.
+- Redis holds what replicas must agree on (`pi:*`: kill switches, breakers, the throttle,
+  spend, single flight, drift). Switches and budgets fail closed. A question
+  (`scrape_jobs.query`) holds places, dates and head counts, never who asked.
+- No test or CI job calls a vendor: tests use `MockScrapeProvider` (`script()` queues
+  outcomes) and fixtures written from the vendors' SDKs. The owner checks real keys with
+  `sandbox:scrapers` (`scrapers-sandbox.yml`), which reads only a page of Suskii's own site.
+- A change to a site's rules, the vendors or what is stored updates the register's generator
+  (`scraping-register.ts`), the outbound hosts and `docs/runbooks/price-intelligence.md` in the
+  same change.
+- How reading has gone (`PriceIntelAdminService.health()`, `GET /v1/admin/data-sources/health`)
+  is computed from `scrape_attempts` at read time: add a figure there, never a table for it.
+- A recipe for a site in drift is proposed only by `proposeRecipe()` (`recipe-proposals.ts`),
+  a rule over the page that was kept: it counts with the extraction code (`pricedByType`),
+  names only types from `PRICED_SCHEMA_TYPES` (a page's own name for its data is never
+  proposed, shown or put before a model), fetches nothing and changes nothing. It reaches a
+  site only as a `source_recipe` proposal that another person with `datasources:manage`
+  approves (`RecipeProposalsService.draft()`, `AgentApprovalsService`), saved through
+  `PriceSourcesService.update()` and refused when the recipe changed meanwhile. Never let a
+  model read a fetched page to write a recipe, and never save a recipe without a person.
+
+### Verified reviews (apps/api/src/reviews, ADR-077)
+
+- Only a confirmed booking item whose trip has ended (the day after `tripFacts` `endDate`, within
+  `REVIEW_WINDOW_DAYS`) can be reviewed, once, through `ReviewsService` with the booking loaded by
+  `BookingsService.load()` (owner or guest token; 404 for anyone else). Kinds: hotel, package,
+  tour, bus (the operator) and rental (the car). Never add another way to create a review.
+- Reviews wait for a moderator (`reviews:moderate`); `ReviewModerationService` claims the
+  decision with a conditional update and changes the subject's `rating_sum`/`rating_count` in the
+  same transaction. Nobody edits a traveller's words; withdrawing deletes and takes the rating
+  off the totals. Only published reviews are shown or counted (JSON-LD included).
+- Subjects come from `findOrCreateSubject`: catalog products by kind and id, bus operators via
+  the trip, hotels by `hotelNameKey` within `SAME_HOTEL_METRES` under an advisory lock (search's
+  duplicate rule), so a hotel's score follows it across suppliers (`HotelReviewLookup`, one query
+  per results page; a failure never fails a search).
+- The shown name is "Ada O." (`reviewDisplayName`) or none; text is flagged by `reviewFlags`
+  (contact details, links) for the moderator. Audit metadata carries ids only, never the text.
+- Invitations: `ReviewInvitationsService` plans `review_invite_at` (08:00 UTC the morning after
+  the first reviewable item ends) and sends once (`review_invited_at` claim): account holders via
+  `NotificationService` (`review_requests`), guests via `BookingNotifications.reviewInvitation`
+  with an access link. The worker runs it every `REVIEW_INVITATION_SWEEP_MINUTES`.
+- Clients: the website's `ProductReviews` (server-rendered, JSON-LD only with published reviews
+  on indexed, non-sample pages) and `TripReviews` on the booking page; the app's
+  `ProductReviews` and `TripReviews` (trip screen, online only). Every review section shows
+  `reviews.verifiedNote` (how reviews are checked).
+
+### Company accounts (apps/api/src/companies, ADR-078)
+
+- Every `/v1/me/company` route resolves the caller's own membership first (`CompaniesService`);
+  there is no company id in the path, and member, invitation and booking ids are looked up inside
+  that company (404 otherwise). One company per person (unique `company_members.user_id`).
+- Roles: `admin` (details, policy, members), `approver` (approvals and reports), `booker` and
+  `traveller` (their own company trips). Use `canManageCompany` / `canApprove` /
+  `seesAllCompanyBookings` from `@suskii/shared`, never role string checks. Role changes lock the
+  company row; the last admin cannot leave, step down or delete their account (`company_admin`).
+- Invitations: a random token emailed as `/company/join#invite=…`, stored only as an HMAC
+  (`company-invitation`, with the address as `company-invitation-email`), single use, 7 days, and
+  accepted only by an account whose verified email is the invited one.
+- Booking for the company: `createBooking` with `company: true` calls
+  `CompanyPolicyEvaluator.forBooking()` (provided by `BookingsModule`, no module cycle) after
+  pricing; findings come from the quote and the priced total, never from the client. Payment and
+  payment plans refuse `approvalStatus = pending` (409 `approval-required`); the booking DTO's
+  `company` section and null `paymentOptions` tell clients to wait.
+- Decisions go through `CompanyTripsService` only: a conditional update claims the decision,
+  rejecting cancels through `BookingTransitions.apply('cancel')`, nobody decides their own trip,
+  and the booker is notified. Never set `approval_status` elsewhere.
+- Reports read committed bookings (partly paid, paid, ticketing, confirmed) per currency; amounts
+  stay minor units and are never converted across currencies. CSV cells go through `csvCell()`
+  (no leading formula characters) and carry no contact or passport details.
+- Console: `/v1/admin/companies` for `users:read`; suspend (`users:manage`, `@StepUp()`) and
+  reinstate are audited. A suspended company cannot book for itself (409 `company-suspended`).
+
+### Company wallet (apps/api/src/companies, ADR-090)
+
+- The balance is the ledger account `company-wallet:{companyId}:{CUR}` (never negative). Money
+  enters only by a captured top-up (`CompanyTopUps`, from the webhook pipeline or
+  reconciliation) or a refund of a trip it paid; it leaves only through
+  `CheckoutService.payFromCompanyWallet`. Never post to it anywhere else, and never credit a
+  top-up from a client's word.
+- Top-ups are `company_wallet_top_ups` rows found by provider reference after booking payments
+  in `PaymentEventsService`; they credit what the provider charged (a difference is audited).
+  Start them only through `CompanyWalletService.startTopUp` (admins of an active company,
+  `COMPANY_WALLET_TOPUP_LIMITS`, `COMPANY_WALLET_TOPUPS_PER_DAY`, `Idempotency-Key`).
+- Only the booker of a company trip that needs no more approval, while a member of the active
+  company and without a payment plan, pays from it. Payment options show `companyWallet.covers`
+  only; balances are for `seesCompanyWallet` roles (admins and approvers).
+- Refunds of wallet-paid trips go back to their wallet (`walletFor()` in `RefundsService`); a
+  new wallet destination joins `WALLET_DESTINATIONS` and `walletRefundKey()` so the ledger
+  reconciliation finds its postings.
+
+### Ads with consent (apps/web, apps/api/src/marketing, ADR-079)
+
+- The website's Meta and TikTok tags start only through `Marketing` (root layout): the server
+  reads the consent cookie (`getMarketingState()`: `ask`, `allowed` or `refused`) and the
+  prompt and `AdTags` are lazy chunks loaded only when needed; a later choice arrives as the
+  `suskii:consent` event with the choices in `detail`. Keep anything that imports consent
+  parsing or ad code out of modules every page loads: the homepage budget has almost no room.
+  Ids come from `META_PIXEL_ID` / `TIKTOK_PIXEL_ID` at request time (`adTagConfig()`); unset
+  means no tag, no prompt and no CSP hosts (`adTagOrigins`).
+- Pages report through `trackAd(event, params)` or `<TrackAd>` with trip facts only: the booking
+  vertical as content id, airport codes for a flight search, value and currency from an API
+  `Money` (`adValue`), the booking id as Purchase event id. Never a name, email, phone or
+  booking reference; never call the networks' globals directly.
+- `ConsentPrompt` shows while a tag is configured and no choice exists under the current policy;
+  "Accept all" and "Reject all" keep the same style. A new optional cookie or storage key goes
+  in `cookie-catalog.ts` and every catalog, with a `COOKIE_POLICY_VERSION` bump when visitors
+  should choose again.
+- Pages that start a payment (`isPaymentPage()`: `/checkout/*`, `/bookings/*`) never run the
+  tags and get a policy without `strict-dynamic` (ADR-089); a new payment page must match it.
+- Checkout sends `marketing` (`marketingAttribution()`: consent id and validated click ids) only
+  with marketing consent. The API keeps it only through `AdAttribution.keep()`, which re-reads
+  the recorded choice (`marketingAllowed`); the browser's word is never enough.
+- Purchase events leave only through `AdConversionsService` (worker sweep, internal route) and
+  `AdConversionsProvider` adapters (mock, Meta, TikTok): consent re-checked before each send,
+  SHA-256 of the normalised email and phone, tokens never in a URL, click ids cleared once
+  settled. Production refuses the mock. The app has no ad SDK: adding one changes the store
+  forms (`docs/release/data-safety.md`).
+
+### SEO pages from fare history (apps/api/src/deals, apps/web, ADR-080)
+
+- Fare history enters only through `RouteFactsService.record()` from the deal refresh (the same
+  day keeps the cheaper find, compared in `usd_minor`). Facts come from the pure rules in
+  `route-facts.ts` and are priced at read time through `DealsService.priceFor().fare()`; never
+  store or return a priced or supplier figure from `route_fares` directly.
+- Hub slugs come from `citySlug()` in `@suskii/shared` on both sides; hubs and airline pages
+  answer 404 without routes and are listed in the sitemap only when they have some.
+- Every figure on these pages says what it is (one adult, return, recent fares, today's rules);
+  sample (mock) fares stay badged. The web e2e stack sets `ROUTE_FACTS_MIN_DAYS=1`.
+
+### Metasearch partners (apps/api/src/metasearch, apps/web, apps/admin, ADR-081)
+
+- Partners call only `GET /v1/metasearch/flights` with `X-Api-Key`; `MetasearchService.authenticate()`
+  finds the key by HMAC (`metasearch-key`) and applies the partner's minute and day windows. The
+  route skips the per-address limits; never give partner keys any other route or a session.
+- Keys are created and replaced only through `MetasearchAdminService` (shown once, stored as an
+  HMAC, audited, step-up). Never store, log or return a key after that answer.
+- Partner prices come from `FlightSearchService.priced()` with the website's guest context, so they
+  match what a guest sees; that path writes no search log row. Never price partners another way
+  without a sealed sales channel (ADR-081).
+- Deep links are `MetasearchLinks` envelopes (context `metasearch-link`): partner, request,
+  `itineraryKey()`, shown total and issue time, no personal data. Landings re-find the itinerary
+  (`findItinerary()`), quote it with the supplier, record a `metasearch_landings` row and tie the
+  quote to it in one transaction; bookings copy `metasearch_landing_id` from the quote.
+- The website's `/flights/go/[token]` is private (noindex, disallowed in robots.txt) and goes to
+  checkout on `same` or `lower`. Its e2e answers the landing call in the browser; the API e2e
+  covers keys, limits, prices and attribution.
+
+### Support conversations (apps/api/src/support, ADR-083)
+
+- A conversation is the ticket and the chat: `support_conversations` plus `support_messages`
+  (customer, staff or system; staff messages may be internal notes). WhatsApp and the assistant
+  add channels and authors to these tables, never another flow.
+- Travellers reach theirs only through `SupportService` (`load`: the account's own, or a guest's
+  `X-Support-Token`, the access token from the start or an emailed link token checked by
+  `SupportAccess`); everyone else gets 404. A booking is attached only after
+  `BookingsService.load()` succeeds for the caller.
+- Starting without a session needs Turnstile (website) or the device attestation (app) and an
+  email unless the booking has one; `SUPPORT_LIMITS`, five open conversations per account, 500
+  messages each and `SUPPORT_MESSAGE_MAX` characters apply.
+- Due times come only from `supportSchedule()` in `@suskii/shared` (priority from
+  `supportPriority()`: urgent trips within `SUPPORT_URGENT_HOURS`, Prime plans with
+  `prioritySupport`, else normal; targets from `SUPPORT_SLA`). Recompute them on every change;
+  `due_at` orders the inbox and its keyset cursor.
+- Message bodies are encrypted per message (`support-message:{id}:body`), a guest's email per
+  conversation. Reply notices (`supportReplyMessage`, category `support`) never carry the reply;
+  guests get an email link with the token in the fragment (`#access=`).
+- Internal notes never reach a traveller route, the export or a notification. Staff routes
+  (`/v1/admin/support`, `support:manage`) audit replies, notes and changes (`fieldChanges()`).
+- Clients poll the open conversation every few seconds while it is visible (web 4 s, app 4 s,
+  console 10 s). The app keeps guest tokens in `secureStorage` (`lib/support.ts`); website links
+  to `/support/{id}` stay in the browser so link tokens never reach the app's router.
+- WhatsApp (ADR-084): `/v1/webhooks/whatsapp` processes nothing before `whatsappSignatureValid()`
+  passes on the raw bytes; vendor payloads stay in `whatsapp-webhook.ts` and the
+  `WhatsAppChannel` adapters (`mock`, `cloud`). Inbound messages go only through `WhatsAppInbox`
+  (dedupe on `support_messages.external_id`, routing by `customerMessageChanges()`), and staff
+  replies only through `WhatsAppReplies` after the commit (text in the window, the template
+  notice outside it, `forwardWaiting` when the traveller writes back). Delivery states move
+  forward only (`supportDeliveryAdvances`). Never link a contact to an account by phone number.
+- The after-hours assistant (ADR-085) writes only through `SupportAssistant` (called with
+  `consider()` after a traveller's message commits): outside `SUPPORT_HOURS`, before any staff
+  reply, at most `SUPPORT_ASSISTANT_MAX_REPLIES` answers and one handover, under its spend caps
+  (`AiSearchBudget` with its own scope). It never touches status, priority, assignee or SLA
+  fields; its messages have author `assistant` and kind `text` or `handover`. The model sees
+  only FAQs, the scrubbed messages and `assistantBookingFacts()` (no names, contacts, documents,
+  codes or references); `checkAnswer()` must pass (known sources, every figure and contact from
+  the cited sources) or the traveller gets the handover. A prompt, schema, facts or model
+  change keeps the recorded eval at 40/40 and is re-run against the model
+  (`eval:support-assistant`, `ai-eval.yml` suite `support-assistant`) before it ships.
+
+### Status page and availability (apps/api/src/status, ADR-087)
+
+- `GET /v1/status` is the only status source: `StatusService` measures every
+  `STATUS_CACHE_SECONDS` (30) and shares one answer through Redis; never compute component states
+  in a client. Components are `STATUS_COMPONENTS` (what a traveller does); never name a supplier
+  or payment provider on the page.
+- Each component is the worse of what is measured and what open incidents declare
+  (`impactState`, `worstState` in `@suskii/shared`). A new measured signal goes in
+  `measuredStates()` with a unit test; the answer must still come when Postgres or Redis cannot.
+- Circuit breakers mark an opened supplier in Redis (`markBreakerOpen`, two minutes) so every
+  instance agrees; a mark never fails a search.
+- Incidents change only through `StatusAdminService` (`status:manage`, audited with names only,
+  a conditional update claims the change, resolved ones take no updates) and clear the cache after
+  the commit. Incident text is public: no personal data, no author.
+- The website reads the status on the server (`api.status()`, revalidate 30) and renders
+  `/status` per request; never cache its HTML at the edge (CSP nonce). The banner adds no client
+  JavaScript and renders nothing when the API cannot answer. The app polls it while shown
+  (`useStatusQuery`) and shows nothing on a failed read.
+- Objectives and burn-rate alerts live in `infra/observability/alerts/suskii.slo.rules.yml` with
+  promtool tests; uptime checks in `infra/terraform/modules/monitoring`. A new paging alert names
+  a runbook (`observability.spec.ts` reads every rule file).
+
+### AI trip search (phase 13, ADR-061)
+
+- The model only fills the flight form; it never searches, books or reads private data. Clients
+  show every value as an editable field before anything is searched. Never let model output reach
+  a supplier, a price or a booking without the traveller submitting the form.
+- Model calls go through `LlmProvider` (`src/ai-search`); vendor SDKs stay in the adapter. The
+  answer must match a JSON schema (structured output) and is validated again with Zod; places
+  resolve only through `PlaceResolver` (the catalog), dates and travellers through the form's
+  rules. A value that fails goes to `missing`, not an error.
+- Text leaves only after `scrubQuery()` and is never stored, logged or put in metrics (outcomes,
+  latency, tokens and cost only). Requests carry no user id.
+- Every call reserves its worst case with `AiSearchBudget` first and settles to the billed
+  usage; a timeout keeps the reservation. Prices and caps come from settings.
+- Accuracy is measured by the 50-case eval, not assumed: a prompt, schema or model change must
+  keep the e2e test at 50/50 (recorded answers) and be re-run against the model
+  (`eval:natural-search`, `ai-eval.yml`) before it ships.
+- Both clients open the box from a button above the flight form; the website loads its code only
+  then (homepage budget). The button shows while `GET /v1/flights/natural-search` says the feature
+  is on, and hides when the API cannot say.
+
+### Accessibility (WCAG 2.2 AA, ADR-088)
+
+- The target is WCAG 2.2 AA on the website, the console and the app; the conformance table
+  (`docs/accessibility/wcag-2.2-aa.md`) changes with the code it describes.
+- A new public page goes in `PAGES` in `apps/web/e2e/a11y.spec.ts` (axe, 24 px targets, reflow at
+  320 px). Targets are at least 24 by 24 px except links inside a sentence; search and checkout
+  controls are 44 px or more (`min-h-12`). A short link outside a sentence gets
+  `inline-flex min-h-6 items-center`.
+- Headings follow the outline: cards listed straight under a page's `h1` are `h2` (pass
+  `headingLevel`), under a section heading `h3`.
+- Every interactive element shows `focus-visible:focus-ring`; nothing may sit above the sticky
+  header's scroll padding (`scroll-pt-20` on `html`) without being modal.
+- App touchables take `accessibilityRole` and a name (text inside or `accessibilityLabel`);
+  radios, checkboxes and switches report `accessibilityState.checked`, tabs `selected`; text
+  inputs carry `accessibilityLabel`; never set `allowFontScaling={false}`. `accessibility.test.ts`
+  fails otherwise. The app follows the device's orientation.
+- Run the screen reader checklist (`docs/runbooks/screen-reader-checklist.md`) before each store
+  release and any release that changes search, checkout or sign-in.
+
+### Texts and exchange rates (ADR-091)
+
+- Texts go only through `SmsProvider`: Termii, Africa's Talking or the mock, chosen by
+  `SMS_PROVIDER`, with `SMS_ROUTES` by calling code (`smsProviderFor()`). A new provider is an
+  adapter in `notifications/sms-providers.ts`, a value in `SMS_PROVIDERS`, its settings with a
+  boot check, a recipient in the records of processing and a row in the outbound hosts.
+- Adapters throw `SmsSendError(provider, code)`; codes and logs never hold the number or the
+  text. A caller that must tell the traveller (sign-in codes) maps it to 503 `sms-unavailable`
+  and leaves no code or cooldown behind.
+- Exchange rates come only through `FxProvider` (`fxProviderFor()`): Open Exchange Rates or the
+  mock, with `FX_RATE_OVERRIDES` on top. Rates stay exact decimal strings (`parseExactJson`);
+  never parse a provider's rates through floats or guess a missing one.
+- `WHATSAPP_PROVIDER=none` turns WhatsApp notifications off (`channel_off`); they need one
+  approved template per message before a real adapter can send them.
+- No test or CI job calls a provider; the owner checks real keys with `sandbox:messaging` or
+  `messaging-sandbox.yml`.
+
+### Compliance (PCI DSS SAQ A and privacy laws, ADR-089)
+
+- Card data never touches Suskii: hosted checkout only, by redirect or the system browser. Never
+  embed a provider's card fields, take card details by phone, chat or WhatsApp, or keep a raw
+  provider payload; each ends SAQ A eligibility (`docs/compliance/pci-saq-a.md`).
+- Payment pages allow only our scripts and Turnstile (`buildCsp({ paymentPage })`); a new script
+  there needs the inventory in `pci-saq-a.md` updated and the ads e2e still passing.
+- Country obligations and their sources live in `docs/compliance/privacy-obligations.md`; a
+  deadline in code comes only from a row there. A suspected breach follows
+  `docs/runbooks/personal-data-breach.md` (regulator clocks start at awareness).
+- Due times come only from `privacyRequestDueAt()` / `breachNoticeDueAt()` over `PRIVACY_RULES`
+  (`@suskii/shared`); a new deadline is a row there with its source and `statutory` flag.
+- Requests and breaches change only through `PrivacyRequestsService` and
+  `PrivacyBreachesService` (`/v1/admin/privacy`, `privacy:manage`): closing claims the row with a
+  conditional update, refusals take a reason from `PRIVACY_REFUSAL_REASONS` (never free text), a
+  breach closes only when no notice is pending, and audit metadata carries ids, laws, outcomes and
+  `late`, never the details or the email. A new self-service data right records itself with
+  `recordSelfService()`.
+- Records of processing are code (`apps/api/src/privacy/processing-records.ts`): a new table
+  holding personal data joins an activity, and a new provider that receives personal data becomes
+  a recipient with its location and transfer basis, in the same change; then run
+  `pnpm --filter @suskii/api privacy:records` (the records test fails otherwise).
+
+### Hardening (phase 11, ADR-037 to ADR-048)
+
+- Security documents live in `docs/security/` and must change with the code they describe:
+  new personal data goes in `data-classification.md`, a new sign-in path or session rule in
+  `authentication.md`, a new permission or field rule in `access-control.md`, a new outbound host
+  in `external-communications.md`, a new expensive feature or limit in `business-limits.md`,
+  a new key in `crypto-inventory.md`. Requirement statuses live in
+  `docs/security/standards/mapping.json`; run `pnpm security:checklist` after editing it (CI
+  fails on unmapped ids, missing evidence paths or a stale page).
+- Logs carry ids and reasons, never values. A field that can hold a secret or personal data
+  goes in `SENSITIVE_LOG_FIELDS` (`packages/shared/src/log-redaction.ts`); redaction covers the
+  top level and three levels below. Record security events with `AuditService.record()`.
+- Report unexpected errors through the `ErrorReporter` (API: injected, global; worker:
+  `createErrorReporter`; web and admin: `lib/error-reporter.ts`; app: `lib/error-reporting.ts`).
+  Tags only from `ERROR_TAG_KEYS`; messages are scrubbed, but never put personal data in them.
+- Metrics: define instruments in `apps/api/src/telemetry/metrics.ts` (or the worker's
+  `telemetry.ts`). Dashboards and alert rules may only use defined metrics, and a paging alert
+  needs an existing runbook (`observability.spec.ts`); CI runs promtool on the rules.
+- Outbound HTTP uses `redirect: 'error'` and a timeout. Production refuses plain http for every
+  provider, the internal API, Postgres, Redis, OTLP (except localhost) and SMTP.
+- The API compresses only the public reads in `COMPRESSED_PATHS` (`app.setup.ts`, ADR-075).
+  Never add a route whose answer can hold a token or personal data (BREACH).
+- Every `<form>` has a `method` (`post` for personal data, `get` only for searches); a lint rule
+  enforces it.
+- Website cookies and storage keys go in `apps/web/lib/cookie-catalog.ts` (an e2e test fails on
+  anything unlisted). The site's own cookies are named with `hostCookie()` (`__Host-` in
+  production); optional categories run only after `hasCookieConsent()`.
+- Beacon routes (`text/plain` bodies, such as web-vitals) are listed in `BEACON_PATHS` and
+  declared `beacon: true` in the contract; they are capped at 8 KB.
+- ui-web merges classes with the token-aware `cn` (no tailwind-merge at runtime); the homepage
+  JavaScript budget is 170 kB (ADR-043) and the Lighthouse gate checks LCP, CLS and TBT.
+- Money, pricing, booking lifecycle and auth modules keep 80% coverage (`test:cov` in CI).
+- Retire app builds with `MOBILE_MIN_VERSION` (the API answers 426 and the app shows an update
+  screen). Pause a failing payment provider with `PAYMENT_PROVIDERS_PAUSED`, never by removing
+  it from `PAYMENT_PROVIDERS` (that orphans its webhooks and refunds).
+- Incidents follow `docs/runbooks/`. Disclosure and remediation time frames are in `SECURITY.md`.
+
+### Deployment and release (phase 12, ADR-057 to ADR-060)
+
+- Images are built from the repository root with `apps/<app>/Dockerfile`; the base image is
+  pinned by digest (Dependabot updates it). Never run migrations at start-up: the API image's
+  `migrate` target runs `scripts/release-database.mjs` (migrations as the schema owner, the
+  seed, then the app role) as a job or Helm hook before new revisions start.
+- Migrations are expand/contract: the revision still serving must work against the new schema.
+  `pnpm check:migrations` (CI) refuses drops, renames, type changes, new NOT NULL without a
+  default and TRUNCATE unless the file says why on an `-- expand-contract:` line.
+- The API connects as `suskii_app`, which may only read and write rows
+  (`src/infra/app-role.ts`). Application code must never need DDL, TRUNCATE or role changes.
+- A new setting: add it to the env schema and `.env.example`, then to Terraform (`api_env` or,
+  for a secret, `extra_secrets` plus a Secret Manager value) and to the Helm values. Plain
+  settings that look like secrets are rejected by both. Settings are not part of images.
+- Deployed environments set `CLIENT_IP_HEADER=cf-connecting-ip` (never with `TRUST_PROXY_HOPS`);
+  only Cloudflare traffic carrying the origin secret reaches the origin.
+- A new route prefix that must never be public (like `/v1/internal`) also gets an edge block in
+  `infra/terraform/modules/edge`. A new public host goes in `hosts` for both modules.
+- Operator scripts that change data run as the `ops` Cloud Run job, never from a laptop against
+  production; each checks first and changes only with `--yes`, and audits what it changes.
+- Production runs the API, migrate and worker digests staging tested (signature verified, then
+  copied); the website and console are built per environment from GitHub environment variables
+  (`NEXT_PUBLIC_*`). Never retag or push images by hand.
+- Workflows pin actions by commit SHA, at least two weeks old, and tools by version plus SHA-256
+  or `go install` at a fixed version. Credential-gated steps fail at their first step with the
+  missing settings named.
+- A job's own `if` may name only `github`, `needs`, `vars` and `inputs`. One that names `matrix`
+  (or `steps`, `runner`, `env`, `secrets`) makes GitHub refuse the whole file: it cannot be
+  started, every push records a failed run with no job, and no pull request check shows it.
+  Build the matrix from the input or put the condition on the steps. `pnpm check:workflows`
+  (part of `pnpm test:scripts`, which CI runs) refuses such a file. After adding a manual
+  workflow, look at the Actions list once: a run named after the file's path means it did not load.
+- Terraform changes: `terraform fmt`, then `validate` and TFLint run in `infra.yml`; operators
+  apply them (`infra/terraform/README.md`). Store and privacy changes update `docs/release/` in
+  the same change.
+
 ### Security guardrails
 
 - Never commit `.env` files, secrets, or real supplier credentials. Use `.env.example` placeholders.
@@ -131,9 +1619,21 @@ Tooling notes for agents:
 
 ### Design system
 
-Tokens in `PROJECT_SPEC.json#/design_system/tokens` are the single source of truth. They land in
-`packages/design-tokens` in phase 1. Components must not hardcode colors, radii or font sizes, which
-is why the phase 0 app shells are deliberately unstyled.
+- `packages/design-tokens/src/tokens.ts` is the only place visual values live. Spec values must stay
+  identical to `PROJECT_SPEC.json` (tested); derived tokens are documented in ADR-003/ADR-004.
+- Brand (ADR-068): the palette comes from the SUSKII T&T logo (red actions, blue headings,
+  orange promotions) and `BRAND.shortName` is `SUSKII T&T`. Rebuild images with
+  `scripts/brand-assets.mjs`, never by hand.
+- Style with token utilities only: `bg-primary`, `text-foreground`, `text-muted`, `text-h2`,
+  `p-4` (4px scale), `rounded-lg`, `shadow-card-hover`, `focus-visible:focus-ring`. Tailwind's default
+  palette and scales are removed, so `bg-red-500` or `p-7` simply do not exist.
+- Never write hex/rgb colours, px/rem lengths, arbitrary values (`w-[13px]`) or literal inline styles
+  in components; guard tests fail the build. Native icons take `iconColor` / `iconSize`.
+- Orange (`accent`) fills take dark `on-accent` text; inputs use `border-strong` (ADR-004).
+- Components contain no user-facing copy: labels are props, so apps pass localised strings.
+- New or changed pairings of text and background go in `contrast-contract.ts`.
+- New ui-web component = component + story (with a play function for open states) + an entry in
+  `src/index.ts`; the story is then axe-checked at mobile and desktop widths automatically.
 
 ### Git
 
@@ -147,9 +1647,319 @@ is why the phase 0 app shells are deliberately unstyled.
 
 - [ADR-001: Architecture](docs/decisions/ADR-001-architecture.md)
 - [ADR-002: Toolchain and versions](docs/decisions/ADR-002-toolchain-and-versions.md)
+- [ADR-003: UI stack and design-token pipeline](docs/decisions/ADR-003-ui-stack-and-token-pipeline.md)
+- [ADR-004: Accessible derived colour tokens](docs/decisions/ADR-004-accessible-derived-colour-tokens.md)
+- [ADR-005: Zod route contracts and OpenAPI 3.1](docs/decisions/ADR-005-zod-contracts-and-openapi.md)
+- [ADR-006: Reference data sources](docs/decisions/ADR-006-reference-data-sources.md)
+- [ADR-007: Authentication, sessions and abuse controls](docs/decisions/ADR-007-authentication-and-sessions.md)
+- [ADR-008: Money, pricing rules and exchange rates](docs/decisions/ADR-008-money-pricing-and-fx.md)
+- [ADR-009: Supplier adapters and search orchestration](docs/decisions/ADR-009-suppliers-and-search-orchestration.md)
+- [ADR-010: Web rendering, CSP, preferences, i18n and imagery](docs/decisions/ADR-010-web-rendering-csp-i18n-and-imagery.md)
+- [ADR-011: Deals, hotel destinations and the internal API](docs/decisions/ADR-011-deals-destinations-and-internal-api.md)
+- [ADR-012: Newsletter consent, double opt-in and bot protection](docs/decisions/ADR-012-newsletter-consent-and-bot-protection.md)
+- [ADR-013: Homepage performance and the JavaScript budget](docs/decisions/ADR-013-homepage-performance-and-js-budget.md)
+- [ADR-014: Booking lifecycle, checkout and mock payments](docs/decisions/ADR-014-booking-lifecycle-checkout-and-mock-payments.md)
+- [ADR-015: Passenger data, saved travellers and guest access](docs/decisions/ADR-015-passenger-data-saved-travellers-and-guest-access.md)
+- [ADR-016: Payment providers, routing and verification](docs/decisions/ADR-016-payment-providers-routing-and-verification.md)
+- [ADR-017: Double-entry ledger and wallet](docs/decisions/ADR-017-double-entry-ledger-and-wallet.md)
+- [ADR-018: Book on hold and installments](docs/decisions/ADR-018-book-on-hold-and-installments.md)
+- [ADR-019: Refunds, maker-checker and automatic refunds](docs/decisions/ADR-019-refunds-maker-checker-and-automatic-refunds.md)
+- [ADR-020: Mobile app architecture, storage and offline](docs/decisions/ADR-020-mobile-app-architecture-storage-and-offline.md)
+- [ADR-021: Mobile payments, deep links and app links](docs/decisions/ADR-021-mobile-payments-deep-links-and-app-links.md)
+- [ADR-022: Push notifications](docs/decisions/ADR-022-push-notifications.md)
+- [ADR-023: Device attestation and mobile bot protection](docs/decisions/ADR-023-device-attestation-and-mobile-bot-protection.md)
+- [ADR-024: EAS builds, app variants and mobile CI](docs/decisions/ADR-024-eas-builds-variants-and-mobile-ci.md)
+- [ADR-025: In-house catalog, capacity and pricing](docs/decisions/ADR-025-in-house-catalog-capacity-and-pricing.md)
+- [ADR-026: Visa assistance and document security](docs/decisions/ADR-026-visa-assistance-and-document-security.md)
+- [ADR-027: Travel add-ons, standalone and linked](docs/decisions/ADR-027-travel-add-ons-standalone-and-linked.md)
+- [ADR-028: In-house fulfilment, vouchers and cancellation](docs/decisions/ADR-028-in-house-fulfilment-vouchers-and-cancellation.md)
+- [ADR-029: Account data rights, export and deletion](docs/decisions/ADR-029-account-data-rights-export-and-deletion.md)
+- [ADR-030: Suskii Prime memberships and member pricing](docs/decisions/ADR-030-suskii-prime-memberships-and-pricing.md)
+- [ADR-031: Referrals, rewards and fraud checks](docs/decisions/ADR-031-referrals-rewards-and-fraud-checks.md)
+- [ADR-032: Notifications, channel preferences and price alerts](docs/decisions/ADR-032-notifications-preferences-and-price-alerts.md)
+- [ADR-033: Admin console, staff sessions and origin isolation](docs/decisions/ADR-033-admin-console-staff-sessions-and-origin-isolation.md)
+- [ADR-034: Admin route permission matrix and audit coverage](docs/decisions/ADR-034-admin-route-permission-matrix-and-audit-coverage.md)
+- [ADR-035: Admin-managed pricing, promos, deals and content](docs/decisions/ADR-035-admin-managed-pricing-promos-deals-and-content.md)
+- [ADR-036: Admin dashboards and reporting](docs/decisions/ADR-036-admin-dashboards-and-reporting.md)
+- [ADR-037: Session limits, staff lifetimes and step-up](docs/decisions/ADR-037-session-limits-staff-lifetimes-and-step-up.md)
+- [ADR-038: Social nonces, key rotation and transport security](docs/decisions/ADR-038-social-nonces-key-rotation-and-transport-security.md)
+- [ADR-039: Data retention](docs/decisions/ADR-039-data-retention.md)
+- [ADR-040: Payment risk review](docs/decisions/ADR-040-payment-risk-review.md)
+- [ADR-041: Retiring old app versions](docs/decisions/ADR-041-retiring-old-app-versions.md)
+- [ADR-042: Cookie consent](docs/decisions/ADR-042-cookie-consent.md)
+- [ADR-043: Homepage JavaScript at 170 kB](docs/decisions/ADR-043-homepage-javascript-at-170-kb.md)
+- [ADR-044: Measuring web performance in the lab and the field](docs/decisions/ADR-044-measuring-web-performance-in-the-lab-and-the-field.md)
+- [ADR-045: API load testing with k6](docs/decisions/ADR-045-api-load-testing-with-k6.md)
+- [ADR-046: Error reporting](docs/decisions/ADR-046-error-reporting.md)
+- [ADR-047: Metrics, dashboards and alerts](docs/decisions/ADR-047-metrics-dashboards-and-alerts.md)
+- [ADR-048: Security verification checklist and accepted risks](docs/decisions/ADR-048-security-verification-and-accepted-risks.md)
+- [ADR-049: Cars product boundaries](docs/decisions/ADR-049-cars-product-boundaries.md)
+- [ADR-050: Cars threat model](docs/decisions/ADR-050-cars-threat-model.md)
+- [ADR-051: Cars payments, holds and deposits](docs/decisions/ADR-051-cars-payments-holds-and-deposits.md)
+- [ADR-052: Cars realtime transport](docs/decisions/ADR-052-cars-realtime-transport.md)
+- [ADR-053: Cars geo storage](docs/decisions/ADR-053-cars-geo-storage.md)
+- [ADR-054: Server address in the Android test build](docs/decisions/ADR-054-test-build-server-address.md)
+- [ADR-055: Semver 6 override instead of a trust policy exception](docs/decisions/ADR-055-semver-6-override-instead-of-a-trust-policy-exception.md)
+- [ADR-056: Demo drivers for local ride testing](docs/decisions/ADR-056-demo-drivers-for-local-ride-testing.md)
+- [ADR-057: S3-compatible object storage without an SDK](docs/decisions/ADR-057-s3-compatible-object-storage-without-an-sdk.md)
+- [ADR-058: Container images and supply chain](docs/decisions/ADR-058-container-images-and-supply-chain.md)
+- [ADR-059: GCP topology and the Cloudflare edge](docs/decisions/ADR-059-gcp-topology-and-cloudflare-edge.md)
+- [ADR-060: Release pipeline, canary and rollback](docs/decisions/ADR-060-release-pipeline.md)
+- [ADR-061: AI trip search](docs/decisions/ADR-061-ai-trip-search.md)
+- [ADR-062: Duffel Stays hotel adapter](docs/decisions/ADR-062-duffel-stays-hotel-adapter.md)
+- [ADR-063: Checked bags on Duffel flights](docs/decisions/ADR-063-checked-bags-on-duffel-flights.md)
+- [ADR-064: Online cancellation of ticketed flights](docs/decisions/ADR-064-online-flight-cancellation.md)
+- [ADR-065: Airline schedule changes on ticketed flights](docs/decisions/ADR-065-airline-schedule-changes.md)
+- [ADR-066: Hosted test server for phone testing](docs/decisions/ADR-066-hosted-test-server.md)
+- [ADR-067: Google, Apple and fingerprint sign-in](docs/decisions/ADR-067-social-and-fingerprint-sign-in.md)
+- [ADR-068: Brand refresh from the SUSKII T&T logo](docs/decisions/ADR-068-brand-refresh-from-the-logo.md)
+- [ADR-069: Partner supply model](docs/decisions/ADR-069-partner-supply-model.md)
+- [ADR-070: Affiliate click and conversion tracking](docs/decisions/ADR-070-affiliate-click-and-conversion-tracking.md)
+- [ADR-071: Hotelbeds hotel adapter](docs/decisions/ADR-071-hotelbeds-hotel-adapter.md)
+- [ADR-072: All-in prices and tax rules per country](docs/decisions/ADR-072-all-in-prices-and-tax-rules.md)
+- [ADR-073: Refund offer for airline changes](docs/decisions/ADR-073-refund-offer-for-airline-changes.md)
+- [ADR-074: Payment methods at checkout](docs/decisions/ADR-074-payment-methods-at-checkout.md)
+- [ADR-075: Fast on slow 3G](docs/decisions/ADR-075-fast-on-slow-3g.md)
+- [ADR-076: Languages and right to left](docs/decisions/ADR-076-languages-and-right-to-left.md)
+- [ADR-077: Verified reviews](docs/decisions/ADR-077-verified-reviews.md)
+- [ADR-078: Company accounts](docs/decisions/ADR-078-company-accounts.md)
+- [ADR-079: Ads with consent](docs/decisions/ADR-079-ads-with-consent.md)
+- [ADR-080: SEO pages from fare history](docs/decisions/ADR-080-seo-pages-from-fare-history.md)
+- [ADR-081: Metasearch partners](docs/decisions/ADR-081-metasearch-partners.md)
+- [ADR-082: Suskii Prime priced per country](docs/decisions/ADR-082-prime-priced-per-country.md)
+- [ADR-083: Support conversations](docs/decisions/ADR-083-support-conversations.md)
+- [ADR-084: WhatsApp as a support channel](docs/decisions/ADR-084-whatsapp-support-channel.md)
+- [ADR-085: After-hours support assistant](docs/decisions/ADR-085-after-hours-support-assistant.md)
+- [ADR-086: Expedia Rapid hotel adapter](docs/decisions/ADR-086-expedia-rapid-hotel-adapter.md)
+- [ADR-087: Availability objectives and the status page](docs/decisions/ADR-087-availability-objectives-and-status-page.md)
+- [ADR-088: WCAG 2.2 AA as the accessibility target](docs/decisions/ADR-088-wcag-2-2-aa-accessibility.md)
+- [ADR-089: Payment pages without third-party scripts, and privacy obligations per country](docs/decisions/ADR-089-payment-pages-and-privacy-obligations.md)
+- [ADR-090: Company wallet](docs/decisions/ADR-090-company-wallet.md)
+- [ADR-091: Text and exchange-rate providers](docs/decisions/ADR-091-sms-and-exchange-rate-providers.md)
+- [ADR-092: The hosted test server on a schedule](docs/decisions/ADR-092-test-server-on-a-schedule.md)
+- [ADR-093: Flexible dates, nearby airports, meal requests and group requests](docs/decisions/ADR-093-flexible-dates-nearby-airports-meals-and-groups.md)
+- [ADR-094: Seat selection on flights](docs/decisions/ADR-094-flight-seat-selection.md)
+- [ADR-095: Live flight status and delay alerts](docs/decisions/ADR-095-live-flight-status-and-delay-alerts.md)
+- [ADR-096: Hotel photos, property types and room details](docs/decisions/ADR-096-hotel-photos-property-types-and-room-details.md)
+- [ADR-097: Hotel collections, deals, the pin map and recent searches](docs/decisions/ADR-097-hotel-collections-deals-and-the-pin-map.md)
+- [ADR-098: Car rental rates by the week and month, airport branches and rental options](docs/decisions/ADR-098-car-rental-rates-branches-and-options.md)
+- [ADR-099: Combined trips, built from ordinary bookings and paid once](docs/decisions/ADR-099-combined-trips.md)
+- [ADR-100: Phone check, the test APK and the website against the online test server](docs/decisions/ADR-100-phone-check.md)
+- [ADR-101: A separate agent service, sealed grants and the tool gateway](docs/decisions/ADR-101-agent-service-grants-and-tool-gateway.md)
+- [ADR-102: Price intelligence, the source order, source policies and failover](docs/decisions/ADR-102-price-intelligence.md)
+- [ADR-103: Agent checkpoints as personal data, and what the agent reaches in the database](docs/decisions/ADR-103-agent-checkpoints-and-database-access.md)
+- [ADR-104: Indicative prices and assisted quotes](docs/decisions/ADR-104-indicative-prices-and-assisted-quotes.md)
+- [ADR-105: The agent's data: conversations, memory, knowledge and retention](docs/decisions/ADR-105-agent-data-memory-and-knowledge.md)
+- [ADR-106: Agent models, prompts and evaluation](docs/decisions/ADR-106-agent-models-prompts-and-evaluation.md)
+- [ADR-107: What an agent may do: tool tiers, confirmations, approvals and autonomy](docs/decisions/ADR-107-agent-authority.md)
 
 ## Open questions for the owner
 
 Tracked in `PROJECT_SPEC.json#/open_questions_for_owner` and repeated in each phase report until they
 are answered: suppliers, IATA or consolidator, SSO with Suskii Errands, GCP or AWS, brand assets and legal
-entity, Suskii Prime pricing.
+entity, Suskii Prime pricing. Added in phase 3: FX source for the naira and any FX margin (ADR-008),
+hotel provider (Duffel Stays recommended, ADR-009), Duffel sandbox token. Added in phase 4:
+support contacts, social and app store links, legal texts and privacy policy, licensed photography,
+WhatsApp/SMS provider for deal alerts, Cloudflare Turnstile keys. Added in phase 5: which payment
+provider comes first (Paystack, Flutterwave, Stripe) and test keys, booking conditions and fare
+rules text, the refund and REFUND_PENDING operations process, and support contacts for failed
+bookings. Added in phase 6: provider test keys and webhook registration for each provider to
+launch with; installment deposit, fee, missed-payment fee and grace period (defaults 30%, none,
+none, 24 hours); the staff refund approval threshold (default: every refund needs a second
+approver); who receives operations alerts (`OPS_ALERT_EMAIL`) and reviews refunds in
+`needs_review`; and whether stored cards may ever charge installments (needs a mandate, ADR-018).
+Added in phase 7: the Expo account and EAS project (`EXPO_TOKEN`, `EAS_PROJECT_ID`), Apple
+Developer and Google Play accounts, the final bundle id (placeholder `com.suskii.travels`), the
+Google Cloud project for Play Integrity and Apple App Attest setup (real attestation verifiers
+need both), FCM and APNs credentials for push, the production API and web hosts (app links), app
+icon and splash art, and the account deletion flow required before store release (phase 9).
+Added in phase 8: the real in-house inventory and who enters it (packages, tours, visa products
+and eligibility rules, add-on partners; insurance may need a licensed partner), the package
+balance-due period (default 30 days), visa document retention (default 90 days after closing),
+production antivirus (managed ClamAV or a scanning service), and who fulfils packages, redeems
+vouchers and staffs the visa officer role. Added in phase 9: Suskii Prime plans and prices
+(the sample plan's NGN 25,000 or USD 25 a year, half the markup back and the waived service fee
+are placeholders), referral reward amounts, minimum spend and monthly cap (default zero, so
+nothing is paid), the retention period for financial records of deleted accounts (default 7
+years, `FINANCIAL_RECORDS_RETENTION_YEARS`), the WhatsApp Business provider and message
+templates, the price alert cadence and minimum drop (defaults every 6 hours, 5%), who reviews
+flagged referrals, and whether payment providers may share card fingerprints for referral
+checks. Added in phase 10: the production console host (`ADMIN_ORIGINS`) and office or VPN egress
+addresses for `ADMIN_IP_ALLOWLIST`, the first super admins and who holds each staff role, the
+evidence documents for regulated trust claims (IATA accreditation, traveller counts) before
+anyone verifies them, and whether markup and fee changes should need a second approver like
+refunds (today one `pricing:manage` holder applies them, audited). Added in phase 11: the
+Sentry organisation and data region (`SENTRY_DSN` and the public DSNs), the metrics backend,
+the on-call tool and who receives `page` alerts, the security contact (or turning on GitHub
+private vulnerability reporting, which `SECURITY.md` points to), confirmation of the accepted
+risks in ADR-048 (optional traveller MFA, Android 7 and iOS 15.1 support, no certificate
+pinning), recovery objectives for database restores, the payment risk thresholds and watched
+countries or routes (`PAYMENT_RISK_*`), the cookie policy text, and someone with iOS and
+Android devices to run the screen reader checklist before the first store release. Added by
+Cars: the maps and routing provider, the KYC provider for drivers, bus operator APIs or manual
+inventory (manual by default), cash for rides (off by default), VAT on Cars fares
+(`CARS_VAT_BPS`, placeholder 0), and the payout provider. Added in phase 12: the two GCP projects
+with billing and the region (default `europe-west2`, London), two domains with Cloudflare zones
+(Pro on production for the managed WAF; Advanced Certificate Manager for a visitor cipher
+allowlist), the GitHub `staging` and `production` environments with their variables and
+production reviewers, then `DEPLOY_ENABLED=true`; accounts for texts (Termii, Africa's Talking)
+and exchange rates (Open Exchange Rates), whose adapters now exist (ADR-091), and real driver KYC
+and payouts only if rides are switched on; where production ClamAV runs; customer-managed encryption keys (decide before the first
+production apply); name-based egress filtering (Secure Web Proxy or Cloud NGFW); a public route
+for per-PR preview deploys; the App Store Connect app (`ascAppId`) and a D-U-N-S number for the
+Apple organisation account; whether Suskii Prime counts as a travel service or needs in-app
+purchase; Sentry's "Prevent Storing of IP Addresses" setting; and confirmation of the privacy
+form answers in `docs/release/data-safety.md`. Added in phase 13: an Anthropic API key
+(`LLM_API_KEY` as a repository secret, then one run of the AI search eval), the provider's data
+retention terms (standard or zero data retention), whether to offer AI trip search in production,
+and its daily caps (defaults $0.05 per user or address, $20 in total). Added with the Duffel Stays
+adapter: Stays access on the Duffel account, a sandbox token and one sandbox run of the checks in
+ADR-062 (error codes, radius unit, quote lifetime, duplicate bookings). The Duffel sandbox
+workflow runs them with the `DUFFEL_API_TOKEN` repository secret. Flights pass, including two
+travellers booking from one shared search. Stays still needs access. Added with online flight
+cancellation (ADR-064): an optional cancellation service fee on top of the airline's terms,
+what to do when the airline refunds as credits (support today), and whether staff need a console
+action for supplier cancellations. Added with airline schedule changes (ADR-065): whether to
+check more often close to departure, a console view and actions for changes, and Duffel webhooks
+for faster detection. Added with the redesign and sign-in work (ADR-066 to ADR-068): Google OAuth
+client ids (web client for the website and the app's relay) and the Apple Services ID and App ID
+for real Google and Apple sign-in; confirmation of the derived brand shades and a vector logo for
+sharper small icons; and a staging environment to replace the hosted test server. Added with
+partner supply (ADR-069 to ADR-071): a Hotelbeds account (evaluation key, then certification and
+the live key); Viator Partner API Basic Access (API key and campaign); a Travelpayouts account
+with DiscoverCars, Localrent, Economybookings, GetTransfer, Kiwitaxi, Airalo and EKTA connected
+(token, marker, project id) and the postback URL with its macros; whether to show partner offers
+in production; and IATA accreditation or a consolidator for Nigerian domestic airlines. While
+rides and the own fleet stay off (ADR-069), the KYC, maps and payout provider questions are no
+longer blocking. Added with all-in prices (ADR-072): the tax rates, bases and registration number per
+country from the accountant (nothing is seeded), and which entity sells in each market
+(`TAX_SELLER_COUNTRY`). Added with the refund offer (ADR-073): one Duffel sandbox run with an
+airline change, to confirm Duffel quotes the full involuntary refund. Added with payment methods
+(ADR-074): one sandbox payment per method with Paystack and Flutterwave test keys (to confirm the
+channel names), whether Apple Pay is enabled on the Paystack account, Flutterwave's "Enable
+Dashboard Payment Options" turned off, and whether to apply for long-lived transfer accounts for
+agent payments. Added with fast on slow 3G (ADR-075): one check on a real mid-range Android phone
+on slow mobile data, through the hosted test server, to compare with the emulated numbers. Added
+with languages (ADR-076): a native speaker's review of each catalog (French, Swahili, Arabic,
+Portuguese), booking, payment and refund wording first; whether emails, texts and PDFs should
+follow the traveller's language next; and language-prefixed URLs with `hreflang` if search
+traffic in these languages matters. Added with verified reviews (ADR-077): who moderates reviews
+(content managers and support hold `reviews:moderate`), the review window (default 90 days),
+whether Suskii may answer reviews publicly, and whether invitations should also go by WhatsApp
+once a provider is chosen. Added with company accounts (ADR-078): whether to offer a company wallet
+(prepaid funds) and invoiced credit with limits, negotiated rates or a corporate fee for
+companies, and who at Suskii supports company admins. Added with ads with consent (ADR-079):
+the Meta pixel id and a Conversions API token, the TikTok pixel code and an Events API token
+(then `AD_CONVERSIONS=meta,tiktok`), the cookie policy text, and whether to run app install
+campaigns (an SDK or measurement partner and a consent screen in the app). Added with metasearch
+(ADR-081): which engines to join first (Google Flights, Skyscanner, KAYAK, Wego) and their
+agreements and specifications, the limits per partner from the supplier's look-to-book terms, and
+whether metasearch traffic should get its own prices (a sealed sales channel, not built). Added
+with Prime per country (ADR-082): the Prime price for each market (the demo plan's Ghana price is
+a placeholder). Added with support conversations (ADR-083): who staffs support and on which hours
+(the homepage promises 24/7 human support), the reply and resolution targets per priority
+(`SUPPORT_SLA`, defaults 15 minutes and 4 hours urgent, 30 minutes and 8 hours Prime, 2 hours and
+24 hours otherwise), which Prime plans include priority support, and whether support may answer
+by phone or WhatsApp outside the conversation. Added with WhatsApp support (ADR-084): the Meta
+business portfolio, a WhatsApp Business Account and number, a system user's permanent token, the
+app secret and a verify token (then `WHATSAPP_SUPPORT_PROVIDER=cloud`), the approved
+`support_reply_waiting` template, the privacy policy naming Meta as the Cloud API host,
+confirmation of Meta's per-message prices for the markets served, and one sandbox message from a
+username user to confirm the field for replying to a business-scoped user id. Added with the
+after-hours assistant (ADR-085): the staffed hours (`SUPPORT_HOURS`, `SUPPORT_TIME_ZONE`), whether
+the assistant should answer in production (`SUPPORT_ASSISTANT_ENABLED`), one run of the
+assistant eval against the model with `LLM_API_KEY`, its spend caps (defaults $5 a day and 2 cents
+per conversation), and the help-centre FAQs it answers from (three are seeded today). Added with
+Expedia Rapid (ADR-086): an Expedia Partner Solutions account with sandbox credentials
+(`EXPEDIA_RAPID_API_KEY` and `EXPEDIA_RAPID_SHARED_SECRET` as repository secrets, then one run of
+`partner-sandbox.yml`), confirmation of the commercial model (Expedia Collect rates resold under
+`affiliate_collect`, invoiced to Suskii) and the billing contact Expedia expects, the point of sale
+per market, and Expedia's certification before `expedia` is enabled in production. Added with the
+status page (ADR-087): who receives uptime and burn-rate pages (`uptime_alert_emails` or the
+on-call tool's channel ids), the availability figure to promise partners and companies (99.9%
+suggested), whether to move the status page to a third-party host for independence from our
+platform, and who writes incident updates out of hours. Added with
+the accessibility audit (ADR-088): someone with iOS and Android devices to run the screen reader
+checklist (including landscape and the largest text size), the support contact and legal text for
+an accessibility statement page, and whether to commission an external audit before launch in
+the EU. Added with
+compliance (ADR-089): registration with the NDPC (tier and fee), the ODPC and the Information
+Regulator; a data protection officer and an Information Officer; the yearly SAQ A with each
+payment provider's attestation; counsel's view on the rows marked "confirm" (registration tiers,
+Kenya's sector list, the transfer basis for London hosting and each supplier); the privacy policy
+and the PAIA manual; DPIAs for payment risk scoring and the AI features; who holds the
+`privacy_officer` role; and confirmation of each recipient's location and transfer basis in
+`docs/privacy/records-of-processing.md` against the terms the owner signs. Added with the company
+wallet (ADR-090): counsel's view on whether a closed-loop company balance is stored value under CBN
+rules, the top-up limits per currency and the daily count (defaults NGN 10,000 to 5,000,000 and USD
+10 to 5,000, five a day), how support handles a company closing its wallet (refund of unused funds),
+and whether top-ups should go through the payment risk review. Added with texts and exchange rates
+(ADR-091): a Termii account with an approved sender ID and the DND route, an Africa's Talking
+account for numbers outside Nigeria (or one provider for all), an Open Exchange Rates app id and
+plan, whether to pin the naira to the bank's settlement rate (`FX_RATE_OVERRIDES`), approved
+WhatsApp templates before booking messages go by WhatsApp, and one run of `messaging-sandbox.yml`
+with a real phone. Added with flight extras (ADR-093): one Duffel sandbox booking to confirm how
+(or whether) Duffel takes special meal requests, who answers group flight requests and each
+airline's group desk contact, and counsel's view on whether a meal request is special-category
+data (and the matching store form answer). Added with seat selection (ADR-094): one run of the
+Duffel sandbox check with booking on (it orders one seat) before `DUFFEL_SEAT_SELECTION=true`,
+and whether Suskii adds a fee to seats (none today). Added with live flight status (ADR-095):
+a flight-data provider and plan (then its adapter), whether delay alerts also go by text or
+WhatsApp, and the delay worth telling (default 30 minutes). Added with hotel content (ADR-096):
+each supplier's photo host for `IMAGE_REMOTE_HOSTS`, and Hotelbeds and Expedia content (photos,
+descriptions, categories) once those accounts exist. Added with hotel discovery (ADR-097): a tile
+provider if the map should show streets (and its name in the privacy policy), and the deal
+thresholds (15% below the star class, five hotels to compare, guest score 7). Added with car rental
+options (ADR-098): each car's weekly and monthly rate, minimum driver age, extras and their
+prices, the countries its insurance covers and the fee, the branches that take returns and the
+one-way fees, and whether a young-driver surcharge should replace the refusal. Added with combined
+trips (ADR-099): whether a combined trip gets a discount or a fee (none today), whether tours, visa
+assistance, an eSIM or lounge access should become parts of a trip, whether the plan should ask
+children's ages, one confirmation email for the whole trip, a console view of trips, and paying a
+trip in installments or from a wallet. Added with the phone check (ADR-100): a device farm
+(Firebase Test Lab, BrowserStack or AWS Device Farm) to run the same flows on real phones before
+a store release, and whether the check should run on a schedule. Added with the Suskii Agent
+(ADR-101 to ADR-107): accounts, keys and budgets for Firecrawl, Apify, Browse AI, Oxylabs and
+Bright Data; Browse AI robots for the chosen sites; counsel's and the owner's approval of each
+web source with its basis (all start in `review`); whether an assisted quote earns a service fee
+or a margin (default: a fee on the verified supplier price); who works the approvals and
+assisted-quote queues and during which hours; whether a meal preference may be remembered
+(counsel, ADR-093); the model for each agent role and one live run of each agent eval with
+`LLM_API_KEY`; and whether to turn the agent and price intelligence on in production. Added
+with the agent service (sub-phase D): one run of `agent-eval.yml` with `LLM_API_KEY` before the
+assistant answers travellers; the provider's data retention terms for conversations; the price
+of each model in `AGENT_MODEL_PRICES` when the provider's list changes; the help articles the
+assistant answers rules from; who answers a handover and when; whether guests may use the
+assistant or only signed-in travellers; and its spend caps. Added with assisted quotes,
+confirmations and staff agents (sub-phase E): who verifies prices and books assisted bookings
+by hand, during which hours, and the time a traveller is promised an answer in
+(`ASSISTED_QUOTE_REQUEST_HOURS`, default 48); the fee an assisted quote earns (a fee rule on
+the vertical `assisted`; none is seeded, so it earns nothing today); where proof of a
+supplier's price and confirmation is kept (the forms take an https address); whether to offer
+assisted quotes in production (`ASSISTED_QUOTES_ENABLED`); who works the approvals queue,
+given that the person who asked an agent can never decide its proposal; which further kinds
+of proposal the staff agents should prepare (today a refund request and a promo code); and
+whether the staff agents should be offered in production at all. Added with the console
+(sub-phase F): the documents the assistant answers rules from (policies and procedures as text
+or Markdown, since nothing is read from a PDF) and who keeps them current; who holds
+`ai:manage` (super admins today) to pause, switch agents and manage the knowledge base;
+whether every role with `ai:read` (operations, finance, support) should be able to open
+travellers' conversations, which are shown with contact details removed and audited; the
+model prices in `AGENT_MODEL_PRICES`, without which every cost reads as nothing; and the
+forecast above which someone should be told. Added with the clients (sub-phase G): whether
+the assistant answers on WhatsApp (`AGENT_WHATSAPP_ENABLED`), after how many answers it
+hands over (12) and who reads the handovers out of hours; whether a meal preference may be
+remembered (counsel, ADR-093); the reply targets a handover may name (`SUPPORT_SLA`);
+counsel's reading of the notes on the PDFs ("an offer is not a booking", "to be confirmed");
+whether guests may use the assistant; and confirmation of the store form answers for
+conversations with the assistant and remembered preferences. Added with hardening and delivery
+(sub-phase H): the monthly figure to be told about (`AGENT_MONTHLY_ALERT_MICROUSD`, none
+today) and whether anything should stop at it (today only the daily caps stop spending); the
+agent service's secrets in Secret Manager and `deploy_agent` on staging, then production;
+whether the API should present a Google identity to the agent service as well as its token
+(not built, ADR-101); who receives the assistant's and price intelligence's ticket alerts; two
+people who may manage data sources, so a recipe proposal has an approver other than its asker;
+Google's current Cloud Run prices for London, which the cost estimate could not confirm
+(`docs/owner/assistant-cost-estimate.md`); each web-data vendor's plan and its monthly
+minimum; and the share of customers expected to use the assistant, which the estimate
+assumes. Every owner action is listed, step by step, in `docs/owner/launch-checklist.md`.

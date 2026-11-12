@@ -7,6 +7,7 @@ dist/
 build/
 out/
 .next/
+storybook-static/
 .expo/
 web-build/
 *.tsbuildinfo
@@ -20,7 +21,17 @@ apps/mobile/android/
 # Tooling caches
 .turbo/
 coverage/
+coverage-e2e/
+.vitest/
 .eslintcache
+
+# Local object storage (e-tickets, vouchers) for development and tests
+.data/
+
+# Test output (Playwright, Lighthouse)
+test-results/
+playwright-report/
+lighthouse-report/
 
 # Env files: never commit secrets. Only the documented example is tracked.
 .env
@@ -48,3 +59,20 @@ Thumbs.db
 *.mobileprovision
 *.jks
 *.keystore
+
+# Generated Prisma client (`prisma generate` runs on install)
+apps/api/src/generated/
+.zap/reports/
+.zap/openapi.json
+
+# Terraform: providers, state and per-environment values (examples are committed)
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+infra/terraform/environments/*.tfvars
+infra/terraform/environments/*.tfbackend
+
+# Redis snapshots from a local redis-server
+*.rdb

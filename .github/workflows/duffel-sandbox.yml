@@ -1,0 +1,101 @@
+name: Duffel sandbox check
+
+# Asks Duffel's test mode the open questions of the flight and Stays adapters (ADR-062) and, when
+# asked, runs our API's booking journey against it. Manual only, with the DUFFEL_API_TOKEN
+# repository secret, which must be a test token (the scripts refuse live ones). CI never calls
+# Duffel: the adapters' tests use fixtures and local stand-ins.
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: Products to check
+        type: choice
+        options: [all, flights, hotels]
+        default: all
+      book:
+        description: Also book through the adapters, repeat a booking on one quote, then cancel
+        type: boolean
+        required: false
+        default: false
+      journey:
+        description: Also run our API's journey (search to confirmed booking) against Duffel
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: duffel-sandbox
+  cancel-in-progress: false
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+
+jobs:
+  sandbox:
+    name: Duffel sandbox
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check the Duffel test token is set
+        env:
+          DUFFEL_API_TOKEN: ${{ secrets.DUFFEL_API_TOKEN }}
+        run: |
+          if [ -z "$DUFFEL_API_TOKEN" ]; then
+            echo "::error::Missing repository secret DUFFEL_API_TOKEN (a Duffel test token). Add it under Settings, Secrets and variables, Actions, then run this workflow again."
+            exit 1
+          fi
+          case "$DUFFEL_API_TOKEN" in
+            duffel_test_*) ;;
+            *)
+              echo "::error::DUFFEL_API_TOKEN must be a Duffel test token (duffel_test_...). This workflow never runs against live mode."
+              exit 1
+              ;;
+          esac
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The API's workspace dependencies (shared, design tokens, ...), as CI builds them.
+      - name: Build the API's workspace packages
+        run: pnpm exec turbo run build --filter=@suskii/api^...
+
+      - name: Run the sandbox check
+        env:
+          DUFFEL_API_TOKEN: ${{ secrets.DUFFEL_API_TOKEN }}
+          ONLY: ${{ inputs.only }}
+          BOOK: ${{ inputs.book }}
+        run: |
+          args=()
+          if [ "$ONLY" = "flights" ] || [ "$ONLY" = "hotels" ]; then args+=(--only "$ONLY"); fi
+          if [ "$BOOK" = "true" ]; then args+=(--book); fi
+          pnpm --filter @suskii/api sandbox:duffel "${args[@]}"
+
+      # Our API in-process (Testcontainers Postgres and Redis, as the e2e suite) with the Duffel
+      # suppliers: search, quote, guest booking, mock payment, then Duffel's confirmation.
+      - name: Run the API journey against Duffel
+        if: ${{ !cancelled() && inputs.journey }}
+        env:
+          DUFFEL_API_TOKEN: ${{ secrets.DUFFEL_API_TOKEN }}
+          ONLY: ${{ inputs.only }}
+        run: |
+          case "$ONLY" in
+            flights) pnpm --filter @suskii/api test:sandbox -t 'flight' ;;
+            hotels) pnpm --filter @suskii/api test:sandbox -t 'books a hotel' ;;
+            *) pnpm --filter @suskii/api test:sandbox ;;
+          esac

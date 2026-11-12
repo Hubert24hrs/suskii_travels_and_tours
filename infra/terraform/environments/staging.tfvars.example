@@ -1,0 +1,105 @@
+# Staging: copy to staging.tfvars (git-ignored) and replace every REPLACE value. Non-secret only:
+# the origin secret comes from TF_VAR_origin_auth_secret, application secrets from Secret Manager.
+# Staging runs the production images with mock suppliers, payments and messages
+# (allow_mock_providers), so it works before any provider account exists.
+
+project_id         = "REPLACE-suskii-staging"
+environment        = "staging"
+region             = "europe-west2"
+cloudflare_zone_id = "REPLACE_WITH_STAGING_ZONE_ID"
+
+# Its own Cloudflare zone, separate from production's (ADR-059).
+hosts = {
+  web   = "suskii-staging.example"
+  api   = "api.suskii-staging.example"
+  admin = "admin.suskii-staging.example"
+}
+redirect_hosts = ["www.suskii-staging.example"]
+
+# Production's deployer pulls the images staging tested (add once production exists).
+registry_readers = [
+  # "serviceAccount:suskii-production-deployer@REPLACE-suskii-production.iam.gserviceaccount.com",
+]
+
+# false for the first apply; true once the secrets have values and the first images are pushed.
+deploy_services = false
+
+# The agent service (ADR-101), when the assistant is to be tried here. First add
+# AGENT_RUN_TOKEN, AGENT_TOOLS_TOKEN and LLM_API_KEY to extra_secrets and give each a value (with
+# the mock model LLM_API_KEY may be any placeholder). true then creates its identity, its
+# database role's URL and the service, reachable from the VPC only. Last, set AGENT_URL below
+# to the agent_internal_url output and apply again (infra/terraform/README.md, "The agent
+# service").
+deploy_agent = false
+
+database = {
+  tier                = "db-custom-1-3840"
+  availability_type   = "ZONAL"
+  disk_size_gb        = 20
+  backup_retention    = 7
+  log_retention_days  = 7
+  deletion_protection = true
+}
+
+cache = {
+  tier           = "BASIC"
+  memory_size_gb = 1
+}
+
+scaling = {
+  api    = { min = 0, max = 3 }
+  worker = { min = 1, max = 1 }
+  web    = { min = 0, max = 3 }
+  admin  = { min = 0, max = 1 }
+  agent  = { min = 0, max = 1 } # used with deploy_agent
+}
+
+allow_mock_providers = true
+managed_waf          = false # the Free plan has no Managed or OWASP ruleset; set true on Pro
+admin_allowed_ips    = []    # office or VPN egress, also ADMIN_IP_ALLOWLIST below
+# Uptime alerts (ADR-087); staging usually tells nobody.
+uptime_alert_emails          = []
+uptime_notification_channels = []
+
+# AI trip search runs on the mock model here (ADR-061); a real model needs LLM_API_KEY in
+# extra_secrets and LLM_PROVIDER = "anthropic".
+api_env = {
+  FLIGHT_SUPPLIERS     = "mock"
+  HOTEL_SUPPLIERS      = "mock"
+  PAYMENT_PROVIDERS    = "mock"
+  TAX_SELLER_COUNTRY   = "NG"
+  EMAIL_PROVIDER       = "mock"
+  PUSH_PROVIDER        = "mock"
+  ANTIVIRUS_PROVIDER   = "mock"
+  DEVICE_ATTESTATION   = "mock"
+  CARS_BUSES_ENABLED   = "true"
+  CARS_RIDES_ENABLED   = "true"
+  CARS_RENTALS_ENABLED = "true"
+  AI_SEARCH_ENABLED    = "true"
+  LLM_PROVIDER         = "mock"
+  ADMIN_IP_ALLOWLIST   = ""
+  OPS_ALERT_EMAIL      = ""
+
+  # The after-hours assistant (ADR-085) answers at any hour on staging (no staffed hours).
+  SUPPORT_ASSISTANT_ENABLED = "true"
+
+  # Suskii Agent (ADR-101) stays off until its service is deployed here (deploy_agent above).
+  # Then, with the address from the agent_internal_url output:
+  # AGENT_URL     = "https://REPLACE.run.app"
+  # AGENT_ENABLED = "true"
+  # Price intelligence (ADR-102) stays off too. To try it here with the mock vendor, which
+  # reads nothing real: PRICE_INTEL_ENABLED = "true" (allow_mock_providers above permits it).
+  # Assisted quotes (ADR-104) are on here unless ASSISTED_QUOTES_ENABLED = "false".
+}
+
+web_env = {
+  MOBILE_APP_SCHEME = "suskii"
+}
+
+# The agent service's own settings (used with deploy_agent). Staging answers with the mock model,
+# which calls no provider; a real model is AGENT_MODEL_PROVIDER = "anthropic" with a real
+# LLM_API_KEY, after one run of the agent evals against it (ADR-106).
+agent_env = {
+  AGENT_MODEL_PROVIDER = "mock"
+  ALLOW_MOCK_PROVIDERS = "true"
+}

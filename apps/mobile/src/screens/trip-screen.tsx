@@ -1,0 +1,1000 @@
+import type { Schemas } from '@suskii/api-client';
+import { useFormatters } from '@suskii/i18n/react';
+import {
+  BOOKING_IN_PROGRESS_STATUSES,
+  DEFAULT_CURRENCY,
+  flightRequestToParams,
+  isSupportedCurrency,
+  type BookingStatus,
+} from '@suskii/shared';
+import { Badge, Button, Card, Modal, useToast, type BadgeProps } from '@suskii/ui-native';
+import { useQuery } from '@tanstack/react-query';
+import { randomUUID } from 'expo-crypto';
+import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { useState } from 'react';
+import { ScrollView, Text, View } from 'react-native';
+
+import { PlanPanel, RefundList } from '../components/booking/plan-panel';
+import { FlightStatus } from '../components/booking/flight-status';
+import { ScheduleChange } from '../components/booking/schedule-change';
+import { BoardingPasses } from '../components/cars/boarding-passes';
+import { CarsSummary, hasCarsItem } from '../components/cars/cars-summary';
+import { RentalLicence } from '../components/cars/rental-licence';
+import { TripPlanning } from '../components/cars/trip-planning';
+import { InhouseSummary, inhouseKind } from '../components/inhouse/inhouse-summary';
+import { AssistedSummary } from '../components/quotes/assisted-summary';
+import { PartnerOffers } from '../components/partners/partner-offers';
+import { TripReviews } from '../components/reviews/trip-reviews';
+import { VoucherCard } from '../components/inhouse/voucher-card';
+import { Loading, Notice, OfflineBanner } from '../components/states';
+import { useSensitiveScreen } from '../hooks/use-sensitive-screen';
+import { isNetworkError, problemSlug } from '../lib/api';
+import { documentStore, type SavedDocument } from '../lib/documents';
+import { openHostedCheckout, startPayment } from '../lib/payment';
+import { followBooking } from '../lib/push';
+import { tripStore, type Booking } from '../lib/trips';
+import { useApp, useT } from '../providers/app-provider';
+
+/** Trips that are going ahead get partner offers (transfers, a car, an eSIM, insurance, tours). */
+const PARTNER_STATUSES: readonly BookingStatus[] = [
+  'PAID',
+  'TICKETING',
+  'CONFIRMED',
+  'HELD',
+  'PARTIALLY_PAID',
+];
+
+const STATUS_VARIANT: Partial<Record<BookingStatus, NonNullable<BadgeProps['variant']>>> = {
+  CONFIRMED: 'success',
+  REFUND_PENDING: 'warning',
+  REFUNDED: 'neutral',
+  FAILED: 'danger',
+  EXPIRED: 'neutral',
+  CANCELLED: 'neutral',
+};
+
+const STATUS_HELP = {
+  REFUND_PENDING: 'refund',
+  REFUNDED: 'refunded',
+  HELD: 'held',
+  PARTIALLY_PAID: 'partlyPaid',
+  FAILED: 'failed',
+  EXPIRED: 'expired',
+  CANCELLED: 'cancelled',
+} as const satisfies Partial<Record<BookingStatus, string>>;
+type HelpKey = (typeof STATUS_HELP)[keyof typeof STATUS_HELP] | 'unpaid';
+const helpKey = (status: BookingStatus): HelpKey =>
+  (STATUS_HELP as Partial<Record<BookingStatus, HelpKey>>)[status] ?? 'unpaid';
+
+const ON_PLAN: readonly BookingStatus[] = ['HELD', 'PARTIALLY_PAID'];
+
+/** Bookings an add-on can still be attached to (the API's `addon-links` rule, ADR-027). */
+const LINKABLE: readonly BookingStatus[] = [
+  'HELD',
+  'PARTIALLY_PAID',
+  'PAID',
+  'TICKETING',
+  'CONFIRMED',
+];
+
+/**
+ * Documents are rendered just after the booking is confirmed, and the API backfills missing ones
+ * on a read two minutes after confirmation; waiting a little longer picks those up too.
+ */
+const DOCUMENTS_WAIT_MS = 3 * 60_000;
+
+/** A booking confirmed moments ago whose documents (all but memberships have one) are not ready. */
+const awaitingDocuments = (booking: Booking, now: number): boolean =>
+  booking.status === 'CONFIRMED' &&
+  booking.vertical !== 'prime' &&
+  booking.documents.length === 0 &&
+  booking.confirmedAt !== null &&
+  now - Date.parse(booking.confirmedAt) < DOCUMENTS_WAIT_MS;
+
+/**
+ * Keep polling while payment, ticketing or a refund is in flight (webhooks decide), or while a
+ * booking that was just confirmed still has no documents.
+ */
+export const shouldPoll = (booking: Booking, now = Date.now()): boolean =>
+  BOOKING_IN_PROGRESS_STATUSES.includes(booking.status) ||
+  awaitingDocuments(booking, now) ||
+  (ON_PLAN.includes(booking.status) && booking.payment?.status === 'pending') ||
+  booking.status === 'REFUND_PENDING' ||
+  booking.refunds.some((refund) => refund.status === 'in_progress');
+
+type Loaded =
+  | { kind: 'ready'; booking: Booking; offline: boolean; savedAt: string | null }
+  | { kind: 'missing' };
+
+function Documents({
+  booking,
+  headers,
+}: {
+  booking: Booking;
+  headers: () => Promise<Record<string, string>>;
+}) {
+  const { t } = useT();
+  const { session } = useApp();
+  const { toast } = useToast();
+  const [saved, setSaved] = useState<SavedDocument[]>(() => documentStore.saved(booking.id));
+  const [busy, setBusy] = useState<string | null>(null);
+  if (booking.documents.length === 0) return null;
+
+  const save = async (document: Booking['documents'][number]) => {
+    setBusy(document.id);
+    try {
+      let result: SavedDocument;
+      try {
+        result = await documentStore.download(booking.id, document, await headers());
+      } catch (error) {
+        // An expired access token: rotate once and retry.
+        if (!session.signedIn || !(await session.refresh())) throw error;
+        result = await documentStore.download(booking.id, document, await headers());
+      }
+      setSaved((current) => [result, ...current.filter((item) => item.documentId !== document.id)]);
+    } catch {
+      toast({ title: t('mobile.trip.downloadFailed'), variant: 'error' });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <Card className="gap-3 p-4">
+      <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
+        {t('booking.documents')}
+      </Text>
+      {booking.documents.map((document) => {
+        const copy = saved.find((item) => item.documentId === document.id);
+        return (
+          <View key={document.id} className="gap-2">
+            <Text className="font-body-bold text-body-sm text-foreground">
+              {t(`booking.download.${document.type}`)}
+            </Text>
+            {copy ? (
+              <View className="gap-2">
+                <Text testID="document-saved" className="font-body text-caption text-success">
+                  {t('mobile.trip.savedOffline')}
+                </Text>
+                <Button
+                  testID="document-open"
+                  variant="secondary"
+                  onPress={() =>
+                    void documentStore.open(copy, t(`booking.download.${document.type}`))
+                  }
+                >
+                  {t('mobile.trip.open')}
+                </Button>
+              </View>
+            ) : (
+              <Button
+                testID="document-save"
+                variant="secondary"
+                loading={busy === document.id}
+                onPress={() => void save(document)}
+              >
+                {t('mobile.trip.saveOffline')}
+              </Button>
+            )}
+          </View>
+        );
+      })}
+    </Card>
+  );
+}
+
+/**
+ * A trip (ADR-020): status (polled while work is in flight), itinerary or stay, travellers, plan,
+ * refunds and documents that stay available offline. Guests reach it with the token stored at
+ * checkout or from an emailed link.
+ */
+export function TripScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { api, session } = useApp();
+  const { t } = useT();
+  const format = useFormatters();
+  const router = useRouter();
+  const { toast } = useToast();
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [removing, setRemoving] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  // A ticketed flight's refund quote, shown before the traveller confirms (ADR-064).
+  const [flightQuote, setFlightQuote] = useState<Schemas['FlightCancellationQuote'] | null>(null);
+  const [refundingChange, setRefundingChange] = useState(false);
+  useSensitiveScreen();
+
+  const headers = async (): Promise<Record<string, string>> => {
+    const guest = await tripStore.bookingHeaders(id);
+    const access = session.accessToken();
+    return { ...guest, ...(access ? { Authorization: `Bearer ${access}` } : {}) };
+  };
+
+  const query = useQuery({
+    queryKey: ['booking', id],
+    refetchInterval: (state) =>
+      state.state.data?.kind === 'ready' &&
+      !state.state.data.offline &&
+      shouldPoll(state.state.data.booking)
+        ? 2500
+        : false,
+    queryFn: async (): Promise<Loaded> => {
+      try {
+        const { data, response } = await api.GET('/v1/bookings/{bookingId}', {
+          params: { path: { bookingId: id }, header: await tripStore.bookingHeaders(id) },
+        });
+        if (data) {
+          tripStore.saveBooking(data);
+          return { kind: 'ready', booking: data, offline: false, savedAt: null };
+        }
+        if (response.status === 404 || response.status === 400) return { kind: 'missing' };
+        throw new Error(String(response.status));
+      } catch (error) {
+        const cached = tripStore.cachedBooking(id);
+        if (cached && isNetworkError(error)) {
+          return { kind: 'ready', booking: cached.booking, offline: true, savedAt: cached.savedAt };
+        }
+        throw error;
+      }
+    },
+  });
+
+  if (query.isPending) return <Loading label={t('booking.loading')} />;
+  if (query.data?.kind === 'missing') {
+    return <Notice title={t('booking.notFound.heading')} body={t('booking.notFound.body')} />;
+  }
+  if (!query.data) {
+    return (
+      <Notice
+        body={t('booking.error')}
+        action={t('booking.retry')}
+        onAction={() => void query.refetch()}
+      />
+    );
+  }
+
+  const { booking, offline, savedAt } = query.data;
+  const status = booking.status;
+  // The booked search, for "See other flights" beside an airline's refund offer (ADR-093).
+  const otherFlights =
+    booking.flight && !offline
+      ? `/search/flights?${flightRequestToParams(booking.flight.request).toString()}`
+      : null;
+  const plan = booking.paymentPlan;
+  // Company trips (ADR-078); offline copies saved before this field existed have none.
+  const approval = booking.company?.approvalStatus ?? 'not_required';
+  const findings = (booking.company?.policyFindings ?? []).map((finding) =>
+    t(`booking.company.findings.${finding}`),
+  );
+  const guestTrip = tripStore.deviceTripIds().includes(booking.id);
+  const help =
+    status === 'CONFIRMED'
+      ? t('booking.statusHelp.confirmed', { email: booking.contact.email })
+      : BOOKING_IN_PROGRESS_STATUSES.includes(status)
+        ? // An assisted booking waits for a person, however long that takes (ADR-104).
+          booking.assisted
+          ? t('quotes.waiting')
+          : t('booking.statusHelp.working')
+        : t(`booking.statusHelp.${helpKey(status)}`);
+
+  const pay = async (options: { payInFull?: boolean; useCompanyWallet?: boolean } = {}) => {
+    setBusy(true);
+    setActionError(null);
+    const bookingHeaders = await tripStore.bookingHeaders(booking.id);
+    if (booking.pendingPriceChange) {
+      const consent = await api.POST('/v1/bookings/{bookingId}/price-consent', {
+        params: { path: { bookingId: booking.id }, header: bookingHeaders },
+        body: { total: booking.pendingPriceChange.current },
+      });
+      if (!consent.data) {
+        setBusy(false);
+        void query.refetch();
+        return;
+      }
+    }
+    const started = await startPayment(api, booking.id, bookingHeaders, {
+      payInFull: options.payInFull ?? false,
+      useCompanyWallet: options.useCompanyWallet ?? false,
+    });
+    if (started.kind === 'redirect') await openHostedCheckout(started.checkoutUrl);
+    else if (started.kind === 'device') setActionError(t('mobile.checkout.deviceCheckFailed'));
+    else if (started.kind === 'company-wallet-insufficient')
+      setActionError(t('checkout.errors.companyWalletInsufficient'));
+    else if (started.kind === 'company-wallet-unavailable')
+      setActionError(t('checkout.errors.companyWalletUnavailable'));
+    else if (started.kind !== 'paid' && started.kind !== 'price-changed')
+      setActionError(t('checkout.errors.generic'));
+    setBusy(false);
+    void query.refetch();
+  };
+
+  const cancel = async () => {
+    setBusy(true);
+    const { data } = await api.POST('/v1/bookings/{bookingId}/cancel', {
+      params: {
+        path: { bookingId: booking.id },
+        header: await tripStore.bookingHeaders(booking.id),
+      },
+      body: {},
+    });
+    if (!data) setActionError(t('checkout.errors.generic'));
+    setBusy(false);
+    void query.refetch();
+  };
+
+  const quoteFlightCancellation = async () => {
+    setBusy(true);
+    setActionError(null);
+    const { data, error } = await api.POST('/v1/bookings/{bookingId}/cancellation-quote', {
+      params: {
+        path: { bookingId: booking.id },
+        header: await tripStore.bookingHeaders(booking.id),
+      },
+    });
+    setBusy(false);
+    if (data) setFlightQuote(data);
+    else
+      setActionError(
+        problemSlug(error) === 'not-cancellable'
+          ? t('booking.flightCancel.notOnline')
+          : t('checkout.errors.generic'),
+      );
+  };
+
+  const cancelFlight = async (refund: Schemas['Money']) => {
+    setBusy(true);
+    const { data, error } = await api.POST('/v1/bookings/{bookingId}/cancel', {
+      params: {
+        path: { bookingId: booking.id },
+        header: await tripStore.bookingHeaders(booking.id),
+      },
+      body: { refund },
+    });
+    setFlightQuote(null);
+    if (!data) {
+      setActionError(
+        problemSlug(error) === 'cancellation-quote-expired'
+          ? t('booking.flightCancel.expired')
+          : t('checkout.errors.generic'),
+      );
+    }
+    setBusy(false);
+    void query.refetch();
+  };
+
+  // The traveller accepts the airline's new times (ADR-065); the booking then shows them.
+  const acceptScheduleChange = async (changeId: string) => {
+    setBusy(true);
+    setActionError(null);
+    const { data, error } = await api.POST(
+      '/v1/bookings/{bookingId}/schedule-changes/{changeId}/accept',
+      {
+        params: {
+          path: { bookingId: booking.id, changeId },
+          header: await tripStore.bookingHeaders(booking.id),
+        },
+      },
+    );
+    setBusy(false);
+    if (data) {
+      tripStore.saveBooking(data);
+      toast({ title: t('booking.scheduleChange.accepted'), variant: 'success' });
+    } else {
+      setActionError(
+        problemSlug(error) === 'schedule-change-not-acceptable'
+          ? t('booking.scheduleChange.notAcceptable')
+          : t('booking.scheduleChange.failed'),
+      );
+    }
+    void query.refetch();
+  };
+
+  // The traveller declines a significant change and takes everything back (ADR-073).
+  const refundScheduleChange = async (changeId: string, amount: Schemas['Money']) => {
+    setBusy(true);
+    setActionError(null);
+    const { data, error } = await api.POST(
+      '/v1/bookings/{bookingId}/schedule-changes/{changeId}/refund',
+      {
+        params: {
+          path: { bookingId: booking.id, changeId },
+          header: {
+            ...(await tripStore.bookingHeaders(booking.id)),
+            'Idempotency-Key': randomUUID(),
+          },
+        },
+        body: { refund: amount },
+      },
+    );
+    setBusy(false);
+    setRefundingChange(false);
+    if (data) {
+      tripStore.saveBooking(data);
+      toast({
+        title: t('booking.scheduleChange.refunded', { amount: format.money(amount) }),
+        variant: 'success',
+      });
+    } else {
+      const slug = problemSlug(error);
+      setActionError(
+        slug === 'refund-offer-unavailable'
+          ? t('booking.scheduleChange.refundUnavailable')
+          : slug === 'refund-offer-changed'
+            ? t('booking.scheduleChange.refundChanged')
+            : t('checkout.errors.generic'),
+      );
+    }
+    void query.refetch();
+  };
+
+  const cancelUnderPolicy = async () => {
+    await cancel();
+    setCancelling(false);
+  };
+
+  const follow = async () => {
+    const ok = await followBooking(
+      api,
+      booking.id,
+      await tripStore.bookingHeaders(booking.id),
+      true,
+    );
+    toast({
+      title: ok ? t('mobile.trip.notifyOn') : t('mobile.trip.notifyOff'),
+      variant: ok ? 'success' : 'info',
+    });
+  };
+
+  const forget = async () => {
+    documentStore.remove(booking.id);
+    await tripStore.forget(booking.id);
+    setRemoving(false);
+    router.back();
+  };
+
+  return (
+    <View className="flex-1 bg-background">
+      <Stack.Screen options={{ title: t('booking.heading', { reference: booking.reference }) }} />
+      {offline ? <OfflineBanner label={t('mobile.offline')} /> : null}
+      <ScrollView testID="trip" contentContainerClassName="gap-4 p-4 pb-12">
+        <View accessibilityLiveRegion="polite" className="items-start gap-2">
+          <Text accessibilityRole="header" className="font-heading text-h3 text-heading">
+            {t('booking.heading', { reference: booking.reference })}
+          </Text>
+          <View testID="trip-status">
+            <Badge variant={STATUS_VARIANT[status] ?? 'info'}>
+              {t(`booking.status.${status}`)}
+            </Badge>
+          </View>
+          <Text className="font-body text-body text-foreground">{help}</Text>
+          {approval !== 'not_required' ? (
+            <Text
+              testID="trip-company"
+              className={
+                approval === 'rejected'
+                  ? 'font-body-bold text-body-sm text-danger'
+                  : 'font-body-bold text-body-sm text-foreground'
+              }
+            >
+              {t(`booking.company.${approval}`)}
+            </Text>
+          ) : null}
+          {/* A part of a combined trip (ADR-099): the trip shows every part and takes payment. */}
+          {booking.trip && !offline ? (
+            <View testID="trip-built" className="items-start gap-1">
+              <Text className="font-body text-body-sm text-foreground">
+                {t('booking.builtTrip.partOf', { reference: booking.trip.reference })}
+              </Text>
+              <Button
+                testID="trip-built-open"
+                variant="ghost"
+                onPress={() => router.push(`/trips/built/${booking.trip?.id ?? ''}` as Href)}
+              >
+                {t('booking.builtTrip.open')}
+              </Button>
+            </View>
+          ) : null}
+          {findings.length > 0 ? (
+            <Text className="font-body text-body-sm text-foreground">
+              {t('booking.company.outsidePolicy', { findings: format.list(findings) })}
+            </Text>
+          ) : null}
+          {offline && savedAt ? (
+            <Text className="font-body text-caption text-muted">
+              {t('mobile.trip.offlineCopy', { time: format.dateTime(savedAt) })}
+            </Text>
+          ) : null}
+        </View>
+        {actionError ? (
+          <Text accessibilityRole="alert" className="font-body text-body-sm text-danger">
+            {actionError}
+          </Text>
+        ) : null}
+        {!offline ? (
+          <View className="gap-2">
+            {status === 'AWAITING_PAYMENT' && booking.payment?.checkoutUrl ? (
+              <Button
+                testID="complete-payment"
+                onPress={() =>
+                  void openHostedCheckout(booking.payment?.checkoutUrl ?? '').then(() =>
+                    query.refetch(),
+                  )
+                }
+              >
+                {t('booking.completePayment')}
+              </Button>
+            ) : null}
+            {(status === 'PRICED' && approval !== 'pending') ||
+            (plan?.status === 'active' && booking.pendingPriceChange) ? (
+              <Button testID="pay-now" loading={busy} onPress={() => void pay()}>
+                {booking.pendingPriceChange
+                  ? t('checkout.priceChange.accept')
+                  : t('booking.retryPayment')}
+              </Button>
+            ) : null}
+            {/* The API says whether the company wallet covers the amount due (ADR-090). */}
+            {booking.amountDue && booking.paymentOptions?.companyWallet?.covers ? (
+              <Button
+                testID="pay-from-company-wallet"
+                variant="secondary"
+                disabled={busy}
+                onPress={() => void pay({ useCompanyWallet: true })}
+              >
+                {t('booking.payFromCompanyWallet', { amount: format.money(booking.amountDue) })}
+              </Button>
+            ) : null}
+          </View>
+        ) : null}
+
+        {booking.voucher ? <VoucherCard voucher={booking.voucher} /> : null}
+
+        {booking.membership ? (
+          <Card testID="trip-membership" className="gap-2 p-4">
+            <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
+              {t('booking.membership.heading')}
+            </Text>
+            <Text className="font-body-bold text-body text-foreground">
+              {booking.membership.product.title}
+            </Text>
+            <Text className="font-body text-body text-foreground">
+              {booking.membership.term
+                ? t('booking.membership.term', {
+                    start: format.date(booking.membership.term.startsAt.slice(0, 10)),
+                    end: format.date(booking.membership.term.endsAt.slice(0, 10)),
+                  })
+                : t('booking.membership.pending')}
+            </Text>
+          </Card>
+        ) : null}
+
+        {hasCarsItem(booking) ? (
+          <Card testID="trip-cars" className="gap-3 p-4">
+            <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
+              {booking.bus
+                ? t('booking.cars.bus.heading')
+                : booking.ride
+                  ? t('booking.cars.ride.heading')
+                  : t('booking.cars.rental.heading')}
+            </Text>
+            <CarsSummary items={booking} />
+            {booking.ride ? (
+              booking.ride.rideId ? (
+                <Button
+                  testID="track-ride"
+                  onPress={() => router.push(`/rides/${booking.ride?.rideId ?? ''}` as Href)}
+                >
+                  {t('booking.cars.ride.track')}
+                </Button>
+              ) : (
+                <Text className="font-body text-body-sm text-foreground">
+                  {t('booking.cars.ride.pending')}
+                </Text>
+              )
+            ) : null}
+          </Card>
+        ) : null}
+        {booking.bus ? <BoardingPasses tickets={booking.busTickets} /> : null}
+        {booking.rental?.reservation?.licenceRequired && !offline ? (
+          status === 'PAID' || status === 'CONFIRMED' ? (
+            <RentalLicence reservationId={booking.rental.reservation.id} />
+          ) : (
+            <Text className="font-body text-body-sm text-foreground">
+              {t('booking.cars.rental.pending')}
+            </Text>
+          )
+        ) : null}
+
+        {booking.assisted ? (
+          <Card testID="assisted-booking" className="gap-2 p-4">
+            <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
+              {t('booking.itinerary')}
+            </Text>
+            <AssistedSummary item={booking.assisted} />
+          </Card>
+        ) : null}
+
+        {inhouseKind(booking) ? (
+          <Card className="gap-3 p-4">
+            <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
+              {t('booking.itinerary')}
+            </Text>
+            <InhouseSummary items={booking} />
+          </Card>
+        ) : null}
+
+        {booking.visa && booking.visa.applications.length > 0 ? (
+          <Card className="gap-3 p-4">
+            <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
+              {t('booking.inhouse.applications')}
+            </Text>
+            {booking.visa.applications.map((application) => {
+              const passenger = booking.passengers.find(
+                (candidate) => candidate.position === application.applicantPosition,
+              );
+              return (
+                <View key={application.id} className="gap-2">
+                  <Text className="font-body-bold text-body text-foreground">
+                    {passenger
+                      ? `${passenger.givenNames} ${passenger.surname}`
+                      : t('booking.inhouse.applicant', {
+                          number: application.applicantPosition + 1,
+                        })}
+                  </Text>
+                  <View className="items-start">
+                    <Badge variant={application.status === 'action_required' ? 'warning' : 'info'}>
+                      {t(`booking.inhouse.applicationStatus.${application.status}`)}
+                    </Badge>
+                  </View>
+                  {!offline ? (
+                    <Button
+                      testID={`visa-application-${application.applicantPosition}`}
+                      variant="secondary"
+                      onPress={() =>
+                        router.push(`/trips/${booking.id}/visa/${application.id}` as Href)
+                      }
+                    >
+                      {t('booking.inhouse.openApplication')}
+                    </Button>
+                  ) : null}
+                </View>
+              );
+            })}
+          </Card>
+        ) : null}
+
+        {!offline && status === 'CONFIRMED' && booking.flight ? (
+          <FlightStatus bookingId={booking.id} />
+        ) : null}
+
+        {booking.scheduleChange ? (
+          <ScheduleChange
+            change={booking.scheduleChange}
+            offline={offline}
+            busy={busy}
+            onAccept={() => {
+              if (booking.scheduleChange) void acceptScheduleChange(booking.scheduleChange.id);
+            }}
+            onRefund={() => setRefundingChange(true)}
+            onOtherFlights={otherFlights ? () => router.push(otherFlights) : undefined}
+          />
+        ) : null}
+
+        {booking.flight ? (
+          <Card className="gap-3 p-4">
+            <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
+              {t('booking.itinerary')}
+            </Text>
+            <Text className="font-body text-body-sm text-foreground">
+              {booking.flight.owner.name} · {t(`cabins.${booking.flight.cabinClass}`)}
+            </Text>
+            {booking.flight.airlineReference ? (
+              <Text className="font-body text-body text-foreground">
+                {t('booking.airlineReference')}:{' '}
+                <Text testID="airline-reference" className="font-body-bold">
+                  {booking.flight.airlineReference}
+                </Text>
+              </Text>
+            ) : null}
+            {booking.flight.slices.map((slice, index) => (
+              <View key={index} className="gap-1">
+                <Text className="font-body-bold text-caption text-muted">
+                  {format.date(slice.departureLocal.slice(0, 10), 'weekday')}
+                </Text>
+                <Text className="font-body text-body text-foreground">
+                  {slice.departureLocal.slice(11, 16)} {slice.origin.cityName ?? slice.origin.code}{' '}
+                  ({slice.origin.code}) → {slice.arrivalLocal.slice(11, 16)}
+                  {slice.arrivalDayOffset > 0 ? ` +${slice.arrivalDayOffset}` : ''}{' '}
+                  {slice.destination.cityName ?? slice.destination.code} ({slice.destination.code})
+                </Text>
+              </View>
+            ))}
+          </Card>
+        ) : null}
+
+        {booking.hotel ? (
+          <Card className="gap-2 p-4">
+            <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
+              {t('booking.stay')}
+            </Text>
+            <Text className="font-body-bold text-body text-foreground">{booking.hotel.name}</Text>
+            <Text className="font-body text-body-sm text-foreground">
+              {format.dateRange(booking.hotel.checkIn, booking.hotel.checkOut, 'medium')} ·{' '}
+              {t('booking.nights', { count: booking.hotel.nights })}
+            </Text>
+            {booking.hotel.confirmationNumber ? (
+              <Text className="font-body text-body text-foreground">
+                {t('booking.confirmationNumber')}: {booking.hotel.confirmationNumber}
+              </Text>
+            ) : null}
+          </Card>
+        ) : null}
+
+        {!offline && status === 'CONFIRMED' ? <TripReviews bookingId={booking.id} /> : null}
+        {!offline ? <TripPlanning booking={booking} /> : null}
+        {!offline && PARTNER_STATUSES.includes(booking.status) ? (
+          <PartnerOffers
+            source={{
+              kind: 'booking',
+              bookingId: booking.id,
+              currency: isSupportedCurrency(booking.price.total.currency)
+                ? booking.price.total.currency
+                : DEFAULT_CURRENCY,
+            }}
+            heading={t('partners.tripHeading')}
+            testID="partner-offers"
+          />
+        ) : null}
+
+        {plan ? (
+          <PlanPanel
+            booking={booking}
+            plan={plan}
+            busy={busy || offline}
+            onPay={(options) => void pay(options)}
+            onCancel={cancel}
+          />
+        ) : null}
+        <RefundList refunds={booking.refunds} />
+        <Documents booking={booking} headers={headers} />
+
+        {booking.addons.length > 0 ||
+        (!offline && booking.vertical !== 'travel_addons' && LINKABLE.includes(status)) ? (
+          <Card className="gap-3 p-4">
+            <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
+              {t('booking.inhouse.extras')}
+            </Text>
+            {booking.addons.map((addon) => (
+              <Button
+                key={addon.id}
+                variant="ghost"
+                onPress={() => router.push(`/trips/${addon.id}` as Href)}
+              >
+                {`${addon.title} (${addon.reference}) · ${t(`booking.status.${addon.status}`)}`}
+              </Button>
+            ))}
+            {!offline && booking.vertical !== 'travel_addons' && LINKABLE.includes(status) ? (
+              <Button
+                testID="add-extras"
+                variant="secondary"
+                onPress={() => router.push(`/trips/${booking.id}/addons` as Href)}
+              >
+                {t('mobile.trip.addExtras')}
+              </Button>
+            ) : null}
+          </Card>
+        ) : null}
+
+        <Card className="gap-3 p-4">
+          <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
+            {booking.hotel ? t('booking.guests') : t('booking.travellers')}
+          </Text>
+          {booking.passengers.map((passenger) => (
+            <View key={passenger.position} className="gap-1">
+              <Text className="font-body-bold text-body text-foreground">
+                {passenger.givenNames} {passenger.surname}
+              </Text>
+              {passenger.ticketNumber ? (
+                <Text testID="ticket-number" className="font-body text-body-sm text-foreground">
+                  {t('booking.ticket', { number: passenger.ticketNumber })}
+                </Text>
+              ) : null}
+              {passenger.document ? (
+                <Text className="font-body text-caption text-muted">
+                  {t('booking.passport', { hint: passenger.document.hint })}
+                </Text>
+              ) : null}
+              {passenger.extraBags > 0 ? (
+                <Text className="font-body text-caption text-foreground">
+                  {t('booking.extraBags', { count: passenger.extraBags })}
+                </Text>
+              ) : null}
+              {passenger.seats.length > 0 ? (
+                <Text testID="seats" className="font-body text-caption text-foreground">
+                  {t('booking.seats', {
+                    seats: passenger.seats.map((seat) => seat.designator).join(', '),
+                  })}
+                </Text>
+              ) : null}
+              {passenger.meal ? (
+                <Text testID="meal-request" className="font-body text-caption text-foreground">
+                  {t('booking.mealRequest', {
+                    meal: t(`checkout.meal.options.${passenger.meal}`),
+                  })}
+                </Text>
+              ) : null}
+            </View>
+          ))}
+        </Card>
+
+        <Card className="gap-2 p-4">
+          <Text className="font-body text-body-sm text-foreground">{t('booking.price')}</Text>
+          <Text className="font-heading text-h3 text-heading">
+            {format.money(plan?.total ?? booking.price.total)}
+          </Text>
+          {booking.paid.amountMinor > 0 ? (
+            <Text testID="booking-paid" className="font-body text-body-sm text-foreground">
+              {t('booking.paid')}: {format.money(booking.paid)}
+            </Text>
+          ) : null}
+        </Card>
+
+        {booking.cancellation && !offline ? (
+          <Button testID="cancel-booking" variant="ghost" onPress={() => setCancelling(true)}>
+            {t('booking.inhouse.cancel')}
+          </Button>
+        ) : null}
+        {booking.flightCancellable && !offline ? (
+          <Button
+            testID="cancel-flight"
+            variant="ghost"
+            loading={busy && !flightQuote}
+            onPress={() => void quoteFlightCancellation()}
+          >
+            {t('booking.flightCancel.action')}
+          </Button>
+        ) : null}
+        {!offline ? (
+          <Button
+            testID="trip-get-help"
+            variant="secondary"
+            onPress={() => router.push(`/support?booking=${booking.id}` as Href)}
+          >
+            {t('support.getHelp')}
+          </Button>
+        ) : null}
+        {!offline ? (
+          <Button variant="ghost" onPress={() => void follow()}>
+            {t('mobile.trip.notify')}
+          </Button>
+        ) : null}
+        {guestTrip ? (
+          <Button variant="ghost" onPress={() => setRemoving(true)}>
+            {t('mobile.trip.remove')}
+          </Button>
+        ) : null}
+      </ScrollView>
+      <Modal
+        open={cancelling}
+        onOpenChange={setCancelling}
+        title={t('booking.inhouse.cancelTitle')}
+        description={
+          booking.cancellation && booking.cancellation.refund.amountMinor > 0
+            ? t('booking.inhouse.cancelRefund', {
+                amount: format.money(booking.cancellation.refund),
+                percent: format.number(booking.cancellation.refundBps / 100),
+              })
+            : t('booking.inhouse.cancelNoRefund')
+        }
+        closeLabel={t('common.close')}
+        footer={
+          <View className="gap-2">
+            <Button
+              testID="cancel-confirm"
+              fullWidth
+              loading={busy}
+              onPress={() => void cancelUnderPolicy()}
+            >
+              {t('booking.inhouse.cancelConfirm')}
+            </Button>
+            <Button variant="ghost" onPress={() => setCancelling(false)}>
+              {t('booking.inhouse.cancelKeep')}
+            </Button>
+          </View>
+        }
+      />
+      <Modal
+        open={flightQuote !== null}
+        onOpenChange={(open) => {
+          if (!open) setFlightQuote(null);
+        }}
+        title={t('booking.flightCancel.title')}
+        description={
+          flightQuote && flightQuote.refund.amountMinor > 0
+            ? t('booking.flightCancel.refund', { amount: format.money(flightQuote.refund) })
+            : t('booking.flightCancel.noRefund', {
+                amount: flightQuote ? format.money(flightQuote.kept) : '',
+              })
+        }
+        closeLabel={t('common.close')}
+        footer={
+          <View className="gap-2">
+            <Button
+              testID="cancel-flight-confirm"
+              fullWidth
+              loading={busy}
+              onPress={() => {
+                if (flightQuote) void cancelFlight(flightQuote.refund);
+              }}
+            >
+              {t('booking.flightCancel.confirm')}
+            </Button>
+            <Button variant="ghost" onPress={() => setFlightQuote(null)}>
+              {t('booking.flightCancel.keep')}
+            </Button>
+          </View>
+        }
+      >
+        {flightQuote ? (
+          <View className="gap-2">
+            {flightQuote.refund.amountMinor > 0 && flightQuote.kept.amountMinor > 0 ? (
+              <Text className="font-body text-body-sm text-foreground">
+                {t('booking.flightCancel.kept', { amount: format.money(flightQuote.kept) })}
+              </Text>
+            ) : null}
+            <Text testID="cancel-flight-expires" className="font-body text-body-sm text-muted">
+              {t('booking.flightCancel.expires', { time: format.dateTime(flightQuote.expiresAt) })}
+            </Text>
+          </View>
+        ) : null}
+      </Modal>
+      <Modal
+        open={refundingChange && Boolean(booking.scheduleChange?.refundOffer)}
+        onOpenChange={setRefundingChange}
+        title={t('booking.scheduleChange.refundTitle')}
+        description={t('booking.scheduleChange.refundBody', {
+          amount: booking.scheduleChange?.refundOffer
+            ? format.money(booking.scheduleChange.refundOffer.amount)
+            : '',
+        })}
+        closeLabel={t('common.close')}
+        footer={
+          <View className="gap-2">
+            <Button
+              testID="schedule-change-refund-confirm"
+              fullWidth
+              loading={busy}
+              onPress={() => {
+                const change = booking.scheduleChange;
+                if (change?.refundOffer) {
+                  void refundScheduleChange(change.id, change.refundOffer.amount);
+                }
+              }}
+            >
+              {t('booking.scheduleChange.refundConfirm')}
+            </Button>
+            <Button variant="ghost" onPress={() => setRefundingChange(false)}>
+              {t('booking.scheduleChange.refundKeep')}
+            </Button>
+          </View>
+        }
+      />
+      <Modal
+        open={removing}
+        onOpenChange={setRemoving}
+        title={t('mobile.trip.removeTitle')}
+        description={t('mobile.trip.removeBody')}
+        closeLabel={t('common.close')}
+        footer={
+          <View className="gap-2">
+            <Button fullWidth onPress={() => void forget()}>
+              {t('mobile.trip.removeConfirm')}
+            </Button>
+            <Button variant="ghost" onPress={() => setRemoving(false)}>
+              {t('mobile.trip.keep')}
+            </Button>
+          </View>
+        }
+      />
+    </View>
+  );
+}

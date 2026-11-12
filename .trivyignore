@@ -1,0 +1,6 @@
+# Findings Trivy reports by version that a patch in patches/ fixes (docs/security/dependency-exceptions.md,
+# Patched in place). Review with that table; drop each line when its patch goes.
+
+# decode-uri-component 0.2.2 via expo-router > query-string (GHSA-qr28-fpjm-wq7f): 0.5.1's linear
+# decoder is backported by patches/decode-uri-component@0.2.2.patch.
+CVE-2026-118664

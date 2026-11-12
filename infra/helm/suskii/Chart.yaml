@@ -1,0 +1,7 @@
+apiVersion: v2
+name: suskii
+description: Suskii Travels API, worker, website and console on Kubernetes (GKE or EKS), the optional alternative to Cloud Run (ADR-059, ADR-060).
+type: application
+version: 0.1.0
+appVersion: '0.12.0'
+kubeVersion: '>=1.29.0-0'

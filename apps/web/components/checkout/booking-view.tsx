@@ -1,0 +1,758 @@
+'use client';
+
+import { useFormatters } from '@suskii/i18n/react';
+import {
+  BOOKING_IN_PROGRESS_STATUSES,
+  DEFAULT_CURRENCY,
+  isSupportedCurrency,
+  type BookingStatus,
+} from '@suskii/shared/lite';
+import { Badge, Button, Card, type BadgeProps } from '@suskii/ui-web';
+import { Download } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+
+import { trackAd } from '../../lib/ad-events';
+import { adValue } from '../../lib/ad-value';
+import { adoptAccessLink, bookingHeaders } from '../../lib/booking-token';
+import { browserApi, idempotencyKey, problemSlug, type Schemas } from '../../lib/browser-api';
+import { searchAgainHref } from '../../lib/search-links';
+import { AppLink } from '../app-link';
+import { PartnerOffers } from '../partners/partner-offers';
+import { ResultsLoading } from '../results/result-states';
+
+import { useBookingT } from './checkout-messages';
+import { CancelFlight } from './cancel-flight';
+import { CancelUnderPolicy, TripExtras, VisaApplications, VoucherCard } from './inhouse-booking';
+import { CarsBooking } from './cars-booking';
+import { hasCarsItem } from './cars-details';
+import { InhouseDetails, inhouseKind } from './inhouse-details';
+import { AssistedDetails } from './summaries';
+import { chosenMethod, MethodChoice, type PaymentMethodName } from './payment-choice';
+import { PlanPanel, RefundList } from './plan-panel';
+import { FlightStatus } from './flight-status';
+import { ScheduleChange } from './schedule-change';
+import { TripPlanning } from './trip-planning';
+import { TripReviews } from './trip-reviews';
+
+type Booking = Schemas['Booking'];
+type Phase =
+  | { kind: 'loading' }
+  | { kind: 'ready'; booking: Booking }
+  | { kind: 'missing' }
+  | { kind: 'error' };
+
+const POLL_MS = 2500;
+const SLOW_AFTER_MS = 60_000;
+const STOP_AFTER_MS = 5 * 60_000;
+
+const STATUS_VARIANT: Partial<Record<BookingStatus, NonNullable<BadgeProps['variant']>>> = {
+  CONFIRMED: 'success',
+  REFUND_PENDING: 'warning',
+  REFUNDED: 'neutral',
+  FAILED: 'danger',
+  EXPIRED: 'neutral',
+  CANCELLED: 'neutral',
+};
+
+/** Help under the status badge for settled or waiting states (in-flight ones say it is working). */
+const STATUS_HELP = {
+  REFUND_PENDING: 'refund',
+  REFUNDED: 'refunded',
+  HELD: 'held',
+  PARTIALLY_PAID: 'partlyPaid',
+  FAILED: 'failed',
+  EXPIRED: 'expired',
+  CANCELLED: 'cancelled',
+} as const satisfies Partial<Record<BookingStatus, string>>;
+type HelpKey = (typeof STATUS_HELP)[keyof typeof STATUS_HELP] | 'unpaid';
+const helpKey = (status: BookingStatus): HelpKey =>
+  (STATUS_HELP as Partial<Record<BookingStatus, HelpKey>>)[status] ?? 'unpaid';
+
+const inProgress = (status: BookingStatus): boolean =>
+  BOOKING_IN_PROGRESS_STATUSES.includes(status);
+const ON_PLAN: readonly BookingStatus[] = ['HELD', 'PARTIALLY_PAID'];
+/** Paid in full: what counts as a purchase for the ad networks (ADR-079). */
+const PURCHASED: readonly BookingStatus[] = ['PAID', 'TICKETING', 'CONFIRMED'];
+/** Trips that are going ahead get partner offers (transfers, a car, an eSIM, insurance, tours). */
+const PARTNER_STATUSES: readonly BookingStatus[] = [
+  'PAID',
+  'TICKETING',
+  'CONFIRMED',
+  'HELD',
+  'PARTIALLY_PAID',
+];
+
+/**
+ * Documents are rendered just after the booking is confirmed, and the API backfills missing ones
+ * on a read two minutes after confirmation; waiting a little longer picks those up too.
+ */
+const DOCUMENTS_WAIT_MS = 3 * 60_000;
+
+/**
+ * A booking confirmed moments ago whose documents are not ready (memberships, rides and rentals
+ * have none, ADR-051).
+ */
+const NO_DOCUMENTS: readonly Booking['vertical'][] = ['prime', 'rides', 'rentals'];
+const awaitingDocuments = (booking: Booking): boolean =>
+  booking.status === 'CONFIRMED' &&
+  !NO_DOCUMENTS.includes(booking.vertical) &&
+  booking.documents.length === 0 &&
+  booking.confirmedAt !== null &&
+  Date.now() - Date.parse(booking.confirmedAt) < DOCUMENTS_WAIT_MS;
+
+/**
+ * Whether the page keeps polling: payment or ticketing in flight, a plan payment waiting for its
+ * webhook (held and partly paid bookings keep their status meanwhile), documents still being
+ * rendered, or a refund on its way.
+ */
+const shouldPoll = (booking: Booking): boolean =>
+  inProgress(booking.status) ||
+  awaitingDocuments(booking) ||
+  (ON_PLAN.includes(booking.status) && booking.payment?.status === 'pending') ||
+  booking.status === 'REFUND_PENDING' ||
+  booking.refunds.some((refund) => refund.status === 'in_progress');
+
+const time = (local: string): string => local.slice(11, 16);
+
+/** Where to find another in-house product like this one. */
+const BROWSE = {
+  package: '/packages',
+  tour: '/tours',
+  visa: '/visa',
+  addon: '/travel-add-ons',
+} as const;
+
+/**
+ * The booking page: polls while payment, ticketing or a refund is in flight (webhooks decide the
+ * outcome, the redirect back only starts this poll), then shows the itinerary or stay, travellers,
+ * price, payment plan, refunds and documents. Guests are recognised by the token saved in this tab
+ * at checkout or by the one in an emailed link.
+ */
+export function BookingView({ bookingId }: { bookingId: string }) {
+  const { t } = useBookingT();
+  const format = useFormatters();
+  const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
+  const [attempt, setAttempt] = useState(0);
+  const [slow, setSlow] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState(false);
+  const [method, setMethod] = useState<PaymentMethodName | null>(null);
+  const started = useRef<number | null>(null);
+  // The Purchase is reported once per booking and page, when the booking is first seen paid.
+  const purchaseReported = useRef<string | null>(null);
+
+  /** Reloads after an action; polling restarts its clock because the action may start work. */
+  const reload = () => {
+    started.current = Date.now();
+    setAttempt((n) => n + 1);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    started.current ??= Date.now();
+    // Before the first request, so a guest opening an emailed link is recognised.
+    adoptAccessLink(bookingId);
+    const load = async () => {
+      try {
+        const { data, response } = await browserApi().GET('/v1/bookings/{bookingId}', {
+          params: { path: { bookingId } },
+          headers: bookingHeaders(bookingId),
+        });
+        if (cancelled) return;
+        if (!data) {
+          setPhase({
+            kind: response.status === 404 || response.status === 400 ? 'missing' : 'error',
+          });
+          return;
+        }
+        setPhase({ kind: 'ready', booking: data });
+        if (PURCHASED.includes(data.status) && purchaseReported.current !== data.id) {
+          purchaseReported.current = data.id;
+          // Same event id as the server-side copy, so each network keeps one (ADR-079).
+          trackAd('Purchase', {
+            ...adValue(data.price.total),
+            contentIds: [data.vertical],
+            eventId: data.id,
+          });
+        }
+        const elapsed = Date.now() - (started.current ?? Date.now());
+        setSlow(inProgress(data.status) && elapsed > SLOW_AFTER_MS);
+        if (shouldPoll(data) && elapsed < STOP_AFTER_MS)
+          timer = setTimeout(() => void load(), POLL_MS);
+      } catch {
+        if (!cancelled) setPhase({ kind: 'error' });
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [bookingId, attempt]);
+
+  const pay = async (
+    booking: Booking,
+    options: { payInFull?: boolean; useWallet?: boolean; useCompanyWallet?: boolean } = {},
+  ) => {
+    setBusy(true);
+    setActionError(null);
+    const headers = bookingHeaders(booking.id);
+    if (booking.pendingPriceChange) {
+      const consent = await browserApi().POST('/v1/bookings/{bookingId}/price-consent', {
+        params: { path: { bookingId: booking.id } },
+        headers,
+        body: { total: booking.pendingPriceChange.current },
+      });
+      if (!consent.data) {
+        setBusy(false);
+        reload();
+        return;
+      }
+    }
+    const { data, error, response } = await browserApi().POST('/v1/bookings/{bookingId}/payments', {
+      params: {
+        path: { bookingId: booking.id },
+        header: { ...headers, 'Idempotency-Key': idempotencyKey() },
+      },
+      body: {
+        method:
+          options.useWallet || options.useCompanyWallet
+            ? null
+            : chosenMethod(booking.paymentOptions?.methods ?? [], method),
+        payInFull: options.payInFull ?? false,
+        useWallet: options.useWallet ?? false,
+        useCompanyWallet: options.useCompanyWallet ?? false,
+      },
+    });
+    if (data?.checkoutUrl) {
+      window.location.assign(data.checkoutUrl);
+      return;
+    }
+    setBusy(false);
+    if (!data) {
+      const slug = problemSlug(error);
+      // A price change shows up as a pending change on reload, with its consent button.
+      if (slug === 'payment-provider-unavailable') {
+        setMethod(null);
+        setActionError(t('checkout.errors.providerUnavailable'));
+      } else if (slug === 'payment-method-unavailable') {
+        setMethod(null);
+        setActionError(t('checkout.errors.methodUnavailable'));
+      } else if (slug === 'company-wallet-insufficient') {
+        setActionError(t('checkout.errors.companyWalletInsufficient'));
+      } else if (slug === 'company-wallet-unavailable') {
+        setActionError(t('checkout.errors.companyWalletUnavailable'));
+      } else if (response.status === 429) {
+        setActionError(t('checkout.errors.tooMany'));
+      } else if (slug !== 'price-changed') {
+        setActionError(t('checkout.errors.generic'));
+      }
+    }
+    // Paid from the wallet (no checkout to visit), or the booking changed: show where it stands.
+    reload();
+  };
+
+  const cancel = async (booking: Booking) => {
+    setBusy(true);
+    setActionError(null);
+    const { data } = await browserApi().POST('/v1/bookings/{bookingId}/cancel', {
+      params: { path: { bookingId: booking.id } },
+      headers: bookingHeaders(booking.id),
+      body: {},
+    });
+    setBusy(false);
+    if (!data) setActionError(t('checkout.errors.generic'));
+    reload();
+  };
+
+  const download = async (booking: Booking, document: Booking['documents'][number]) => {
+    setDownloadError(false);
+    try {
+      const { data } = await browserApi().GET('/v1/bookings/{bookingId}/documents/{documentId}', {
+        params: { path: { bookingId: booking.id, documentId: document.id } },
+        headers: bookingHeaders(booking.id),
+        parseAs: 'blob',
+      });
+      if (!(data instanceof Blob)) throw new Error('download');
+      const url = URL.createObjectURL(data);
+      const link = window.document.createElement('a');
+      link.href = url;
+      link.download = document.fileName;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch {
+      setDownloadError(true);
+    }
+  };
+
+  if (phase.kind === 'loading') return <ResultsLoading label={t('booking.loading')} />;
+  if (phase.kind === 'missing')
+    return (
+      <Card role="status" className="flex flex-col items-start gap-4 p-6">
+        <h2 className="font-heading text-h3 font-bold text-heading">
+          {t('booking.notFound.heading')}
+        </h2>
+        <p className="font-body text-body text-foreground">{t('booking.notFound.body')}</p>
+        <Button asChild variant="secondary">
+          <AppLink href="/">{t('booking.notFound.home')}</AppLink>
+        </Button>
+      </Card>
+    );
+  if (phase.kind === 'error')
+    return (
+      <Card role="alert" className="flex flex-col items-start gap-4 p-6">
+        <p className="font-body text-body text-foreground">{t('booking.error')}</p>
+        <Button variant="secondary" onClick={reload}>
+          {t('booking.retry')}
+        </Button>
+      </Card>
+    );
+
+  const { booking } = phase;
+  const status = booking.status;
+  const help =
+    status === 'CONFIRMED'
+      ? t('booking.statusHelp.confirmed', { email: booking.contact.email })
+      : inProgress(status)
+        ? // An assisted booking waits for a person, however long that takes (ADR-104).
+          booking.assisted
+          ? t('quotes.waiting')
+          : t(slow ? 'booking.statusHelp.slow' : 'booking.statusHelp.working')
+        : t(`booking.statusHelp.${helpKey(status)}`);
+  const request = booking.flight?.request ?? booking.hotel?.request;
+  const kind = inhouseKind(booking);
+  const searchHref = request ? searchAgainHref(request) : kind ? BROWSE[kind] : null;
+  const plan = booking.paymentPlan;
+  const planActive = plan?.status === 'active';
+  const due = booking.amountDue;
+  const wallet = booking.paymentOptions?.wallet ?? null;
+  const walletCovers =
+    due !== null && wallet?.currency === due.currency && wallet.amountMinor >= due.amountMinor;
+  // The API says whether the company wallet covers the amount due; never the balance (ADR-090).
+  const companyWalletCovers =
+    due !== null && booking.paymentOptions?.companyWallet?.covers === true;
+  // A company trip waiting for an approver cannot be paid yet (ADR-078).
+  const approval = booking.company?.approvalStatus ?? 'not_required';
+  const findings = (booking.company?.policyFindings ?? []).map((finding) =>
+    t(`booking.company.findings.${finding}`),
+  );
+
+  return (
+    <div className="flex flex-col gap-6">
+      <header className="flex flex-col gap-3">
+        <h1 className="font-heading text-h2 font-extrabold text-heading">
+          {t('booking.heading', { reference: booking.reference })}
+        </h1>
+        <div role="status" aria-live="polite" className="flex flex-col items-start gap-2">
+          <Badge variant={STATUS_VARIANT[status] ?? 'info'} data-testid="booking-status">
+            {t(`booking.status.${status}`)}
+          </Badge>
+          <p className="font-body text-body text-foreground">{help}</p>
+          {approval !== 'not_required' ? (
+            <p
+              data-testid="booking-company"
+              className={
+                approval === 'rejected'
+                  ? 'font-body text-body-sm font-bold text-danger'
+                  : 'font-body text-body-sm font-bold text-foreground'
+              }
+            >
+              {t(`booking.company.${approval}`)}
+            </p>
+          ) : null}
+          {findings.length > 0 ? (
+            <p className="font-body text-body-sm text-foreground">
+              {t('booking.company.outsidePolicy', { findings: format.list(findings) })}
+            </p>
+          ) : null}
+          {/* A part of a combined trip (ADR-099): the trip shows every part and takes payment. */}
+          {booking.trip ? (
+            <p data-testid="booking-trip" className="font-body text-body-sm text-foreground">
+              {t('booking.builtTrip.partOf', { reference: booking.trip.reference })}{' '}
+              <AppLink
+                href={`/trips/${booking.trip.id}`}
+                className="inline-flex min-h-6 items-center font-bold text-primary underline focus-visible:focus-ring"
+              >
+                {t('booking.builtTrip.open')}
+              </AppLink>
+            </p>
+          ) : null}
+        </div>
+        {actionError ? (
+          <p role="alert" className="font-body text-body-sm text-danger">
+            {actionError}
+          </p>
+        ) : null}
+        <div className="flex flex-wrap gap-3">
+          {status === 'AWAITING_PAYMENT' && booking.payment?.checkoutUrl ? (
+            <Button asChild>
+              <a href={booking.payment.checkoutUrl}>{t('booking.completePayment')}</a>
+            </Button>
+          ) : null}
+          {(status === 'PRICED' && approval !== 'pending') ||
+          (planActive && booking.pendingPriceChange) ? (
+            <Button loading={busy} onClick={() => void pay(booking)}>
+              {booking.pendingPriceChange
+                ? t('checkout.priceChange.accept')
+                : t('booking.retryPayment')}
+            </Button>
+          ) : null}
+          {walletCovers ? (
+            <Button
+              variant="secondary"
+              disabled={busy}
+              onClick={() => void pay(booking, { useWallet: true })}
+            >
+              {t('booking.payFromWallet', { amount: format.money(due) })}
+            </Button>
+          ) : null}
+          {companyWalletCovers ? (
+            <Button
+              variant="secondary"
+              disabled={busy}
+              data-testid="pay-from-company-wallet"
+              onClick={() => void pay(booking, { useCompanyWallet: true })}
+            >
+              {t('booking.payFromCompanyWallet', { amount: format.money(due) })}
+            </Button>
+          ) : null}
+          {(status === 'EXPIRED' ||
+            status === 'FAILED' ||
+            status === 'CANCELLED' ||
+            status === 'REFUNDED') &&
+          searchHref ? (
+            <Button asChild variant="secondary">
+              <AppLink href={searchHref}>
+                {kind ? t(`booking.inhouse.browse.${kind}`) : t('booking.searchAgain')}
+              </AppLink>
+            </Button>
+          ) : null}
+          {booking.cancellation ? (
+            <CancelUnderPolicy
+              cancellation={booking.cancellation}
+              busy={busy}
+              onCancel={() => cancel(booking)}
+            />
+          ) : null}
+          {booking.flightCancellable ? (
+            <CancelFlight bookingId={booking.id} onDone={reload} />
+          ) : null}
+        </div>
+        {booking.pendingPriceChange ? (
+          <p className="font-body text-body-sm text-foreground">
+            {t('results.priceChanged', {
+              previous: format.money(booking.pendingPriceChange.previous),
+              current: format.money(booking.pendingPriceChange.current),
+            })}
+          </p>
+        ) : null}
+      </header>
+
+      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-3 lg:items-start lg:gap-8">
+        <div className="flex flex-col gap-6 lg:col-span-2">
+          {status === 'CONFIRMED' && booking.flight ? (
+            <FlightStatus bookingId={booking.id} />
+          ) : null}
+          {status === 'CONFIRMED' ? <TripReviews bookingId={booking.id} /> : null}
+          <AppLink
+            href={`/support?booking=${booking.id}`}
+            className="font-body text-body font-bold text-primary underline"
+            data-testid="booking-get-help"
+          >
+            {t('support.getHelp')}
+          </AppLink>
+          {booking.scheduleChange ? (
+            <ScheduleChange
+              bookingId={booking.id}
+              change={booking.scheduleChange}
+              otherFlightsHref={booking.flight ? searchHref : null}
+              onDone={reload}
+            />
+          ) : null}
+          {due && booking.paymentOptions ? (
+            <MethodChoice
+              methods={booking.paymentOptions.methods}
+              value={method}
+              onChange={setMethod}
+            />
+          ) : null}
+          {plan ? (
+            <PlanPanel
+              booking={booking}
+              plan={plan}
+              busy={busy}
+              onPay={({ payInFull }) => void pay(booking, { payInFull })}
+              onCancel={() => cancel(booking)}
+            />
+          ) : null}
+          <RefundList refunds={booking.refunds} />
+          {booking.voucher ? <VoucherCard voucher={booking.voucher} /> : null}
+          <VisaApplications booking={booking} />
+          {booking.membership ? (
+            <Card asChild className="flex flex-col gap-3 p-4">
+              <section aria-labelledby="booking-membership" data-testid="booking-membership">
+                <h2 id="booking-membership" className="font-heading text-h3 font-bold text-heading">
+                  {t('booking.membership.heading')}
+                </h2>
+                <p className="font-body text-body font-bold text-foreground">
+                  {booking.membership.product.title}
+                </p>
+                <p className="font-body text-body text-foreground">
+                  {booking.membership.term
+                    ? t('booking.membership.term', {
+                        start: format.date(booking.membership.term.startsAt.slice(0, 10)),
+                        end: format.date(booking.membership.term.endsAt.slice(0, 10)),
+                      })
+                    : t('booking.membership.pending')}
+                </p>
+                <AppLink
+                  href="/account/prime"
+                  className="font-body text-body-sm text-primary underline"
+                >
+                  {t('booking.membership.manage')}
+                </AppLink>
+              </section>
+            </Card>
+          ) : null}
+          {hasCarsItem(booking) ? <CarsBooking booking={booking} reload={reload} /> : null}
+          {booking.assisted ? (
+            <Card asChild className="flex flex-col gap-3 p-4">
+              <section aria-labelledby="booking-assisted" data-testid="assisted-booking">
+                <h2 id="booking-assisted" className="font-heading text-h3 font-bold text-heading">
+                  {t('booking.itinerary')}
+                </h2>
+                <AssistedDetails item={booking.assisted} />
+              </section>
+            </Card>
+          ) : null}
+          {kind ? (
+            <Card asChild className="flex flex-col gap-3 p-4">
+              <section aria-labelledby="booking-product">
+                <h2 id="booking-product" className="font-heading text-h3 font-bold text-heading">
+                  {t('booking.itinerary')}
+                </h2>
+                <InhouseDetails items={booking} />
+              </section>
+            </Card>
+          ) : null}
+          {booking.flight ? (
+            <Card asChild className="flex flex-col gap-3 p-4">
+              <section aria-labelledby="booking-itinerary">
+                <h2 id="booking-itinerary" className="font-heading text-h3 font-bold text-heading">
+                  {t('booking.itinerary')}
+                </h2>
+                <p className="font-body text-body-sm text-foreground">
+                  {booking.flight.owner.name} · {t(`cabins.${booking.flight.cabinClass}`)}
+                </p>
+                {booking.flight.airlineReference ? (
+                  <p className="font-body text-body text-foreground">
+                    {t('booking.airlineReference')}:{' '}
+                    <span className="font-bold" data-testid="airline-reference">
+                      {booking.flight.airlineReference}
+                    </span>
+                  </p>
+                ) : null}
+                <ol className="flex flex-col gap-3">
+                  {booking.flight.slices.map((slice, index) => (
+                    <li key={index} className="flex flex-col gap-1">
+                      <p className="font-body text-caption font-bold text-muted">
+                        {format.date(slice.departureLocal, 'weekday')}
+                      </p>
+                      <p className="font-body text-body text-foreground">
+                        <span className="font-bold">{time(slice.departureLocal)}</span>{' '}
+                        {slice.origin.cityName ?? slice.origin.code} ({slice.origin.code}) →{' '}
+                        <span className="font-bold">{time(slice.arrivalLocal)}</span>
+                        {slice.arrivalDayOffset > 0 ? ` +${slice.arrivalDayOffset}` : ''}{' '}
+                        {slice.destination.cityName ?? slice.destination.code} (
+                        {slice.destination.code})
+                      </p>
+                      <p className="font-body text-caption text-foreground">
+                        {slice.segments
+                          .map(
+                            (segment) => `${segment.marketingCarrier.code} ${segment.flightNumber}`,
+                          )
+                          .join(', ')}
+                      </p>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            </Card>
+          ) : null}
+
+          {booking.hotel ? (
+            <Card asChild className="flex flex-col gap-3 p-4">
+              <section aria-labelledby="booking-stay">
+                <h2 id="booking-stay" className="font-heading text-h3 font-bold text-heading">
+                  {t('booking.stay')}
+                </h2>
+                <p className="font-body text-body font-bold text-foreground">
+                  {booking.hotel.name}
+                </p>
+                <p className="font-body text-body-sm text-foreground">
+                  {[booking.hotel.area, booking.hotel.cityName].filter(Boolean).join(', ')}
+                </p>
+                {booking.hotel.confirmationNumber ? (
+                  <p className="font-body text-body text-foreground">
+                    {t('booking.confirmationNumber')}:{' '}
+                    <span className="font-bold" data-testid="hotel-confirmation">
+                      {booking.hotel.confirmationNumber}
+                    </span>
+                  </p>
+                ) : null}
+                <dl className="grid grid-cols-2 gap-2 font-body text-body-sm text-foreground">
+                  <dt>{t('booking.checkIn')}</dt>
+                  <dd>{format.date(booking.hotel.checkIn, 'long')}</dd>
+                  <dt>{t('booking.checkOut')}</dt>
+                  <dd>{format.date(booking.hotel.checkOut, 'long')}</dd>
+                </dl>
+                <p className="font-body text-body-sm text-foreground">
+                  {t('booking.nights', { count: booking.hotel.nights })} ·{' '}
+                  {t('booking.rooms', { count: booking.hotel.rooms })} · {booking.hotel.roomName} ·{' '}
+                  {t(`results.boards.${booking.hotel.board}`)}
+                </p>
+              </section>
+            </Card>
+          ) : null}
+
+          <Card asChild className="flex flex-col gap-3 p-4">
+            <section aria-labelledby="booking-travellers">
+              <h2 id="booking-travellers" className="font-heading text-h3 font-bold text-heading">
+                {booking.hotel ? t('booking.guests') : t('booking.travellers')}
+              </h2>
+              <ul className="flex flex-col gap-3">
+                {booking.passengers.map((passenger) => (
+                  <li key={passenger.position} className="flex flex-col gap-1">
+                    <p className="font-body text-body font-bold text-foreground">
+                      {passenger.title ? `${t(`checkout.fields.titles.${passenger.title}`)} ` : ''}
+                      {passenger.givenNames} {passenger.surname}
+                      {passenger.roomIndex !== null
+                        ? ` · ${t('booking.room', { number: passenger.roomIndex + 1 })}`
+                        : ''}
+                    </p>
+                    {passenger.ticketNumber ? (
+                      <p
+                        className="font-body text-body-sm text-foreground"
+                        data-testid="ticket-number"
+                      >
+                        {t('booking.ticket', { number: passenger.ticketNumber })}
+                      </p>
+                    ) : null}
+                    {passenger.document ? (
+                      <p className="font-body text-caption text-foreground">
+                        {t('booking.passport', { hint: passenger.document.hint })}
+                      </p>
+                    ) : null}
+                    {passenger.extraBags > 0 ? (
+                      <p className="font-body text-caption text-foreground">
+                        {t('booking.extraBags', { count: passenger.extraBags })}
+                      </p>
+                    ) : null}
+                    {passenger.seats.length > 0 ? (
+                      <p className="font-body text-caption text-foreground" data-testid="seats">
+                        {t('booking.seats', {
+                          seats: passenger.seats.map((seat) => seat.designator).join(', '),
+                        })}
+                      </p>
+                    ) : null}
+                    {passenger.meal ? (
+                      <p
+                        className="font-body text-caption text-foreground"
+                        data-testid="meal-request"
+                      >
+                        {t('booking.mealRequest', {
+                          meal: t(`checkout.meal.options.${passenger.meal}`),
+                        })}
+                      </p>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </Card>
+        </div>
+
+        <aside className="flex flex-col gap-4">
+          <Card className="flex flex-col gap-2 p-4">
+            <p className="font-body text-body-sm text-foreground">{t('booking.reference')}</p>
+            <p className="font-heading text-h3 font-extrabold text-heading">{booking.reference}</p>
+            <p className="font-body text-body-sm text-foreground">{t('booking.price')}</p>
+            <p className="font-heading text-h3 font-extrabold text-heading">
+              {format.money(plan?.total ?? booking.price.total)}
+            </p>
+            {booking.priceBreakdown && booking.priceBreakdown.length > 0 ? (
+              <dl
+                className="flex flex-col gap-1 font-body text-caption text-foreground"
+                data-testid="booking-price-lines"
+              >
+                {booking.priceBreakdown.map((line) => (
+                  <div key={line.code} className="flex justify-between gap-4">
+                    <dt>{t(`checkout.breakdown.${line.code}`, { count: line.quantity ?? 1 })}</dt>
+                    <dd>{format.money(line.amount)}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
+            {booking.paid.amountMinor > 0 ? (
+              <>
+                <p className="font-body text-body-sm text-foreground">{t('booking.paid')}</p>
+                <p
+                  className="font-heading text-h4 font-bold text-heading"
+                  data-testid="booking-paid"
+                >
+                  {format.money(booking.paid)}
+                </p>
+              </>
+            ) : null}
+            {wallet && wallet.amountMinor > 0 ? (
+              <p className="font-body text-caption text-foreground">
+                {t('booking.walletBalance', { amount: format.money(wallet) })}
+              </p>
+            ) : null}
+          </Card>
+          <TripExtras booking={booking} />
+          <TripPlanning booking={booking} />
+          {PARTNER_STATUSES.includes(booking.status) ? (
+            <PartnerOffers
+              source={{
+                kind: 'booking',
+                bookingId: booking.id,
+                currency: isSupportedCurrency(booking.price.total.currency)
+                  ? booking.price.total.currency
+                  : DEFAULT_CURRENCY,
+              }}
+              heading={t('partners.tripHeading')}
+              testId="partner-offers"
+            />
+          ) : null}
+          {booking.documents.length > 0 ? (
+            <Card asChild className="flex flex-col gap-3 p-4">
+              <section aria-labelledby="booking-documents">
+                <h2 id="booking-documents" className="font-heading text-h4 font-bold text-heading">
+                  {t('booking.documents')}
+                </h2>
+                {booking.documents.map((document) => (
+                  <Button
+                    key={document.id}
+                    variant="secondary"
+                    onClick={() => void download(booking, document)}
+                  >
+                    <Download aria-hidden="true" className="size-4" />
+                    {t(`booking.download.${document.type}`)}
+                  </Button>
+                ))}
+                {downloadError ? (
+                  <p role="alert" className="font-body text-caption text-danger">
+                    {t('booking.downloadFailed')}
+                  </p>
+                ) : null}
+              </section>
+            </Card>
+          ) : null}
+        </aside>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,1339 @@
+import {
+  isValidTimeZone,
+  parseDsn,
+  parseSupportHours,
+  PROXY_CLASSES,
+  SCRAPE_VENDORS,
+  type ProxyClass,
+  type ScrapeVendor,
+  type SupportTargets,
+} from '@suskii/shared';
+import { z } from 'zod';
+
+const booleanish = z
+  .enum(['true', 'false', '1', '0', 'yes', 'no'])
+  .transform((value) => value === 'true' || value === '1' || value === 'yes');
+
+/** True when a Postgres URL makes the driver insist on TLS (never echoes the URL). */
+/** An https URL, or plain http to a collector on the same host (a sidecar). */
+export function isTlsOrLoopback(url: string): boolean {
+  const { protocol, hostname } = new URL(url);
+  return protocol === 'https:' || ['localhost', '127.0.0.1', '[::1]'].includes(hostname);
+}
+
+function requiresTls(databaseUrl: string): boolean {
+  const params = new URL(databaseUrl).searchParams;
+  const sslmode = params.get('sslmode');
+  if (sslmode !== null) return ['require', 'verify-ca', 'verify-full'].includes(sslmode);
+  return params.get('ssl') === 'true' || params.get('ssl') === '1';
+}
+
+const csv = <T extends z.ZodType<unknown, string>>(item: T) =>
+  z
+    .string()
+    .transform((value) =>
+      value
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter(Boolean),
+    )
+    .pipe(z.array(item));
+
+const originOf = (url: string): string => new URL(url).origin;
+
+/** SMS adapters (ADR-091); `mock` keeps texts in memory. */
+export const SMS_PROVIDERS = ['mock', 'termii', 'africastalking'] as const;
+export type SmsProviderName = (typeof SMS_PROVIDERS)[number];
+
+/** Support targets per priority in minutes (ADR-083), until SUPPORT_SLA says otherwise. */
+export const DEFAULT_SUPPORT_SLA: SupportTargets = {
+  urgent: { responseMinutes: 15, resolutionMinutes: 240 },
+  prime: { responseMinutes: 30, resolutionMinutes: 480 },
+  normal: { responseMinutes: 120, resolutionMinutes: 1_440 },
+};
+
+/** Smallest and largest company wallet top-up per currency, in minor units (ADR-090). */
+export type CompanyTopUpLimits = Readonly<Record<string, { minMinor: number; maxMinor: number }>>;
+
+/** ₦10,000 to ₦5,000,000 and $10 to $5,000, until COMPANY_WALLET_TOPUP_LIMITS says otherwise. */
+export const DEFAULT_COMPANY_TOPUP_LIMITS: CompanyTopUpLimits = {
+  NGN: { minMinor: 1_000_000, maxMinor: 500_000_000 },
+  USD: { minMinor: 1_000, maxMinor: 500_000 },
+};
+
+/** What one page costs per vendor and proxy class, in millionths of a US dollar. */
+export type ScrapeCosts = Readonly<Record<ScrapeVendor, Partial<Record<ProxyClass, number>>>>;
+
+/**
+ * Estimates for budgeting until PRICE_INTEL_COSTS carries the owner's plan prices (ADR-102).
+ * They decide when a budget stops reading, never what anyone is charged. A class a vendor has
+ * no price for is a class the router does not use with it.
+ */
+export const DEFAULT_SCRAPE_COSTS: ScrapeCosts = {
+  firecrawl: { datacenter: 1_000, unblocker: 5_000 },
+  apify: { datacenter: 2_000, residential: 8_000 },
+  browse_ai: { unblocker: 10_000 },
+  oxylabs: { unblocker: 2_500 },
+  bright_data: { unblocker: 1_500 },
+  direct: { none: 0 },
+  mock: { none: 100, datacenter: 200, residential: 800, unblocker: 1_500 },
+};
+
+/** What a model's tokens cost, in millionths of a US dollar per million tokens. */
+export interface AgentModelPrice {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+}
+export type AgentModelPrices = Readonly<Record<string, AgentModelPrice>>;
+
+/**
+ * The vendor's published prices for the agent's default models, read from its pricing page on
+ * 2026-11-10 (Claude Haiku 5.5 for prompts up to 100,000 tokens, which a run's bounded history
+ * stays far below; Claude Sonnet 5.5). The owner confirms them against the current list and
+ * sets AGENT_MODEL_PRICES when they change (ADR-106). The mock models cost nothing.
+ */
+export const DEFAULT_AGENT_MODEL_PRICES: AgentModelPrices = {
+  'claude-haiku-5-5': { input: 100_000, output: 500_000, cacheRead: 10_000, cacheWrite: 125_000 },
+  'claude-sonnet-5-5': {
+    input: 2_000_000,
+    output: 10_000_000,
+    cacheRead: 100_000,
+    cacheWrite: 2_500_000,
+  },
+  'mock-router': { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+  'mock-specialist': { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+  'mock-fallback': { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+};
+
+/** Prefix of the local development internal token in .env.example; refused in production. */
+export const LOCAL_INTERNAL_TOKEN_PREFIX = 'local-dev-only-';
+
+/** Every environment variable the API reads. Values are never echoed in validation errors. */
+export const envSchema = z
+  .object({
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    API_PORT: z.coerce.number().int().min(1).max(65_535).default(4000),
+    LOG_LEVEL: z
+      .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
+      .default('info'),
+
+    DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
+    /**
+     * Connections per process (node-postgres pool). Instances times this must stay under the
+     * database's max_connections with room for migrations and operators (ADR-059).
+     */
+    DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
+    REDIS_URL: z.url({ protocol: /^rediss?$/ }),
+    /**
+     * Production requires TLS to Postgres (`sslmode=verify-full`, or `require`) and Redis
+     * (`rediss://`). Set these only when the hop is already private and encrypted another way: a
+     * Unix socket or a local Cloud SQL Auth Proxy, a sidecar or a mesh with mTLS (ADR-038).
+     */
+    DATABASE_ALLOW_PLAINTEXT: booleanish.default(false),
+    REDIS_ALLOW_PLAINTEXT: booleanish.default(false),
+    /** CA of a managed Redis's server certificate (PEM or its base64), e.g. Memorystore's. */
+    REDIS_TLS_CA: z.string().min(1).optional(),
+
+    /** Browser origins allowed to call the API with credentials. */
+    CORS_ORIGINS: csv(z.url()).default([]),
+    /** Number of trusted reverse proxies (Cloudflare, load balancer) in front of the API. */
+    TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
+    /**
+     * Request header carrying the client's address as set by the edge (`cf-connecting-ip` behind
+     * Cloudflare), used instead of counting X-Forwarded-For hops. Only set it when the edge
+     * overwrites the header on every request and the origin accepts nothing but the edge's
+     * traffic (ADR-059).
+     */
+    CLIENT_IP_HEADER: z
+      .string()
+      .regex(/^[a-z0-9-]{1,64}$/)
+      .optional(),
+    COOKIE_DOMAIN: z.string().min(1).optional(),
+    COOKIE_SECURE: booleanish.default(true),
+    WEB_APP_URL: z.url().default('http://localhost:3000'),
+
+    /** Ed25519 PKCS#8 private key (PEM, or base64 of the PEM) used to sign access tokens. */
+    JWT_PRIVATE_KEY: z.string().min(1).optional(),
+    JWT_PUBLIC_KEY: z.string().min(1).optional(),
+    /** Retired public keys still accepted during rotation (PEM or base64, `|`-separated). */
+    JWT_PREVIOUS_PUBLIC_KEYS: z.string().min(1).optional(),
+    JWT_ISSUER: z.string().min(1).default('suskii-api'),
+    JWT_AUDIENCE: z.string().min(1).default('suskii'),
+    ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().min(600).max(900).default(900),
+    REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
+    /** Signed-in devices per account; a new sign-in beyond it ends the least recently used one. */
+    MAX_ACTIVE_SESSIONS: z.coerce.number().int().min(1).max(50).default(10),
+    /**
+     * Staff accounts (any role besides customer, ADR-037): fewer devices, an idle timeout instead
+     * of REFRESH_TOKEN_TTL_DAYS and an absolute lifetime of hours, not days.
+     */
+    STAFF_MAX_ACTIVE_SESSIONS: z.coerce.number().int().min(1).max(10).default(3),
+    STAFF_SESSION_IDLE_MINUTES: z.coerce.number().int().min(5).max(240).default(30),
+    STAFF_SESSION_MAX_HOURS: z.coerce.number().int().min(1).max(24).default(12),
+    /** How long an authenticator code counts for step-up admin actions (role changes, refunds). */
+    STEP_UP_WINDOW_MINUTES: z.coerce.number().int().min(1).max(30).default(10),
+
+    /** 32-byte key (base64) for field-level encryption until the KMS adapter lands (phase 12). */
+    FIELD_ENCRYPTION_KEY: z
+      .string()
+      .refine((value) => Buffer.from(value, 'base64').length === 32, 'must be 32 bytes, base64')
+      .optional(),
+    /** Id written into every new envelope (`v2.<id>.`); change it with the key (ADR-038). */
+    FIELD_ENCRYPTION_KEY_ID: z
+      .string()
+      .regex(/^[a-z0-9]{1,16}$/, 'lower-case letters and digits, at most 16')
+      .default('k1'),
+    /**
+     * Retired keys that still decrypt during a rotation, as `id:base64key` (comma-separated).
+     * Remove one once `keys:reencrypt` reports nothing left under it.
+     */
+    FIELD_ENCRYPTION_PREVIOUS_KEYS: csv(
+      z
+        .string()
+        .regex(/^[a-z0-9]{1,16}:[A-Za-z0-9+/_-]+={0,2}$/, 'must be id:base64key')
+        .refine(
+          (entry) => Buffer.from(entry.slice(entry.indexOf(':') + 1), 'base64').length === 32,
+          'each key must be 32 bytes, base64',
+        ),
+    ).default([]),
+    /**
+     * Server secret (>= 32 chars) from which purpose-specific HMAC keys are derived (HKDF): IP
+     * pseudonymisation, CSRF tokens, OTP and recovery-code hashes.
+     */
+    HMAC_SECRET: z.string().min(32).optional(),
+
+    HIBP_ENABLED: booleanish.default(true),
+    EMAIL_PROVIDER: z.enum(['smtp', 'mock']).default('smtp'),
+    EMAIL_FROM: z.string().min(3).default('Suskii Travels <no-reply@localhost>'),
+    SMTP_HOST: z.string().min(1).default('localhost'),
+    SMTP_PORT: z.coerce.number().int().min(1).max(65_535).default(1025),
+    SMTP_SECURE: booleanish.default(false),
+    SMTP_USER: z.string().min(1).optional(),
+    SMTP_PASSWORD: z.string().min(1).optional(),
+    /**
+     * Texts (ADR-091): sign-in codes, booking and safety alerts. `SMS_ROUTES` sends numbers by
+     * calling-code prefix to another provider (`234=termii,254=africastalking`); the rest go to
+     * `SMS_PROVIDER`. Every provider named needs its settings below.
+     */
+    SMS_PROVIDER: z.enum(SMS_PROVIDERS).default('mock'),
+    SMS_ROUTES: csv(
+      z
+        .string()
+        .regex(/^\d{1,4}=(mock|termii|africastalking)$/, 'use callingCode=provider')
+        .transform((rule) => {
+          const [prefix = '', provider = 'mock'] = rule.split('=');
+          return [prefix, provider as SmsProviderName] as const;
+        }),
+    ).default([]),
+    SMS_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30_000).default(10_000),
+    TERMII_API_URL: z.url().default('https://api.ng.termii.com'),
+    TERMII_API_KEY: z.string().min(8).optional(),
+    /** Sender ID approved by Termii (3 to 11 letters or digits). */
+    TERMII_SENDER_ID: z
+      .string()
+      .regex(/^[A-Za-z0-9 ]{3,11}$/)
+      .optional(),
+    /** `dnd` reaches Do-Not-Disturb numbers (transactional route, activated by Termii); `generic` does not. */
+    TERMII_CHANNEL: z.enum(['dnd', 'generic']).default('dnd'),
+    AFRICASTALKING_API_URL: z.url().default('https://api.africastalking.com'),
+    AFRICASTALKING_USERNAME: z.string().min(1).optional(),
+    AFRICASTALKING_API_KEY: z.string().min(8).optional(),
+    AFRICASTALKING_SENDER_ID: z.string().min(1).max(20).optional(),
+    /**
+     * Booking and alert messages on WhatsApp (ADR-032, ADR-091). `none` turns the channel off:
+     * travellers get those messages by email, push and text instead.
+     */
+    WHATSAPP_PROVIDER: z.enum(['mock', 'none']).default('mock'),
+    /** Push notifications (ADR-022): Expo's push service relays to FCM and APNs. */
+    PUSH_PROVIDER: z.enum(['expo', 'mock']).default('mock'),
+    EXPO_PUSH_URL: z.url().default('https://exp.host/--/api/v2/push/send'),
+    /** Expo access token for enhanced push security (recommended in production). */
+    EXPO_ACCESS_TOKEN: z.string().min(16).optional(),
+    /**
+     * Device attestation (ADR-023). `none` rejects every attestation until real Play Integrity and
+     * App Attest verifiers are configured; `mock` accepts `mock:<challenge>` (development, tests).
+     */
+    DEVICE_ATTESTATION: z.enum(['mock', 'none']).default('mock'),
+    /**
+     * Oldest app version still served (MASVS-CODE-2); older apps get 426 `app-update-required`
+     * and show an update screen. Unset serves every version.
+     */
+    MOBILE_MIN_VERSION: z
+      .string()
+      .regex(/^\d+\.\d+\.\d+$/, 'must be a version like 1.4.0')
+      .optional(),
+    /** Attestation on mobile login, registration and payment start: off, report or enforce. */
+    ATTESTATION_MODE: z.enum(['off', 'report', 'enforce']).default('off'),
+    /** Staging escape hatch: allow mock email/SMS providers when NODE_ENV=production. */
+    ALLOW_MOCK_PROVIDERS: booleanish.default(false),
+
+    GOOGLE_CLIENT_IDS: csv(z.string().min(1)).default([]),
+    APPLE_CLIENT_IDS: csv(z.string().min(1)).default([]),
+    /**
+     * Test stacks only (ADR-067): a mock Google and Apple sign-in, so the buttons work without the
+     * providers' client ids. It signs anyone in as any email, so production refuses it even with
+     * ALLOW_MOCK_PROVIDERS.
+     */
+    SOCIAL_MOCK_ENABLED: booleanish.default(false),
+
+    /** Optional IP allowlist for /v1/admin routes (exact IPs). */
+    ADMIN_IP_ALLOWLIST: csv(z.string().min(1)).default([]),
+    /**
+     * Admin console origins. Cookie-authenticated admin requests must come from one of them
+     * (ADR-033); each must also be in CORS_ORIGINS.
+     */
+    ADMIN_ORIGINS: csv(z.url())
+      .default(['http://localhost:3001'])
+      .transform((origins) => origins.map((origin) => new URL(origin).origin)),
+    RATE_LIMIT_ENABLED: booleanish.default(true),
+
+    OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
+    OTEL_SERVICE_NAME: z.string().min(1).default('suskii-api'),
+    /** Error reports go to Sentry with this DSN (ADR-046); without one they are only logged. */
+    SENTRY_DSN: z
+      .string()
+      .refine((value) => parseDsn(value) !== null, 'Expected https://<key>@<host>/<project>')
+      .optional(),
+    SENTRY_ENVIRONMENT: z.string().min(1).max(64).optional(),
+    /** The deployed version (the git SHA), so reports match the uploaded source maps. */
+    SENTRY_RELEASE: z.string().min(1).max(128).optional(),
+
+    /**
+     * Enabled flight and hotel suppliers (feature flags). `duffel` needs DUFFEL_API_TOKEN;
+     * `hotelbeds` needs HOTELBEDS_API_KEY and HOTELBEDS_API_SECRET (ADR-071); `expedia` needs
+     * EXPEDIA_RAPID_API_KEY and EXPEDIA_RAPID_SHARED_SECRET (ADR-086).
+     */
+    FLIGHT_SUPPLIERS: csv(z.enum(['mock', 'duffel'])).default(['mock']),
+    HOTEL_SUPPLIERS: csv(z.enum(['mock', 'duffel', 'hotelbeds', 'expedia'])).default(['mock']),
+    DUFFEL_API_TOKEN: z.string().min(1).optional(),
+    DUFFEL_API_URL: z.url().default('https://api.duffel.com'),
+    /**
+     * Seat maps and seat booking on Duffel flights (ADR-094). Off until one sandbox booking with
+     * a chosen seat confirms the seat map shape; while off, Duffel fares offer no seat choice.
+     */
+    DUFFEL_SEAT_SELECTION: booleanish.default(false),
+    /** Hotelbeds APItude; the default is the evaluation host, which books nothing. */
+    HOTELBEDS_API_URL: z.url().default('https://api.test.hotelbeds.com'),
+    HOTELBEDS_API_KEY: z.string().min(1).optional(),
+    HOTELBEDS_API_SECRET: z.string().min(1).optional(),
+    /** Kilometres around the city centre a Hotelbeds search covers. */
+    HOTELBEDS_SEARCH_RADIUS_KM: z.coerce.number().int().min(1).max(200).default(20),
+    /** Expedia Rapid; the default is the sandbox host, which books nothing (ADR-086). */
+    EXPEDIA_RAPID_API_URL: z.url().default('https://test.ean.com'),
+    EXPEDIA_RAPID_API_KEY: z.string().min(1).optional(),
+    EXPEDIA_RAPID_SHARED_SECRET: z.string().min(1).optional(),
+    /** The point of sale Rapid prices for (ISO country) and the currency it answers in. */
+    EXPEDIA_POINT_OF_SALE: z
+      .string()
+      .regex(/^[A-Z]{2}$/, 'Expected an ISO 3166-1 alpha-2 country code')
+      .default('NG'),
+    EXPEDIA_REQUEST_CURRENCY: z
+      .string()
+      .regex(/^[A-Z]{3}$/, 'Expected an ISO 4217 currency code')
+      .default('USD'),
+    /** Kilometres around the city centre an Expedia search covers. */
+    EXPEDIA_SEARCH_RADIUS_KM: z.coerce.number().int().min(1).max(100).default(20),
+    /** Properties shopped per search (Rapid takes at most 250 per availability call). */
+    EXPEDIA_MAX_PROPERTIES: z.coerce.number().int().min(1).max(250).default(250),
+    /** Rate plans Rapid returns per room. */
+    EXPEDIA_RATES_PER_PROPERTY: z.coerce.number().int().min(1).max(10).default(4),
+    /** Whole-search budget (spec: 12 s) and per-supplier timeout inside it. */
+    SEARCH_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30_000).default(12_000),
+    SUPPLIER_TIMEOUT_MS: z.coerce.number().int().min(500).max(30_000).default(10_000),
+    /** How long identical searches are served from cache (spec: 5-15 minutes). */
+    SEARCH_CACHE_TTL_SECONDS: z.coerce.number().int().min(60).max(900).default(600),
+    /**
+     * Days each side of the chosen dates that "Flexible dates" prices (one supplier search per
+     * day, cached like any search). 0 turns the day-by-day prices off.
+     */
+    FLEXIBLE_DATES_DAYS: z.coerce.number().int().min(0).max(3).default(3),
+    /** Exchange rates (ADR-008, ADR-091): `openexchangerates` needs an app id. */
+    FX_PROVIDER: z.enum(['mock', 'openexchangerates']).default('mock'),
+    FX_CACHE_TTL_SECONDS: z.coerce.number().int().min(60).max(86_400).default(3600),
+    OPENEXCHANGERATES_API_URL: z.url().default('https://openexchangerates.org/api'),
+    OPENEXCHANGERATES_APP_ID: z.string().min(8).optional(),
+    FX_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30_000).default(10_000),
+    /**
+     * Rates fixed by the owner on top of the provider's, per US dollar (`NGN=1600.5,GHS=15.2`):
+     * for example the bank's settlement rate for the naira (ADR-008). Others stay the provider's.
+     */
+    FX_RATE_OVERRIDES: csv(
+      z
+        .string()
+        .regex(/^[A-Z]{3}=\d{1,12}(\.\d{1,12})?$/, 'use CUR=rate per US dollar')
+        .transform((rule) => {
+          const [currency = '', rate = ''] = rule.split('=');
+          return [currency, rate] as const;
+        }),
+    )
+      .transform((rules): Readonly<Record<string, string>> => Object.fromEntries(rules))
+      .default({}),
+    /**
+     * Country of the selling entity whose tax rules price every offer (ADR-072). Rules for other
+     * countries can be prepared in the admin console; only this country's apply.
+     */
+    TAX_SELLER_COUNTRY: z
+      .string()
+      .regex(/^[A-Z]{2}$/)
+      .default('NG'),
+
+    /** Service token for /v1/internal routes (the worker). Unset: internal routes answer 404. */
+    INTERNAL_API_TOKEN: z.string().min(32).optional(),
+    /** Deals and destination prices older than this are never shown (ADR-011). */
+    DEALS_MAX_AGE_HOURS: z.coerce.number().int().min(1).max(168).default(24),
+    /** Departure dates searched per deal route, in days from today at the origin. */
+    DEALS_DEPARTURE_OFFSETS_DAYS: csv(
+      z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(330)),
+    ).default([21, 45]),
+    /** Check-in date of the hotel search behind "from" prices, in days from today. */
+    DESTINATIONS_CHECK_IN_OFFSET_DAYS: z.coerce.number().int().min(1).max(330).default(30),
+    /** Deal and destination snapshots are kept this long for price history, then pruned. */
+    SNAPSHOT_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(7),
+    /** Fare history behind route facts (ADR-080); a year and a month covers every month. */
+    ROUTE_FARE_RETENTION_DAYS: z.coerce.number().int().min(30).max(800).default(400),
+    /** Route facts show only with at least this many days of fares in the last 90. */
+    ROUTE_FACTS_MIN_DAYS: z.coerce.number().int().min(1).max(30).default(3),
+    /** Cloudflare Turnstile secret; unset outside production means the mock verifier. */
+    TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
+
+    /**
+     * Hosted-checkout providers in preference order (ADR-016). The checkout offers those that
+     * settle the booking's currency; the first is the default.
+     */
+    PAYMENT_PROVIDERS: csv(z.enum(['mock', 'paystack', 'flutterwave', 'stripe'])).default(['mock']),
+    /**
+     * Enabled providers that take no new payments, for an outage (docs/runbooks): their webhooks,
+     * reconciliation and refunds keep working, which removing them from PAYMENT_PROVIDERS breaks.
+     */
+    PAYMENT_PROVIDERS_PAUSED: csv(z.enum(['mock', 'paystack', 'flutterwave', 'stripe'])).default(
+      [],
+    ),
+    PAYSTACK_SECRET_KEY: z.string().min(16).optional(),
+    PAYSTACK_API_URL: z.url().default('https://api.paystack.co'),
+    FLUTTERWAVE_SECRET_KEY: z.string().min(16).optional(),
+    /** The "secret hash" set on the Flutterwave dashboard, sent back in `verif-hash`. */
+    FLUTTERWAVE_WEBHOOK_HASH: z.string().min(16).optional(),
+    FLUTTERWAVE_API_URL: z.url().default('https://api.flutterwave.com'),
+    STRIPE_SECRET_KEY: z.string().min(16).optional(),
+    STRIPE_WEBHOOK_SECRET: z.string().min(16).optional(),
+    STRIPE_API_URL: z.url().default('https://api.stripe.com'),
+    /** Timeout of one call to a payment provider's API. */
+    PAYMENT_PROVIDER_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60_000).default(15_000),
+    /** How long a hosted checkout session stays payable. */
+    PAYMENT_SESSION_TTL_MINUTES: z.coerce.number().int().min(5).max(120).default(30),
+    /** Pending payments older than this are verified with the provider (lost webhooks). */
+    PAYMENT_RECONCILE_AFTER_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
+
+    /** Holds and installments (ADR-018); fees and the default policy are owner decisions. */
+    HOLD_MIN_WINDOW_HOURS: z.coerce.number().int().min(1).max(168).default(6),
+    HOLD_SAFETY_MARGIN_MINUTES: z.coerce.number().int().min(15).max(1440).default(120),
+    HOLD_MAX_ACTIVE: z.coerce.number().int().min(1).max(20).default(2),
+    INSTALLMENT_DEPOSIT_BPS: z.coerce.number().int().min(500).max(9000).default(3000),
+    INSTALLMENT_MAX_COUNT: z.coerce.number().int().min(1).max(12).default(3),
+    INSTALLMENT_MIN_SPACING_HOURS: z.coerce.number().int().min(1).max(720).default(24),
+    INSTALLMENT_FEE_BPS: z.coerce.number().int().min(0).max(2000).default(0),
+    INSTALLMENT_DEFAULT_FEE_BPS: z.coerce.number().int().min(0).max(10_000).default(0),
+    INSTALLMENT_GRACE_HOURS: z.coerce.number().int().min(0).max(168).default(24),
+    /** Packages on a payment plan are paid in full this many days before departure (ADR-028). */
+    PACKAGE_BALANCE_DUE_DAYS: z.coerce.number().int().min(1).max(120).default(30),
+
+    /** Visa documents (ADR-026): `mock` only outside production unless ALLOW_MOCK_PROVIDERS. */
+    ANTIVIRUS_PROVIDER: z.enum(['clamav', 'mock']).default('mock'),
+    CLAMAV_HOST: z.string().min(1).default('127.0.0.1'),
+    CLAMAV_PORT: z.coerce.number().int().min(1).max(65_535).default(3310),
+    CLAMAV_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(30_000),
+    VISA_DOCUMENT_MAX_BYTES: z.coerce
+      .number()
+      .int()
+      .min(100_000)
+      .max(20_000_000)
+      .default(10_000_000),
+    /** Signed document links stay valid this long. */
+    VISA_DOCUMENT_URL_TTL_SECONDS: z.coerce.number().int().min(30).max(3600).default(300),
+    /** Documents are deleted this many days after the application closes. */
+    VISA_DOCUMENT_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(90),
+
+    /**
+     * Cars (ADR-049): each product is on outside production and off in production unless set.
+     * A disabled product's routes answer 404 and clients hide its entry points.
+     */
+    CARS_BUSES_ENABLED: booleanish.optional(),
+    CARS_RIDES_ENABLED: booleanish.optional(),
+    CARS_RENTALS_ENABLED: booleanish.optional(),
+    /** Widens the service area from Nigeria to West Africa (ADR-053). */
+    CARS_WEST_AFRICA_ENABLED: booleanish.default(false),
+    /** Cars features (task P9), each defaulting like the products. */
+    CARS_BUNDLES_ENABLED: booleanish.optional(),
+    CARS_PRICE_BREAKDOWN_ENABLED: booleanish.optional(),
+    CARS_SAFETY_SUITE_ENABLED: booleanish.optional(),
+    CARS_OFFLINE_QR_ENABLED: booleanish.optional(),
+    CARS_DEPARTURE_PLANNER_ENABLED: booleanish.optional(),
+    /**
+     * Ed25519 key that signs bus ticket QR codes (base64 of the PKCS#8 PEM). Unset outside
+     * production means a per-process key; previous public keys (base64 SPKI PEMs, `|`-separated)
+     * keep verifying tickets issued before a rotation.
+     */
+    CARS_TICKET_SIGNING_KEY: z.string().min(1).optional(),
+    CARS_TICKET_PREVIOUS_PUBLIC_KEYS: z.string().optional(),
+    /** VAT on Cars fares in basis points: a placeholder until the owner confirms tax rules. */
+    CARS_VAT_BPS: z.coerce.number().int().min(0).max(5000).default(0),
+    /** Bus seat holds (ADR-051). */
+    BUS_SEAT_HOLD_MINUTES: z.coerce.number().int().min(2).max(30).default(10),
+    BUS_MAX_ACTIVE_HOLDS: z.coerce.number().int().min(1).max(10).default(2),
+    /** Routing and geocoding (ADR-053): `mock` only outside production unless ALLOW_MOCK_PROVIDERS. */
+    MAPS_PROVIDER: z.enum(['mock', 'osrm']).default('mock'),
+    OSRM_URL: z.url().optional(),
+    MAPS_TIMEOUT_MS: z.coerce.number().int().min(500).max(20_000).default(3000),
+    /**
+     * AI trip search (ADR-061): on outside production, off in production unless set. `mock` only
+     * outside production unless ALLOW_MOCK_PROVIDERS; `anthropic` needs LLM_API_KEY.
+     */
+    AI_SEARCH_ENABLED: booleanish.optional(),
+    LLM_PROVIDER: z.enum(['mock', 'anthropic']).default('mock'),
+    LLM_API_KEY: z.string().min(1).optional(),
+    LLM_MODEL: z
+      .string()
+      .regex(/^[a-z0-9][a-z0-9.-]{2,63}$/)
+      .default('claude-haiku-5-5'),
+    LLM_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30_000).default(8000),
+    /** Prices in micro-dollars per million tokens; the defaults are Claude Haiku 5.5's. */
+    LLM_INPUT_MICROUSD_PER_MTOK: z.coerce.number().int().min(0).default(100_000),
+    LLM_OUTPUT_MICROUSD_PER_MTOK: z.coerce.number().int().min(0).default(500_000),
+    LLM_CACHE_READ_MICROUSD_PER_MTOK: z.coerce.number().int().min(0).default(10_000),
+    LLM_CACHE_WRITE_MICROUSD_PER_MTOK: z.coerce.number().int().min(0).default(125_000),
+    /** Daily spend caps in micro-dollars: per user or guest, and for everyone together. */
+    AI_SEARCH_USER_DAILY_MICROUSD: z.coerce.number().int().min(0).default(50_000),
+    AI_SEARCH_GLOBAL_DAILY_MICROUSD: z.coerce.number().int().min(0).default(20_000_000),
+    /**
+     * Suskii Agent (ADR-101 to ADR-107) and price intelligence (ADR-102): on outside production,
+     * off in production unless set. Ordinary search and booking never depend on either.
+     */
+    AGENT_ENABLED: booleanish.optional(),
+    PRICE_INTEL_ENABLED: booleanish.optional(),
+    /**
+     * Assisted quotes (ADR-104): a traveller asks for a price to be confirmed by a person, and
+     * staff answer with an offer. The same rule: on outside production, off in production
+     * unless set, because it needs people on shift.
+     */
+    ASSISTED_QUOTES_ENABLED: booleanish.optional(),
+    /** How long a verified offer can be booked before staff must verify the price again. */
+    ASSISTED_QUOTE_VALID_MINUTES: z.coerce.number().int().min(15).max(1440).default(120),
+    /** A request nobody answered by then closes as expired, and the traveller is told. */
+    ASSISTED_QUOTE_REQUEST_HOURS: z.coerce.number().int().min(1).max(336).default(48),
+    /** Where the API reaches the agent service; unset means the agent is unavailable. */
+    AGENT_URL: z.url().optional(),
+    /** A private network only: allows an http AGENT_URL in production (ADR-038). */
+    AGENT_ALLOW_PLAINTEXT: booleanish.default(false),
+    /** The API's token to the agent service, and the agent's token to the tool gateway. */
+    AGENT_RUN_TOKEN: z.string().min(32).optional(),
+    AGENT_TOOLS_TOKEN: z.string().min(32).optional(),
+    /**
+     * How runs reach the agent service: `http` (AGENT_URL), or `mock`, an assistant inside the
+     * API that says one fixed sentence, for tests and a stack without the service.
+     */
+    AGENT_SERVICE: z.enum(['http', 'mock']).default('http'),
+    /** A grant lives for one run: the run's time limit and a margin. */
+    AGENT_GRANT_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(600),
+    AGENT_RUN_TIMEOUT_MS: z.coerce.number().int().min(5000).max(600_000).default(120_000),
+    // The assistant on WhatsApp (ADR-084, ADR-101): off unless set, in every environment. It
+    // answers inside the support conversation a message opens, until a person replies.
+    AGENT_WHATSAPP_ENABLED: booleanish.default(false),
+    // Answers in one WhatsApp conversation before it is handed to people.
+    AGENT_WHATSAPP_MAX_REPLIES: z.coerce.number().int().min(1).max(50).default(12),
+    /** Tool calls one run may make through the gateway. */
+    AGENT_RUN_MAX_TOOL_CALLS: z.coerce.number().int().min(1).max(100).default(24),
+    /** Model turns one run may take (the router's included), and its longest answer in tokens. */
+    AGENT_RUN_MAX_STEPS: z.coerce.number().int().min(2).max(40).default(10),
+    AGENT_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(64).max(8192).default(1024),
+    /**
+     * What each model costs, `model=input/output/cacheRead/cacheWrite` in micro-dollars per
+     * million tokens (`claude-sonnet-5-5=2000000/10000000/100000/2500000`). Entries replace or
+     * add to the defaults. A model without a price is charged at the dearest one listed, so a
+     * cap is reached early, never late.
+     */
+    AGENT_MODEL_PRICES: csv(
+      z
+        .string()
+        .regex(/^[a-z0-9][a-z0-9.-]{2,63}=\d{1,12}\/\d{1,12}\/\d{1,12}\/\d{1,12}$/)
+        .transform((entry): [string, AgentModelPrice] => {
+          const [model = '', prices = ''] = entry.split('=');
+          const [input = 0, output = 0, cacheRead = 0, cacheWrite = 0] = prices
+            .split('/')
+            .map(Number);
+          return [model, { input, output, cacheRead, cacheWrite }];
+        }),
+    )
+      .transform((entries): AgentModelPrices => ({
+        ...DEFAULT_AGENT_MODEL_PRICES,
+        ...Object.fromEntries(entries),
+      }))
+      .default(DEFAULT_AGENT_MODEL_PRICES),
+    /**
+     * Spend in micro-dollars: reserved for a run before it starts, and the daily caps per
+     * signed-in traveller, per guest address and for everyone together (the ADR-061 pattern).
+     */
+    AGENT_RUN_RESERVE_MICROUSD: z.coerce.number().int().min(0).default(60_000),
+    AGENT_USER_DAILY_MICROUSD: z.coerce.number().int().min(0).default(500_000),
+    AGENT_GUEST_DAILY_MICROUSD: z.coerce.number().int().min(0).default(120_000),
+    AGENT_GLOBAL_DAILY_MICROUSD: z.coerce.number().int().min(0).default(50_000_000),
+    /**
+     * The estimated cost of a UTC month at which operations are told, once when the month is
+     * heading past it and once when it is past it (ADR-106). 0 tells nobody. It only tells:
+     * the daily caps are what stops spending.
+     */
+    AGENT_MONTHLY_ALERT_MICROUSD: z.coerce.number().int().min(0).default(0),
+    /**
+     * Shadow turns (ADR-106): candidate prompt versions (`flights@3`) the agent service ships,
+     * tried beside this share of travellers' turns after the answer has gone out, and never
+     * shown. None by default, and nothing runs while the share is 0. A shadow turn is paid
+     * model calls: its spend has a daily cap of its own, apart from the assistant's.
+     */
+    AGENT_SHADOW_PROMPTS: csv(z.string().regex(/^[a-z_]{2,32}@\d{1,4}$/))
+      .pipe(z.array(z.string()).max(8))
+      .default([]),
+    AGENT_SHADOW_SAMPLE_PERCENT: z.coerce.number().int().min(0).max(100).default(0),
+    AGENT_SHADOW_DAILY_MICROUSD: z.coerce.number().int().min(0).default(2_000_000),
+    /**
+     * Price intelligence (ADR-102). The vendors that may fetch a page at all; each site's policy
+     * picks among them, in its own order. `direct` is our own plain request and `mock` answers
+     * from memory (tests and local development; refused in production).
+     */
+    PRICE_INTEL_VENDORS: csv(z.enum(SCRAPE_VENDORS)).default(['mock']),
+    FIRECRAWL_API_KEY: z.string().min(8).optional(),
+    APIFY_TOKEN: z.string().min(8).optional(),
+    BROWSE_AI_API_KEY: z.string().min(8).optional(),
+    OXYLABS_USERNAME: z.string().min(1).optional(),
+    OXYLABS_PASSWORD: z.string().min(8).optional(),
+    BRIGHT_DATA_API_KEY: z.string().min(8).optional(),
+    /** The Web Unlocker zone requests go through. */
+    BRIGHT_DATA_ZONE: z
+      .string()
+      .regex(/^[A-Za-z0-9_]{1,64}$/)
+      .optional(),
+    /**
+     * A public page saying who the `direct` fetcher is and how a site can reach us. It goes in
+     * its User-Agent, so a site can tell who is reading and ask us to stop.
+     */
+    PRICE_INTEL_BOT_URL: z.url({ protocol: /^https$/ }).optional(),
+    /** Hard limits of one read: tries across all vendors, wall time and estimated cost. */
+    PRICE_INTEL_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(12).default(6),
+    PRICE_INTEL_JOB_TIMEOUT_MS: z.coerce.number().int().min(1000).max(300_000).default(60_000),
+    PRICE_INTEL_ATTEMPT_TIMEOUT_MS: z.coerce.number().int().min(500).max(120_000).default(30_000),
+    PRICE_INTEL_JOB_MAX_MICROUSD: z.coerce.number().int().min(0).default(50_000),
+    /** Spend caps per UTC day and month, per vendor and per site, unless a budget row says more. */
+    PRICE_INTEL_VENDOR_DAILY_MICROUSD: z.coerce.number().int().min(0).default(5_000_000),
+    PRICE_INTEL_VENDOR_MONTHLY_MICROUSD: z.coerce.number().int().min(0).default(50_000_000),
+    PRICE_INTEL_DOMAIN_DAILY_MICROUSD: z.coerce.number().int().min(0).default(2_000_000),
+    PRICE_INTEL_DOMAIN_MONTHLY_MICROUSD: z.coerce.number().int().min(0).default(20_000_000),
+    /**
+     * What a page costs on the owner's plans, `vendor:class=microUsd`
+     * (`firecrawl:unblocker=4000,apify:residential=9000`). Entries replace the estimate for that
+     * vendor and class only.
+     */
+    PRICE_INTEL_COSTS: csv(
+      z
+        .string()
+        .regex(/^[a-z_]+:[a-z]+=\d{1,9}$/, 'use vendor:class=microUsd')
+        .transform((rule) => {
+          const [target = '', cost = '0'] = rule.split('=');
+          const [vendor = '', proxy = ''] = target.split(':');
+          return [vendor, proxy, Number(cost)] as const;
+        })
+        .refine(
+          ([vendor, proxy]) =>
+            (SCRAPE_VENDORS as readonly string[]).includes(vendor) &&
+            (PROXY_CLASSES as readonly string[]).includes(proxy),
+          { message: 'unknown vendor or proxy class' },
+        ),
+    )
+      .transform((rules): ScrapeCosts => {
+        const costs: Record<string, Partial<Record<ProxyClass, number>>> = {};
+        for (const vendor of SCRAPE_VENDORS) costs[vendor] = { ...DEFAULT_SCRAPE_COSTS[vendor] };
+        for (const [vendor, proxy, cost] of rules) {
+          (costs[vendor] ??= {})[proxy as ProxyClass] = cost;
+        }
+        return costs as ScrapeCosts;
+      })
+      .default(DEFAULT_SCRAPE_COSTS),
+    /**
+     * Partner offers and affiliate tracking (ADR-069, ADR-070): on outside production, off in
+     * production unless set. The mock network and mock activities only outside production unless
+     * ALLOW_MOCK_PROVIDERS.
+     */
+    PARTNER_OFFERS_ENABLED: booleanish.optional(),
+    AFFILIATE_NETWORK: z.enum(['mock', 'travelpayouts']).default('mock'),
+    TRAVELPAYOUTS_API_URL: z.url().default('https://api.travelpayouts.com'),
+    /** Travelpayouts API token (Partner Links API). */
+    TRAVELPAYOUTS_TOKEN: z.string().min(1).optional(),
+    /** The account's partner marker and the project id (`trs`), from the dashboard. */
+    TRAVELPAYOUTS_MARKER: z
+      .string()
+      .regex(/^[A-Za-z0-9._-]{1,40}$/)
+      .optional(),
+    TRAVELPAYOUTS_TRS: z
+      .string()
+      .regex(/^[A-Za-z0-9._-]{1,40}$/)
+      .optional(),
+    /** Shared secret in the postback URL set in the network dashboard (`?token=`). */
+    TRAVELPAYOUTS_POSTBACK_SECRET: z.string().min(24).optional(),
+    /** Tours and activities with prices (Viator Partner API, Basic Access). */
+    ACTIVITY_PARTNER: z.enum(['mock', 'viator']).default('mock'),
+    VIATOR_API_URL: z.url().default('https://api.viator.com/partner'),
+    VIATOR_API_KEY: z.string().min(1).optional(),
+    /** Tags Viator's returned product links, to match Viator's campaign reports. */
+    VIATOR_CAMPAIGN: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{1,40}$/)
+      .default('suskii'),
+    PARTNER_TIMEOUT_MS: z.coerce.number().int().min(500).max(20_000).default(5000),
+    /** How long an offer link stays valid after it was shown. */
+    PARTNER_LINK_TTL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
+    /** How long a metasearch deep link keeps its price promise (ADR-081); later, a search. */
+    METASEARCH_LINK_TTL_HOURS: z.coerce.number().int().min(1).max(72).default(24),
+    /**
+     * Server-side ad conversions (ADR-079): `meta` (Conversions API) and `tiktok` (Events API)
+     * send the Purchase events of bookings whose recorded consent allows marketing; `mock` keeps
+     * them in memory (tests and local runs; production refuses it unless ALLOW_MOCK_PROVIDERS).
+     * Empty keeps no attribution and sends nothing.
+     */
+    AD_CONVERSIONS: csv(z.enum(['mock', 'meta', 'tiktok'])).default([]),
+    /** Meta pixel (dataset) id and a Conversions API access token from Events Manager. */
+    META_PIXEL_ID: z
+      .string()
+      .regex(/^\d{6,20}$/)
+      .optional(),
+    META_CAPI_ACCESS_TOKEN: z.string().min(20).optional(),
+    META_GRAPH_API_URL: z.url().default('https://graph.facebook.com/v26.0'),
+    /** Sends to Events Manager's Test Events tab instead of the live data set, when set. */
+    META_TEST_EVENT_CODE: z
+      .string()
+      .regex(/^[A-Za-z0-9]{3,32}$/)
+      .optional(),
+    /** TikTok pixel code and an Events API access token from Events Manager. */
+    TIKTOK_PIXEL_ID: z
+      .string()
+      .regex(/^[A-Z0-9]{8,32}$/)
+      .optional(),
+    TIKTOK_EVENTS_ACCESS_TOKEN: z.string().min(20).optional(),
+    TIKTOK_EVENTS_API_URL: z.url().default('https://business-api.tiktok.com/open_api/v1.3'),
+    TIKTOK_TEST_EVENT_CODE: z
+      .string()
+      .regex(/^[A-Za-z0-9]{3,32}$/)
+      .optional(),
+    AD_CONVERSIONS_TIMEOUT_MS: z.coerce.number().int().min(500).max(20_000).default(5000),
+    /** Driver identity checks and payouts: mock adapters until the owner picks providers. */
+    KYC_PROVIDER: z.enum(['mock']).default('mock'),
+    PAYOUT_PROVIDER: z.enum(['mock']).default('mock'),
+    /** Rides (ADR-051 to ADR-053). */
+    RIDE_SURGE_CAP_BPS: z.coerce.number().int().min(0).max(20_000).default(5000),
+    RIDE_MATCH_RADIUS_METRES: z.coerce.number().int().min(500).max(30_000).default(5000),
+    RIDE_OFFER_SECONDS: z.coerce.number().int().min(5).max(120).default(15),
+    /** A ride still unmatched after this long ends as `no_driver` and is refunded in full. */
+    RIDE_MATCH_TIMEOUT_SECONDS: z.coerce.number().int().min(30).max(3600).default(300),
+    /** Scheduled rides start matching this long before pickup; they can be booked this far ahead. */
+    RIDE_SCHEDULE_LEAD_MINUTES: z.coerce.number().int().min(5).max(120).default(15),
+    RIDE_SCHEDULE_MAX_DAYS: z.coerce.number().int().min(1).max(30).default(7),
+    /** Drivers whose last position is older than this are not offered rides. */
+    RIDE_LOCATION_FRESH_SECONDS: z.coerce.number().int().min(10).max(600).default(60),
+    RIDE_DEVIATION_METRES: z.coerce.number().int().min(100).max(10_000).default(500),
+    RIDE_DEVIATION_SECONDS: z.coerce.number().int().min(30).max(1800).default(120),
+    /** Longest trip quoted from the straight-line fallback, and longest intrastate trip. */
+    RIDE_FALLBACK_MAX_KM: z.coerce.number().int().min(5).max(500).default(80),
+    RIDE_MAX_KM: z.coerce.number().int().min(5).max(1000).default(150),
+    RIDE_PING_RETENTION_DAYS: z.coerce.number().int().min(7).max(365).default(90),
+    /** Rentals (ADR-051): turnaround between rentals, photo dispute window, delivery estimate. */
+    RENTAL_TURNAROUND_HOURS: z.coerce.number().int().min(0).max(48).default(3),
+    RENTAL_PHOTO_RETENTION_DAYS: z.coerce.number().int().min(30).max(730).default(180),
+    RENTAL_MIN_LEAD_HOURS: z.coerce.number().int().min(0).max(72).default(2),
+    RENTAL_MAX_ADVANCE_DAYS: z.coerce.number().int().min(1).max(365).default(180),
+    /** Driver balances below this (NGN minor units) wait for the next payout run. */
+    DRIVER_PAYOUT_MIN_MINOR: z.coerce.number().int().min(0).default(100_000),
+    /** Price alerts (ADR-032): how often each is checked and the drop worth a notice. */
+    PRICE_ALERT_INTERVAL_HOURS: z.coerce.number().int().min(1).max(48).default(6),
+    PRICE_ALERT_MIN_DROP_BPS: z.coerce.number().int().min(100).max(9000).default(500),
+    /** Alerts checked per worker run (each distinct route and date costs one supplier search). */
+    PRICE_ALERT_BATCH_SIZE: z.coerce.number().int().min(1).max(500).default(50),
+    /**
+     * Ticketed flights are asked for airline schedule changes this often until they depart, at
+     * most SCHEDULE_CHANGE_BATCH_SIZE per sweep (one supplier call each, ADR-065).
+     */
+    SCHEDULE_CHANGE_CHECK_HOURS: z.coerce.number().int().min(1).max(48).default(6),
+    SCHEDULE_CHANGE_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(10),
+    /**
+     * Live flight status on the day of travel (ADR-095). `none` turns it off: nothing is read
+     * and no delay alert is sent. `mock` only outside production unless ALLOW_MOCK_PROVIDERS.
+     * A ticketed flight is followed from FLIGHT_STATUS_WINDOW_HOURS before it leaves until six
+     * hours after it should land, read every FLIGHT_STATUS_CHECK_MINUTES by the sweep (at most
+     * FLIGHT_STATUS_BATCH_SIZE trips a run, one provider call each) and no more often than every
+     * FLIGHT_STATUS_CACHE_SECONDS when a traveller looks.
+     */
+    FLIGHT_STATUS_PROVIDER: z.enum(['none', 'mock']).default('none'),
+    FLIGHT_STATUS_WINDOW_HOURS: z.coerce.number().int().min(1).max(72).default(24),
+    FLIGHT_STATUS_CHECK_MINUTES: z.coerce.number().int().min(5).max(120).default(15),
+    FLIGHT_STATUS_CACHE_SECONDS: z.coerce.number().int().min(30).max(900).default(120),
+    FLIGHT_STATUS_BATCH_SIZE: z.coerce.number().int().min(1).max(200).default(25),
+    /**
+     * A flight expected to leave this many minutes late is worth telling the traveller, and
+     * again each time the expected delay moves by the step (later or earlier).
+     */
+    FLIGHT_DELAY_ALERT_MINUTES: z.coerce.number().int().min(10).max(240).default(30),
+    FLIGHT_DELAY_ALERT_STEP_MINUTES: z.coerce.number().int().min(5).max(120).default(15),
+    /**
+     * A change moving a flight by this many hours (within one country, or otherwise) entitles the
+     * traveller to a full refund (ADR-073; the US DOT thresholds).
+     */
+    SIGNIFICANT_CHANGE_DOMESTIC_HOURS: z.coerce.number().min(1).max(24).default(3),
+    SIGNIFICANT_CHANGE_INTERNATIONAL_HOURS: z.coerce.number().min(1).max(24).default(6),
+    /** Prime members are reminded this many days before their paid-up end (ADR-030). */
+    PRIME_REMINDER_DAYS: z.coerce.number().int().min(1).max(60).default(7),
+    /** A finished trip can be reviewed for this many days after it ends (ADR-077). */
+    REVIEW_WINDOW_DAYS: z.coerce.number().int().min(7).max(365).default(90),
+    /** A support conversation about a trip starting within this many hours is urgent (ADR-083). */
+    SUPPORT_URGENT_HOURS: z.coerce.number().int().min(1).max(168).default(48),
+    /**
+     * Support targets per priority (ADR-083): `priority=reply/resolution` in minutes, e.g.
+     * `urgent=15/240`. Priorities left out keep their defaults.
+     */
+    SUPPORT_SLA: csv(
+      z
+        .string()
+        .regex(
+          /^(urgent|prime|normal)=\d{1,5}\/\d{1,6}$/,
+          'use priority=replyMinutes/resolutionMinutes',
+        )
+        .transform((rule) => {
+          const [priority = '', minutes = ''] = rule.split('=');
+          const [reply = '0', resolution = '0'] = minutes.split('/');
+          return [
+            priority,
+            { responseMinutes: Number(reply), resolutionMinutes: Number(resolution) },
+          ] as const;
+        }),
+    )
+      .transform((rules): SupportTargets => ({
+        ...DEFAULT_SUPPORT_SLA,
+        ...Object.fromEntries(rules),
+      }))
+      .default(DEFAULT_SUPPORT_SLA),
+    /**
+     * Company wallet (ADR-090): the currencies a wallet takes and the smallest and largest top-up
+     * in each, as `CUR=min/max` in minor units (`NGN=1000000/500000000`). A currency not listed
+     * cannot be added; set it to replace the defaults entirely.
+     */
+    COMPANY_WALLET_TOPUP_LIMITS: csv(
+      z
+        .string()
+        .regex(/^[A-Z]{3}=\d{1,15}\/\d{1,15}$/, 'use CUR=minMinor/maxMinor')
+        .transform((rule) => {
+          const [currency = '', bounds = ''] = rule.split('=');
+          const [min = '0', max = '0'] = bounds.split('/');
+          return [currency, { minMinor: Number(min), maxMinor: Number(max) }] as const;
+        })
+        .refine(([, bounds]) => bounds.minMinor > 0 && bounds.minMinor <= bounds.maxMinor, {
+          message: 'min must be positive and not above max',
+        }),
+    )
+      .transform((rules): CompanyTopUpLimits =>
+        rules.length === 0 ? DEFAULT_COMPANY_TOPUP_LIMITS : Object.fromEntries(rules),
+      )
+      .default(DEFAULT_COMPANY_TOPUP_LIMITS),
+    /** Top-ups a company may start in a day (card testing and mistakes). */
+    COMPANY_WALLET_TOPUPS_PER_DAY: z.coerce.number().int().min(1).max(100).default(5),
+    /**
+     * WhatsApp as a support channel (ADR-084): `none` turns the webhook off (404), `mock` keeps
+     * replies in memory (tests), `cloud` calls the WhatsApp Cloud API.
+     */
+    WHATSAPP_SUPPORT_PROVIDER: z.enum(['none', 'mock', 'cloud']).default('none'),
+    /** Graph API base with its version; Meta retires each version about two years after launch. */
+    WHATSAPP_GRAPH_API_URL: z.url().default('https://graph.facebook.com/v26.0'),
+    /** The business phone number's id in WhatsApp Manager (digits, not the number itself). */
+    WHATSAPP_PHONE_NUMBER_ID: z
+      .string()
+      .regex(/^\d{5,20}$/, 'the numeric phone number id from WhatsApp Manager')
+      .optional(),
+    /** A system user's permanent token with whatsapp_business_messaging (a secret). */
+    WHATSAPP_ACCESS_TOKEN: z.string().min(20).optional(),
+    /** The Meta app secret that signs webhook deliveries (X-Hub-Signature-256; a secret). */
+    WHATSAPP_APP_SECRET: z.string().min(16).optional(),
+    /** The token Meta echoes in the webhook handshake (a secret). */
+    WHATSAPP_VERIFY_TOKEN: z.string().min(16).optional(),
+    /** Approved template sent when staff reply outside the 24-hour window; one body parameter. */
+    WHATSAPP_SUPPORT_TEMPLATE: z
+      .string()
+      .regex(/^[a-z0-9_]{1,512}$/, 'lower-case letters, digits and underscores')
+      .default('support_reply_waiting'),
+    WHATSAPP_SUPPORT_TEMPLATE_LANGUAGE: z
+      .string()
+      .regex(/^[a-z]{2,3}(_[A-Z]{2})?$/, 'a WhatsApp language code such as en or en_GB')
+      .default('en'),
+    /** A WhatsApp message to a conversation solved this recently reopens it; else a new one. */
+    SUPPORT_WHATSAPP_REOPEN_DAYS: z.coerce.number().int().min(0).max(90).default(7),
+    /** Messages one WhatsApp contact may send a minute before the rest are dropped. */
+    SUPPORT_WHATSAPP_MESSAGES_PER_MINUTE: z.coerce.number().int().min(1).max(120).default(20),
+    /**
+     * The after-hours assistant (ADR-085): answers from the FAQs and the booking's facts while
+     * nobody is on shift. Off unless set, in every environment; it uses the LLM_* settings.
+     */
+    SUPPORT_ASSISTANT_ENABLED: booleanish.default(false),
+    /**
+     * Staffed hours in SUPPORT_TIME_ZONE, e.g. `mon-fri 08:00-20:00, sat 09:00-14:00`; the
+     * assistant answers outside them. Empty: no staffed hours (it answers at any time).
+     */
+    SUPPORT_HOURS: z
+      .string()
+      .default('')
+      .refine((value) => parseSupportHours(value) !== null, {
+        message: 'use spans like "mon-fri 08:00-20:00, sat 09:00-14:00"',
+      }),
+    SUPPORT_TIME_ZONE: z
+      .string()
+      .default('Africa/Lagos')
+      .refine(isValidTimeZone, 'an IANA time zone such as Africa/Lagos'),
+    /** Answers the assistant gives in one conversation before leaving it to people. */
+    SUPPORT_ASSISTANT_MAX_REPLIES: z.coerce.number().int().min(1).max(10).default(3),
+    /** Assistant spend caps per UTC day in micro-dollars: all conversations, and each one. */
+    SUPPORT_ASSISTANT_DAILY_MICROUSD: z.coerce.number().int().min(0).default(5_000_000),
+    SUPPORT_ASSISTANT_CONVERSATION_MICROUSD: z.coerce.number().int().min(0).default(20_000),
+    /**
+     * Referral rewards (ADR-031), in minor units of REFERRAL_REWARD_CURRENCY; zero pays nothing
+     * (referrals are still tracked). A referral qualifies on a completed trip of at least
+     * REFERRAL_MIN_SPEND_MINOR; at most REFERRAL_MONTHLY_CAP qualify per referrer per month.
+     */
+    REFERRAL_REWARD_REFERRER_MINOR: z.coerce.number().int().min(0).max(100_000_000).default(0),
+    REFERRAL_REWARD_REFEREE_MINOR: z.coerce.number().int().min(0).max(100_000_000).default(0),
+    REFERRAL_REWARD_CURRENCY: z.string().length(3).default('NGN'),
+    REFERRAL_MIN_SPEND_MINOR: z.coerce.number().int().min(0).default(0),
+    REFERRAL_MONTHLY_CAP: z.coerce.number().int().min(1).max(1000).default(10),
+    /**
+     * Retained financial records (bookings, payments, ledger, refunds) of deleted accounts are
+     * kept this long (ADR-029); a legal decision for the owner. The purge job is phase 11.
+     */
+    FINANCIAL_RECORDS_RETENTION_YEARS: z.coerce.number().int().min(1).max(20).default(7),
+
+    /**
+     * Staff refunds worth more than this (NGN minor units) need a second approver (ADR-019).
+     * 0 means every staff refund needs one.
+     */
+    REFUND_APPROVAL_THRESHOLD_NGN: z.coerce.number().int().min(0).default(0),
+    /**
+     * Payment risk review (ADR-040): signals scored at capture; at or above the score, fulfilment
+     * waits for staff. Limits count the last 24 hours (cards: 30 days).
+     */
+    PAYMENT_RISK_ENABLED: booleanish.default(true),
+    PAYMENT_RISK_REVIEW_SCORE: z.coerce.number().int().min(1).max(1000).default(60),
+    PAYMENT_RISK_MAX_PAYMENTS_PER_DAY: z.coerce.number().int().min(1).max(100).default(5),
+    PAYMENT_RISK_MAX_ATTEMPTS_PER_IP: z.coerce.number().int().min(1).max(500).default(10),
+    PAYMENT_RISK_MAX_CARDS: z.coerce.number().int().min(1).max(50).default(3),
+    /** ISO country codes and IATA airport pairs (`LOS-LHR`) that add to the score. */
+    PAYMENT_RISK_COUNTRIES: csv(z.string().regex(/^[A-Z]{2}$/)).default([]),
+    PAYMENT_RISK_ROUTES: csv(z.string().regex(/^[A-Z]{3}-[A-Z]{3}$/)).default([]),
+    /**
+     * Request header carrying the client's country as set by the edge (e.g. `cf-ipcountry`
+     * behind Cloudflare). Only set it when the edge overwrites the header on every request.
+     */
+    CLIENT_COUNTRY_HEADER: z
+      .string()
+      .regex(/^[a-z0-9-]{1,64}$/)
+      .optional(),
+    /** Refunds still pending at a provider without a lookup API go to review after this. */
+    REFUND_REVIEW_AFTER_HOURS: z.coerce.number().int().min(1).max(720).default(72),
+    /** Operations mailbox for money alerts (automatic refunds, failures, reviews). */
+    OPS_ALERT_EMAIL: z.email().optional(),
+    /** Booking with a supplier can take far longer than a search or a re-price. */
+    SUPPLIER_BOOKING_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(45_000),
+    /** Automatic ticketing attempts before a paid booking goes to REFUND_PENDING. */
+    TICKETING_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(6),
+    /**
+     * Tickets, vouchers and uploaded documents. `filesystem` is for development and tests; `s3`
+     * is any S3-compatible store: AWS S3, Google Cloud Storage (HMAC keys), Cloudflare R2 or
+     * MinIO (ADR-057).
+     */
+    OBJECT_STORAGE: z.enum(['filesystem', 's3']).default('filesystem'),
+    OBJECT_STORAGE_DIR: z.string().min(1).default('.data/objects'),
+    /** e.g. https://storage.googleapis.com, https://s3.eu-west-1.amazonaws.com. */
+    OBJECT_STORAGE_ENDPOINT: z.url().optional(),
+    /** The bucket's region for AWS; `auto` for Google Cloud Storage and R2. */
+    OBJECT_STORAGE_REGION: z
+      .string()
+      .regex(/^[a-z0-9-]{2,32}$/)
+      .default('auto'),
+    OBJECT_STORAGE_BUCKET: z
+      .string()
+      .regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/)
+      .optional(),
+    OBJECT_STORAGE_ACCESS_KEY_ID: z.string().min(1).optional(),
+    OBJECT_STORAGE_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+    /** Path-style URLs (endpoint/bucket/key), which MinIO needs; virtual-hosted otherwise. */
+    OBJECT_STORAGE_PATH_STYLE: booleanish.default(false),
+    OBJECT_STORAGE_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60_000).default(10_000),
+    /** Production only: a plain http endpoint on a private, otherwise encrypted network. */
+    OBJECT_STORAGE_ALLOW_PLAINTEXT: booleanish.default(false),
+    /**
+     * Mock flight supplier only: basis points added when re-pricing chosen outbound routes, e.g.
+     * `LOS-DXB:500`, so tests can walk through the price-change consent path. Each rule applies
+     * once, at the re-price right before payment.
+     */
+    MOCK_REPRICE_RULES: csv(
+      z
+        .string()
+        .regex(/^[A-Z]{3}-[A-Z]{3}:-?\d{1,5}$/, 'use ORIGIN-DESTINATION:basisPoints')
+        .transform((rule) => {
+          const [route = '', bps = '0'] = rule.split(':');
+          return [route, Number(bps)] as const;
+        }),
+    )
+      .transform((rules) => new Map(rules))
+      .default(new Map()),
+    /**
+     * Mock flight supplier only: minutes the airline moves the first flight of ticketed orders
+     * on chosen outbound routes, e.g. `LOS-ABV:90`, so the schedule-change journey can be walked
+     * through locally (ADR-065).
+     */
+    MOCK_SCHEDULE_CHANGE_RULES: csv(
+      z
+        .string()
+        .regex(/^[A-Z]{3}-[A-Z]{3}:-?\d{1,4}$/, 'use ORIGIN-DESTINATION:minutes')
+        .transform((rule) => {
+          const [route = '', minutes = '0'] = rule.split(':');
+          return [route, Number(minutes)] as const;
+        }),
+    )
+      .transform((rules) => new Map(rules))
+      .default(new Map()),
+    /**
+     * Mock flight status only: what a route's flights report, e.g. `LOS-ABV:delayed:45` (minutes
+     * late) or `LOS-LHR:cancelled`, so delay alerts can be walked through locally (ADR-095).
+     */
+    MOCK_FLIGHT_STATUS_RULES: csv(
+      z
+        .string()
+        .regex(
+          /^[A-Z]{3}-[A-Z]{3}:(delayed:\d{1,4}|cancelled|diverted)$/,
+          'use ORIGIN-DESTINATION:delayed:minutes, :cancelled or :diverted',
+        )
+        .transform((rule) => {
+          const [route = '', state = '', minutes = '0'] = rule.split(':');
+          return [
+            route,
+            state === 'delayed'
+              ? { delayMinutes: Number(minutes) }
+              : { state: state as 'cancelled' | 'diverted' },
+          ] as const;
+        }),
+    )
+      .transform((rules) => new Map(rules))
+      .default(new Map()),
+  })
+  .superRefine((env, ctx) => {
+    const require = (key: keyof typeof env, message: string): void => {
+      ctx.addIssue({ code: 'custom', path: [key], message });
+    };
+    const previousKeyIds = env.FIELD_ENCRYPTION_PREVIOUS_KEYS.map((entry) => entry.split(':')[0]);
+    if (
+      new Set(previousKeyIds).size !== previousKeyIds.length ||
+      previousKeyIds.includes(env.FIELD_ENCRYPTION_KEY_ID)
+    ) {
+      require('FIELD_ENCRYPTION_PREVIOUS_KEYS', 'key ids must be unique and differ from FIELD_ENCRYPTION_KEY_ID');
+    }
+    if (env.CLIENT_IP_HEADER && env.TRUST_PROXY_HOPS > 0)
+      require('CLIENT_IP_HEADER', 'set either CLIENT_IP_HEADER or TRUST_PROXY_HOPS, not both');
+    if (
+      (env.FLIGHT_SUPPLIERS.includes('duffel') || env.HOTEL_SUPPLIERS.includes('duffel')) &&
+      !env.DUFFEL_API_TOKEN
+    ) {
+      require('DUFFEL_API_TOKEN', 'is required when FLIGHT_SUPPLIERS or HOTEL_SUPPLIERS includes duffel');
+    }
+    if (env.WHATSAPP_SUPPORT_PROVIDER !== 'none') {
+      // Every delivery is checked against the app secret; the handshake needs the verify token.
+      if (!env.WHATSAPP_APP_SECRET)
+        require('WHATSAPP_APP_SECRET', 'is required when WHATSAPP_SUPPORT_PROVIDER is set');
+      if (!env.WHATSAPP_VERIFY_TOKEN)
+        require('WHATSAPP_VERIFY_TOKEN', 'is required when WHATSAPP_SUPPORT_PROVIDER is set');
+    }
+    if (env.WHATSAPP_SUPPORT_PROVIDER === 'cloud') {
+      if (!env.WHATSAPP_PHONE_NUMBER_ID)
+        require('WHATSAPP_PHONE_NUMBER_ID', 'is required when WHATSAPP_SUPPORT_PROVIDER is cloud');
+      if (!env.WHATSAPP_ACCESS_TOKEN)
+        require('WHATSAPP_ACCESS_TOKEN', 'is required when WHATSAPP_SUPPORT_PROVIDER is cloud');
+    }
+    if (env.HOTEL_SUPPLIERS.includes('hotelbeds')) {
+      if (!env.HOTELBEDS_API_KEY)
+        require('HOTELBEDS_API_KEY', 'is required when HOTEL_SUPPLIERS includes hotelbeds');
+      if (!env.HOTELBEDS_API_SECRET)
+        require('HOTELBEDS_API_SECRET', 'is required when HOTEL_SUPPLIERS includes hotelbeds');
+    }
+    if (env.HOTEL_SUPPLIERS.includes('expedia')) {
+      if (!env.EXPEDIA_RAPID_API_KEY)
+        require('EXPEDIA_RAPID_API_KEY', 'is required when HOTEL_SUPPLIERS includes expedia');
+      if (!env.EXPEDIA_RAPID_SHARED_SECRET)
+        require('EXPEDIA_RAPID_SHARED_SECRET', 'is required when HOTEL_SUPPLIERS includes expedia');
+    }
+    if (env.MAPS_PROVIDER === 'osrm' && !env.OSRM_URL)
+      require('OSRM_URL', 'is required when MAPS_PROVIDER is osrm');
+    if (env.LLM_PROVIDER === 'anthropic' && !env.LLM_API_KEY)
+      require('LLM_API_KEY', 'is required when LLM_PROVIDER is anthropic');
+    if (env.FLIGHT_SUPPLIERS.length === 0)
+      require('FLIGHT_SUPPLIERS', 'enable at least one supplier');
+    if (env.HOTEL_SUPPLIERS.length === 0)
+      require('HOTEL_SUPPLIERS', 'enable at least one supplier');
+    if (env.SUPPLIER_TIMEOUT_MS > env.SEARCH_TIMEOUT_MS) {
+      require('SUPPLIER_TIMEOUT_MS', 'must not exceed SEARCH_TIMEOUT_MS');
+    }
+    if (env.DEALS_DEPARTURE_OFFSETS_DAYS.length === 0)
+      require('DEALS_DEPARTURE_OFFSETS_DAYS', 'list at least one offset');
+    if (env.PAYMENT_PROVIDERS.length === 0)
+      require('PAYMENT_PROVIDERS', 'enable at least one payment provider');
+    if (new Set(env.PAYMENT_PROVIDERS).size !== env.PAYMENT_PROVIDERS.length)
+      require('PAYMENT_PROVIDERS', 'list each provider once');
+    if (env.PAYMENT_PROVIDERS_PAUSED.some((name) => !env.PAYMENT_PROVIDERS.includes(name)))
+      require('PAYMENT_PROVIDERS_PAUSED', 'may only name providers in PAYMENT_PROVIDERS');
+    if (env.PAYMENT_PROVIDERS.includes('paystack') && !env.PAYSTACK_SECRET_KEY)
+      require('PAYSTACK_SECRET_KEY', 'is required when PAYMENT_PROVIDERS includes paystack');
+    if (env.PAYMENT_PROVIDERS.includes('flutterwave')) {
+      if (!env.FLUTTERWAVE_SECRET_KEY)
+        require('FLUTTERWAVE_SECRET_KEY', 'is required when PAYMENT_PROVIDERS includes flutterwave');
+      if (!env.FLUTTERWAVE_WEBHOOK_HASH)
+        require('FLUTTERWAVE_WEBHOOK_HASH', 'is required when PAYMENT_PROVIDERS includes flutterwave');
+    }
+    if (env.PAYMENT_PROVIDERS.includes('stripe')) {
+      if (!env.STRIPE_SECRET_KEY)
+        require('STRIPE_SECRET_KEY', 'is required when PAYMENT_PROVIDERS includes stripe');
+      if (!env.STRIPE_WEBHOOK_SECRET)
+        require('STRIPE_WEBHOOK_SECRET', 'is required when PAYMENT_PROVIDERS includes stripe');
+    }
+    if (env.AFFILIATE_NETWORK === 'travelpayouts') {
+      for (const key of ['TRAVELPAYOUTS_TOKEN', 'TRAVELPAYOUTS_MARKER'] as const) {
+        if (!env[key]) require(key, 'is required when AFFILIATE_NETWORK is travelpayouts');
+      }
+    }
+    if (env.ACTIVITY_PARTNER === 'viator' && !env.VIATOR_API_KEY)
+      require('VIATOR_API_KEY', 'is required when ACTIVITY_PARTNER is viator');
+    if (env.AD_CONVERSIONS.includes('meta')) {
+      for (const key of ['META_PIXEL_ID', 'META_CAPI_ACCESS_TOKEN'] as const) {
+        if (!env[key]) require(key, 'is required when AD_CONVERSIONS includes meta');
+      }
+    }
+    if (env.AD_CONVERSIONS.includes('tiktok')) {
+      for (const key of ['TIKTOK_PIXEL_ID', 'TIKTOK_EVENTS_ACCESS_TOKEN'] as const) {
+        if (!env[key]) require(key, 'is required when AD_CONVERSIONS includes tiktok');
+      }
+    }
+    if (env.OBJECT_STORAGE === 's3') {
+      for (const key of [
+        'OBJECT_STORAGE_ENDPOINT',
+        'OBJECT_STORAGE_BUCKET',
+        'OBJECT_STORAGE_ACCESS_KEY_ID',
+        'OBJECT_STORAGE_SECRET_ACCESS_KEY',
+      ] as const) {
+        if (!env[key]) require(key, 'is required when OBJECT_STORAGE is s3');
+      }
+    }
+    // A provider that is named needs its credentials, in every environment (ADR-091).
+    const smsProviders = new Set<SmsProviderName>([
+      env.SMS_PROVIDER,
+      ...env.SMS_ROUTES.map(([, provider]) => provider),
+    ]);
+    // A web-data vendor that is named needs its credentials too (ADR-102).
+    const scrapeVendors = new Set<ScrapeVendor>(env.PRICE_INTEL_VENDORS);
+    if (scrapeVendors.has('firecrawl') && !env.FIRECRAWL_API_KEY)
+      require('FIRECRAWL_API_KEY', 'is required when PRICE_INTEL_VENDORS includes firecrawl');
+    if (scrapeVendors.has('apify') && !env.APIFY_TOKEN)
+      require('APIFY_TOKEN', 'is required when PRICE_INTEL_VENDORS includes apify');
+    if (scrapeVendors.has('browse_ai') && !env.BROWSE_AI_API_KEY)
+      require('BROWSE_AI_API_KEY', 'is required when PRICE_INTEL_VENDORS includes browse_ai');
+    if (scrapeVendors.has('oxylabs') && !(env.OXYLABS_USERNAME && env.OXYLABS_PASSWORD))
+      require('OXYLABS_USERNAME', 'and OXYLABS_PASSWORD are required when PRICE_INTEL_VENDORS includes oxylabs');
+    if (scrapeVendors.has('bright_data') && !(env.BRIGHT_DATA_API_KEY && env.BRIGHT_DATA_ZONE))
+      require('BRIGHT_DATA_API_KEY', 'and BRIGHT_DATA_ZONE are required when PRICE_INTEL_VENDORS includes bright_data');
+    if (smsProviders.has('termii')) {
+      if (!env.TERMII_API_KEY) require('TERMII_API_KEY', 'is required when Termii sends texts');
+      if (!env.TERMII_SENDER_ID) require('TERMII_SENDER_ID', 'is required when Termii sends texts');
+    }
+    if (smsProviders.has('africastalking')) {
+      if (!env.AFRICASTALKING_USERNAME)
+        require('AFRICASTALKING_USERNAME', "is required when Africa's Talking sends texts");
+      if (!env.AFRICASTALKING_API_KEY)
+        require('AFRICASTALKING_API_KEY', "is required when Africa's Talking sends texts");
+    }
+    if (env.FX_PROVIDER === 'openexchangerates' && !env.OPENEXCHANGERATES_APP_ID)
+      require('OPENEXCHANGERATES_APP_ID', 'is required when FX_PROVIDER is openexchangerates');
+    if (env.NODE_ENV !== 'production') return;
+    if (!env.INTERNAL_API_TOKEN) require('INTERNAL_API_TOKEN', 'is required in production');
+    else if (env.INTERNAL_API_TOKEN.startsWith(LOCAL_INTERNAL_TOKEN_PREFIX))
+      require('INTERNAL_API_TOKEN', 'the local development token is not allowed in production');
+    // The sandbox delivers nothing: travellers would never get their sign-in codes.
+    if (
+      smsProviders.has('africastalking') &&
+      !env.ALLOW_MOCK_PROVIDERS &&
+      new URL(env.AFRICASTALKING_API_URL).hostname.includes('sandbox')
+    )
+      require('AFRICASTALKING_API_URL', 'the sandbox delivers nothing; use https://api.africastalking.com in production');
+    if (!env.TURNSTILE_SECRET_KEY) require('TURNSTILE_SECRET_KEY', 'is required in production');
+    if (env.SOCIAL_MOCK_ENABLED)
+      require('SOCIAL_MOCK_ENABLED', 'is never allowed in production: it signs anyone in as any email');
+    if (!env.JWT_PRIVATE_KEY || !env.JWT_PUBLIC_KEY)
+      require('JWT_PRIVATE_KEY', 'signing keys are required in production');
+    if (!env.FIELD_ENCRYPTION_KEY) require('FIELD_ENCRYPTION_KEY', 'is required in production');
+    if (!env.DATABASE_ALLOW_PLAINTEXT && !requiresTls(env.DATABASE_URL))
+      require('DATABASE_URL', 'must use TLS in production (sslmode=verify-full); DATABASE_ALLOW_PLAINTEXT is only for a socket or local proxy');
+    if (!env.REDIS_ALLOW_PLAINTEXT && !env.REDIS_URL.startsWith('rediss://'))
+      require('REDIS_URL', 'must use TLS in production (rediss://); REDIS_ALLOW_PLAINTEXT is only for a socket or local proxy');
+    if (!env.HMAC_SECRET) require('HMAC_SECRET', 'is required in production');
+    if (!env.COOKIE_SECURE) require('COOKIE_SECURE', 'must be true in production');
+    if (env.CORS_ORIGINS.length === 0)
+      require('CORS_ORIGINS', 'must list the web and admin origins in production');
+    if (env.ADMIN_ORIGINS.some((origin) => !origin.startsWith('https://')))
+      require('ADMIN_ORIGINS', 'must list the https admin console origins in production');
+    else if (env.ADMIN_ORIGINS.some((origin) => !env.CORS_ORIGINS.map(originOf).includes(origin)))
+      require('ADMIN_ORIGINS', 'every admin origin must also be in CORS_ORIGINS');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.EMAIL_PROVIDER === 'mock')
+      require('EMAIL_PROVIDER', 'mock provider is not allowed in production');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.SMS_PROVIDER === 'mock')
+      require('SMS_PROVIDER', 'mock provider is not allowed in production');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.WHATSAPP_PROVIDER === 'mock')
+      require('WHATSAPP_PROVIDER', 'mock provider is not allowed in production; use none to turn the channel off');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.SMS_ROUTES.some(([, provider]) => provider === 'mock'))
+      require('SMS_ROUTES', 'mock provider is not allowed in production');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.PUSH_PROVIDER === 'mock')
+      require('PUSH_PROVIDER', 'mock provider is not allowed in production');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.DEVICE_ATTESTATION === 'mock')
+      require('DEVICE_ATTESTATION', 'mock attestation is not allowed in production');
+    if (!env.EXPO_PUSH_URL.startsWith('https://'))
+      require('EXPO_PUSH_URL', 'must use https in production');
+    // Never show fabricated fares or exchange rates in production (brand guardrails).
+    if (!env.ALLOW_MOCK_PROVIDERS && env.FLIGHT_SUPPLIERS.includes('mock'))
+      require('FLIGHT_SUPPLIERS', 'the mock supplier is not allowed in production');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.HOTEL_SUPPLIERS.includes('mock'))
+      require('HOTEL_SUPPLIERS', 'the mock supplier is not allowed in production');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.FX_PROVIDER === 'mock')
+      require('FX_PROVIDER', 'mock exchange rates are not allowed in production');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.PAYMENT_PROVIDERS.includes('mock'))
+      require('PAYMENT_PROVIDERS', 'mock payments are not allowed in production');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.ANTIVIRUS_PROVIDER === 'mock')
+      require('ANTIVIRUS_PROVIDER', 'uploaded documents must be scanned by a real scanner');
+    if (env.SUPPORT_ASSISTANT_ENABLED && !env.ALLOW_MOCK_PROVIDERS && env.LLM_PROVIDER === 'mock')
+      require('LLM_PROVIDER', 'the mock model is not allowed in production');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.WHATSAPP_SUPPORT_PROVIDER === 'mock')
+      require('WHATSAPP_SUPPORT_PROVIDER', 'the mock answers nobody on WhatsApp; it is not allowed in production');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.FLIGHT_STATUS_PROVIDER === 'mock')
+      require('FLIGHT_STATUS_PROVIDER', 'the mock invents flight times; it is not allowed in production');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.AD_CONVERSIONS.includes('mock'))
+      require('AD_CONVERSIONS', 'the mock sends nothing to any network; it is not allowed in production');
+    // Real providers must be called over TLS with their production hosts' defaults or overrides.
+    for (const key of [
+      'PAYSTACK_API_URL',
+      'FLUTTERWAVE_API_URL',
+      'STRIPE_API_URL',
+      'DUFFEL_API_URL',
+      'HOTELBEDS_API_URL',
+      'EXPEDIA_RAPID_API_URL',
+      'TRAVELPAYOUTS_API_URL',
+      'VIATOR_API_URL',
+      'META_GRAPH_API_URL',
+      'WHATSAPP_GRAPH_API_URL',
+      'TIKTOK_EVENTS_API_URL',
+      'TERMII_API_URL',
+      'AFRICASTALKING_API_URL',
+      'OPENEXCHANGERATES_API_URL',
+    ] as const) {
+      if (!env[key].startsWith('https://')) require(key, 'must use https in production');
+    }
+    // The evaluation host confirms bookings that do not exist: travellers would pay for nothing.
+    if (
+      env.HOTEL_SUPPLIERS.includes('hotelbeds') &&
+      !env.ALLOW_MOCK_PROVIDERS &&
+      new URL(env.HOTELBEDS_API_URL).hostname === 'api.test.hotelbeds.com'
+    )
+      require('HOTELBEDS_API_URL', 'the evaluation host books nothing; use https://api.hotelbeds.com in production');
+    if (
+      env.HOTEL_SUPPLIERS.includes('expedia') &&
+      !env.ALLOW_MOCK_PROVIDERS &&
+      new URL(env.EXPEDIA_RAPID_API_URL).hostname === 'test.ean.com'
+    )
+      require('EXPEDIA_RAPID_API_URL', 'the sandbox host books nothing; use https://api.ean.com in production');
+    // Telemetry may go to a collector on the same host; anywhere else it needs TLS.
+    if (env.OTEL_EXPORTER_OTLP_ENDPOINT && !isTlsOrLoopback(env.OTEL_EXPORTER_OTLP_ENDPOINT))
+      require('OTEL_EXPORTER_OTLP_ENDPOINT', 'must use https in production unless the collector is on localhost');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.OBJECT_STORAGE === 'filesystem')
+      require('OBJECT_STORAGE', 'filesystem storage is not allowed in production');
+    if (
+      env.OBJECT_STORAGE === 's3' &&
+      !env.OBJECT_STORAGE_ALLOW_PLAINTEXT &&
+      !env.OBJECT_STORAGE_ENDPOINT?.startsWith('https://')
+    )
+      require('OBJECT_STORAGE_ENDPOINT', 'must use https in production; OBJECT_STORAGE_ALLOW_PLAINTEXT is only for a private network');
+    // AI trip search is off in production unless set (ADR-061); when on it needs a real model.
+    if (env.AI_SEARCH_ENABLED && !env.ALLOW_MOCK_PROVIDERS && env.LLM_PROVIDER === 'mock')
+      require('LLM_PROVIDER', 'the mock model is not allowed in production');
+    // The agent is off in production unless set (ADR-101). When on, the API needs the service's
+    // address over TLS and two tokens that open nothing else.
+    if (env.AGENT_ENABLED) {
+      if (env.AGENT_SERVICE === 'mock' && !env.ALLOW_MOCK_PROVIDERS)
+        require('AGENT_SERVICE', 'the mock assistant answers nobody; it is not allowed in production');
+      // The mock calls no service: only the real one needs an address and a token to start runs.
+      const calls = env.AGENT_SERVICE === 'http';
+      if (calls && !env.AGENT_URL)
+        require('AGENT_URL', 'is required in production while AGENT_ENABLED is set');
+      else if (calls && !env.AGENT_ALLOW_PLAINTEXT && !env.AGENT_URL?.startsWith('https://'))
+        require('AGENT_URL', 'must use https in production; AGENT_ALLOW_PLAINTEXT is only for a private network');
+      for (const key of ['AGENT_RUN_TOKEN', 'AGENT_TOOLS_TOKEN'] as const) {
+        const token = env[key];
+        if (!token) {
+          if (calls || key === 'AGENT_TOOLS_TOKEN')
+            require(key, 'is required in production while AGENT_ENABLED is set');
+        } else if (token.startsWith(LOCAL_INTERNAL_TOKEN_PREFIX))
+          require(key, 'the local development token is not allowed in production');
+        else if (token === env.INTERNAL_API_TOKEN)
+          require(key, "must differ from INTERNAL_API_TOKEN: the worker's token must not open agent routes");
+      }
+      if (env.AGENT_RUN_TOKEN && env.AGENT_RUN_TOKEN === env.AGENT_TOOLS_TOKEN)
+        require('AGENT_TOOLS_TOKEN', 'must differ from AGENT_RUN_TOKEN');
+    }
+    // Price intelligence is off in production unless set (ADR-102); when on it reads for real.
+    if (env.PRICE_INTEL_ENABLED) {
+      if (!env.ALLOW_MOCK_PROVIDERS && env.PRICE_INTEL_VENDORS.includes('mock'))
+        require('PRICE_INTEL_VENDORS', 'the mock vendor reads nothing; it is not allowed in production');
+      if (env.PRICE_INTEL_VENDORS.includes('direct') && !env.PRICE_INTEL_BOT_URL)
+        require('PRICE_INTEL_BOT_URL', 'is required in production when PRICE_INTEL_VENDORS includes direct: the fetcher must say who it is');
+    }
+    // Partner offers are off in production unless set (ADR-070); when on they need real partners.
+    if (env.PARTNER_OFFERS_ENABLED && !env.ALLOW_MOCK_PROVIDERS) {
+      if (env.AFFILIATE_NETWORK === 'mock')
+        require('AFFILIATE_NETWORK', 'the mock network earns nothing; it is not allowed in production');
+      if (env.ACTIVITY_PARTNER === 'mock')
+        require('ACTIVITY_PARTNER', 'mock activities are not allowed in production');
+    }
+    if (env.AFFILIATE_NETWORK === 'travelpayouts' && !env.TRAVELPAYOUTS_POSTBACK_SECRET)
+      require('TRAVELPAYOUTS_POSTBACK_SECRET', 'is required in production: conversions are recorded from postbacks');
+    // Cars products are off in production unless set; enabled ones need their real providers.
+    if (env.CARS_BUSES_ENABLED && !env.CARS_TICKET_SIGNING_KEY)
+      require('CARS_TICKET_SIGNING_KEY', 'is required in production when buses are enabled');
+    if (env.CARS_RIDES_ENABLED && !env.ALLOW_MOCK_PROVIDERS) {
+      if (env.MAPS_PROVIDER === 'mock')
+        require('MAPS_PROVIDER', 'mock routing is not allowed in production');
+      if (env.KYC_PROVIDER === 'mock')
+        require('KYC_PROVIDER', 'driver checks need a real KYC provider in production');
+      if (env.PAYOUT_PROVIDER === 'mock')
+        require('PAYOUT_PROVIDER', 'driver payouts need a real provider in production');
+    }
+    if (env.MAPS_PROVIDER === 'osrm' && env.OSRM_URL && !env.OSRM_URL.startsWith('https://'))
+      require('OSRM_URL', 'must use https in production');
+  });
+
+export type Env = z.output<typeof envSchema>;
+
+/** Parses the environment, failing fast with key names and rules only (never values). */
+export function parseEnv(source: NodeJS.ProcessEnv): Env {
+  // `KEY=` in a .env file means "not set" (the .env.example convention for unset secrets).
+  const defined = Object.fromEntries(Object.entries(source).filter(([, value]) => value !== ''));
+  const result = envSchema.safeParse(defined);
+  if (!result.success) {
+    const issues = result.error.issues
+      .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+      .join('; ');
+    throw new Error(`Invalid API environment: ${issues}`);
+  }
+  return result.data;
+}

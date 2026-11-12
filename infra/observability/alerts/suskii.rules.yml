@@ -1,0 +1,467 @@
+# Prometheus alert rules for Suskii (ADR-047). Metric names follow the default OTLP-to-Prometheus
+# translation: dots become underscores, counters gain _total and units become suffixes
+# (suskii.ticketing.oldest_age in seconds is suskii_ticketing_oldest_age_seconds).
+#
+# Severity: `page` wakes someone (money or tickets at risk now); `ticket` is for working hours.
+# Every paging alert links its runbook (docs/runbooks; a unit test checks the files exist).
+# Check with:
+#   promtool check rules infra/observability/alerts/suskii.rules.yml
+#   promtool test rules infra/observability/alerts/suskii.rules.test.yml
+groups:
+  - name: suskii-payments
+    rules:
+      - alert: PaymentWebhookProcessingFailed
+        expr: sum by (provider) (increase(suskii_payment_webhooks_total{result="failed"}[10m])) > 0
+        labels:
+          severity: page
+        annotations:
+          summary: '{{ $labels.provider }} webhooks are failing inside the API'
+          description: >-
+            Verified payment events could not be applied. Providers retry, but payments stay
+            unconfirmed until the cause is fixed.
+          runbook: docs/runbooks/payment-provider-outage.md
+
+      - alert: PaymentWebhooksRejected
+        expr: >-
+          sum by (provider) (increase(suskii_payment_webhooks_total{result=~"rejected|unconfirmed"}[15m]))
+          > 20
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'Many {{ $labels.provider }} webhooks fail signature or provider checks'
+          description: >-
+            A rotated webhook secret, a misconfigured endpoint, or someone probing the webhook
+            route. Compare with the provider's delivery log.
+          runbook: docs/runbooks/payment-provider-outage.md
+
+      - alert: PaymentProviderUnavailable
+        expr: >-
+          sum by (provider) (increase(suskii_payment_webhooks_total{result="provider_unavailable"}[10m]))
+          > 3
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: '{{ $labels.provider }} cannot confirm payments'
+          description: >-
+            Webhooks arrive but the provider's verification API does not answer, so payments
+            cannot be confirmed. Reconciliation catches up once it is back.
+          runbook: docs/runbooks/payment-provider-outage.md
+
+      - alert: PaymentSuccessRateLow
+        expr: >-
+          (
+            sum(increase(suskii_payments_total{outcome=~"paid|partially_paid|held_for_review"}[1h]))
+            / sum(increase(suskii_payments_total[1h]))
+          ) < 0.5
+          and sum(increase(suskii_payments_total[1h])) > 20
+        for: 15m
+        labels:
+          severity: page
+        annotations:
+          summary: 'Fewer than half of payment attempts succeed'
+          description: >-
+            Check the provider status page and the failure reasons in the console before
+            switching providers.
+          runbook: docs/runbooks/payment-provider-outage.md
+
+      - alert: PaymentRiskReviewsWaiting
+        expr: max(suskii_payment_risk_reviews_open) > 0
+        for: 30m
+        labels:
+          severity: ticket
+        annotations:
+          summary: '{{ $value }} captured payments wait for a finance review'
+          description: >-
+            Held bookings are not ticketed until finance approves (ADR-040); fares on hold can
+            lapse.
+
+  - name: suskii-ticketing
+    rules:
+      - alert: TicketingBacklog
+        expr: max(suskii_bookings_in_flight{status="TICKETING"}) > 10
+        for: 15m
+        labels:
+          severity: ticket
+        annotations:
+          summary: '{{ $value }} paid bookings are waiting for tickets'
+          runbook: docs/runbooks/ticketing-backlog.md
+
+      - alert: TicketingStuck
+        expr: max(suskii_ticketing_oldest_age_seconds) > 1800
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: 'A paid booking has waited more than 30 minutes for its ticket'
+          runbook: docs/runbooks/ticketing-backlog.md
+
+      - alert: TicketingExhausted
+        expr: sum(increase(suskii_ticketing_attempts_total{outcome="exhausted"}[30m])) > 0
+        labels:
+          severity: page
+        annotations:
+          summary: 'Ticketing gave up on a booking'
+          description: >-
+            The booking moved to REFUND_PENDING. Contact the traveller and decide between a
+            manual booking and the refund.
+          runbook: docs/runbooks/ticketing-backlog.md
+
+      - alert: RefundsNeedReview
+        expr: max(suskii_refunds_open{status="needs_review"}) > 0
+        for: 1h
+        labels:
+          severity: ticket
+        annotations:
+          summary: '{{ $value }} refunds need a person to check them'
+          description: >-
+            A provider call ended ambiguously; finance confirms with the provider before
+            anything is retried (ADR-019).
+
+  - name: suskii-api
+    rules:
+      - alert: ApiErrorRateHigh
+        expr: >-
+          (
+            sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m]))
+            / sum(rate(http_server_request_duration_seconds_count[5m]))
+          ) > 0.02
+          and sum(rate(http_server_request_duration_seconds_count[5m])) > 0.5
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: 'More than 2% of API requests fail'
+          description: Sentry groups the errors behind this rate (ADR-046).
+          runbook: docs/runbooks/README.md
+
+      - alert: ApiLatencyHigh
+        expr: >-
+          histogram_quantile(0.95,
+            sum by (le) (rate(http_server_request_duration_seconds_bucket{http_route!~".*/searches.*"}[10m]))
+          ) > 0.3
+        for: 15m
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'API p95 above 300 ms outside search'
+          description: The spec's API target (PROJECT_SPEC.json#/performance/api_targets).
+
+      - alert: SupplierErrorRateHigh
+        expr: >-
+          (
+            sum by (supplier) (rate(suskii_supplier_calls_total{outcome!="ok"}[10m]))
+            / sum by (supplier) (rate(suskii_supplier_calls_total[10m]))
+          ) > 0.2
+          and sum by (supplier) (rate(suskii_supplier_calls_total[10m])) > 0.05
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: '{{ $labels.supplier }} fails more than 20% of calls'
+          description: >-
+            Searches return partial results and the circuit breaker may open. Bookings on this
+            supplier can fail.
+          runbook: docs/runbooks/supplier-outage.md
+
+  - name: suskii-workers
+    rules:
+      - alert: QueueBacklog
+        expr: max by (queue) (suskii_queue_jobs{state="waiting"}) > 100
+        for: 15m
+        labels:
+          severity: ticket
+        annotations:
+          summary: '{{ $value }} jobs wait in the {{ $labels.queue }} queue'
+          description: The workers cannot keep up; check that they run and add replicas.
+
+      - alert: WorkerJobsFailing
+        expr: sum by (queue) (increase(suskii_worker_jobs_total{outcome="failed"}[30m])) > 3
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'Jobs on the {{ $labels.queue }} queue keep failing'
+          description: Sentry has the failures with the API request id of each (ADR-046).
+
+      - alert: WorkerMetricsMissing
+        expr: absent(suskii_queue_jobs)
+        for: 15m
+        labels:
+          severity: page
+        annotations:
+          summary: 'No queue metrics: the worker may be down'
+          description: >-
+            Without the worker, unpaid bookings do not expire, tickets are not retried and
+            refunds are not sent.
+          runbook: docs/runbooks/ticketing-backlog.md
+
+  - name: suskii-database
+    rules:
+      - alert: DatabaseConnectionsHigh
+        # Every API replica reports the same database-wide numbers: take the maximum per state.
+        expr: >-
+          sum(max by (state) (suskii_db_connections{state!="max"}))
+          / max(suskii_db_connections{state="max"}) > 0.8
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: 'The database is above 80% of its connection limit'
+          description: >-
+            New requests will soon fail to connect. Look for a connection leak or too many
+            replicas for the pool size before raising the limit.
+          runbook: docs/runbooks/database-restore.md
+
+  - name: suskii-web-vitals
+    rules:
+      # The spec's field targets at the 75th percentile (ADR-044), with enough visits to judge.
+      - alert: WebVitalsLcpSlow
+        expr: >-
+          histogram_quantile(0.75, sum by (le, page) (rate(suskii_web_vitals_lcp_milliseconds_bucket[1h])))
+          > 2000
+          and sum by (page) (rate(suskii_web_vitals_lcp_milliseconds_count[1h])) > 0.02
+        for: 1h
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'LCP p75 on {{ $labels.page }} is above 2 s'
+
+      - alert: WebVitalsInpSlow
+        expr: >-
+          histogram_quantile(0.75, sum by (le, page) (rate(suskii_web_vitals_inp_milliseconds_bucket[1h])))
+          > 200
+          and sum by (page) (rate(suskii_web_vitals_inp_milliseconds_count[1h])) > 0.02
+        for: 1h
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'INP p75 on {{ $labels.page }} is above 200 ms'
+
+      - alert: WebVitalsLayoutShift
+        expr: >-
+          histogram_quantile(0.75, sum by (le, page) (rate(suskii_web_vitals_cls_bucket[1h]))) > 0.1
+          and sum by (page) (rate(suskii_web_vitals_cls_count[1h])) > 0.02
+        for: 1h
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'CLS p75 on {{ $labels.page }} is above 0.1'
+
+  # Cars (ADR-049 to ADR-053). Safety pages at once; the rest is for working hours.
+  - name: suskii-cars
+    rules:
+      - alert: RideSosRaised
+        expr: sum(increase(suskii_ride_sos_total[5m])) > 0
+        labels:
+          severity: page
+        annotations:
+          summary: 'A rider or driver raised an SOS'
+          description: >-
+            Someone on a ride asked for help. Open the incident in the console (Rides and safety)
+            and follow the safety runbook now; their emergency contacts have been texted.
+          runbook: docs/runbooks/ride-safety-incident.md
+
+      - alert: SafetyIncidentUnacknowledged
+        expr: sum(suskii_safety_incidents_open{status="open"}) > 0
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: 'A safety incident has waited 10 minutes for a staff member'
+          description: >-
+            An SOS, a PIN lockout or a route deviation is still open with nobody on it. Acknowledge
+            it in the console before anything else.
+          runbook: docs/runbooks/ride-safety-incident.md
+
+      - alert: RideDispatchStalled
+        expr: max(suskii_rides_oldest_search_age_seconds) > 900
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: 'A ride has searched for a driver for over 15 minutes'
+          description: >-
+            Searches end with a refund after RIDE_MATCH_TIMEOUT_SECONDS (5 minutes), so the
+            dispatcher has stopped: riders are waiting on a paid ride that nobody is offered.
+          runbook: docs/runbooks/stuck-ride.md
+
+      - alert: RideStuckInProgress
+        expr: max(suskii_rides_longest_trip_age_seconds) > 14400
+        for: 15m
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'A ride has been in progress for over 4 hours'
+          description: >-
+            The driver may have forgotten to complete it, or lost the app. Earnings and the
+            final fare wait until it ends.
+          runbook: docs/runbooks/stuck-ride.md
+
+      - alert: RideNoDriverRateHigh
+        expr: >-
+          (
+            sum(increase(suskii_ride_matches_total{outcome="no_driver"}[1h]))
+            / sum(increase(suskii_ride_matches_total[1h]))
+          ) > 0.3
+          and sum(increase(suskii_ride_matches_total[1h])) > 10
+        for: 15m
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'Over 30% of ride searches end without a driver'
+          description: >-
+            Too few drivers online for demand, or offers that never reach them. Every such ride
+            is refunded in full.
+          runbook: docs/runbooks/stuck-ride.md
+
+      - alert: PrivacyBreachNoticeDue
+        expr: sum(suskii_privacy_breach_notices_pending{state=~"due_soon|overdue"}) > 0
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: 'A regulator must hear about a personal data breach within 12 hours'
+          description: >-
+            A breach notice is pending with less than 12 hours to its deadline, or past it. Notify
+            the regulator, or record that no notice is required, in the console (Privacy).
+          runbook: docs/runbooks/personal-data-breach.md
+
+      - alert: PrivacyRequestOverdue
+        expr: sum(suskii_privacy_requests_open{state="overdue"}) > 0
+        for: 1h
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'A data rights request is past its due time'
+          description: >-
+            A request recorded in the privacy register has not been answered in the time its
+            jurisdiction allows. Answer it, or record the refusal and its reason.
+          runbook: docs/runbooks/data-rights-requests.md
+
+      - alert: DriverDocumentBacklog
+        expr: >-
+          max(suskii_driver_documents_oldest_age_seconds) > 172800
+          or sum(suskii_driver_documents_awaiting_review) > 100
+        for: 30m
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'Driver documents have waited over 2 days for review'
+          description: >-
+            Applicants cannot drive until their documents are approved. Reviewers hold the
+            drivers:review permission.
+          runbook: docs/runbooks/driver-document-backlog.md
+
+      - alert: BusDepartureNotScanned
+        expr: max(suskii_bus_trips_unscanned) > 0
+        for: 15m
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'A bus left with sold seats and nobody scanned on board'
+          description: >-
+            The operator's scanner is offline or not used. Offline scans sync when it reconnects;
+            until then the manifest is the record.
+          runbook: docs/runbooks/bus-scanner-offline.md
+
+      - alert: BusScansInvalid
+        expr: sum(increase(suskii_bus_ticket_scans_total{result="invalid"}[15m])) > 20
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'Many scanned boarding passes fail the signature check'
+          description: >-
+            A scanner with an old key list, a rotated signing key, or forged passes at a terminal.
+          runbook: docs/runbooks/bus-scanner-offline.md
+
+      - alert: LedgerDiscrepanciesRaised
+        expr: sum(increase(suskii_reconciliation_discrepancies_total[1h])) > 0
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'Ledger reconciliation found money that does not match'
+          description: >-
+            A payment, refund or payout whose postings or provider status disagree. Most often a
+            webhook that was never applied. Review it under Finance in the console.
+          runbook: docs/runbooks/failed-webhook-replay.md
+
+      - alert: DriverPayoutsFailing
+        expr: sum(increase(suskii_driver_payouts_total{outcome="failed"}[1d])) > 5
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'Several driver payouts failed today'
+          description: >-
+            Wrong bank details are retried once the driver updates them; other failures retry on
+            the next run. Check the payout list under Finance for a common reason.
+
+  # The assistant (ADR-106, ADR-107) and price intelligence (ADR-102). Neither is on the path
+  # of search, booking or payment, so nothing here pages: these are for working hours.
+  - name: suskii-assistant
+    rules:
+      - alert: AssistantRunsFailing
+        expr: >-
+          sum(increase(suskii_agent_runs_total{outcome=~"failed|model_error|timeout"}[30m])) > 10
+          and
+          sum(increase(suskii_agent_runs_total{outcome=~"failed|model_error|timeout"}[30m]))
+            / sum(increase(suskii_agent_runs_total[30m])) > 0.2
+        for: 10m
+        labels:
+          severity: ticket
+        annotations:
+          summary: "Many of the assistant's runs are failing"
+          description: >-
+            The model provider or the agent service is failing, and people read a notice instead
+            of an answer. Search, booking and payment do not depend on it. Pause the assistant if
+            it lasts.
+          runbook: docs/runbooks/ai-agent.md
+
+      - alert: AssistantAnswersRefused
+        expr: >-
+          sum(increase(suskii_agent_runs_total{outcome="guard_blocked"}[1h])) > 20
+          and
+          sum(increase(suskii_agent_runs_total{outcome="guard_blocked"}[1h]))
+            / sum(increase(suskii_agent_runs_total[1h])) > 0.3
+        labels:
+          severity: ticket
+        annotations:
+          summary: "The guard is refusing many of the assistant's answers"
+          description: >-
+            Answers hold figures, contacts or outcomes the tools did not return, twice in a row.
+            Nothing wrong was shown, but people get a notice instead of an answer: a prompt, a
+            tool or a model has drifted. Switch the agent off or roll the prompt back.
+          runbook: docs/runbooks/ai-agent.md
+
+      - alert: AssistantMonthlyCost
+        expr: sum by (level) (increase(suskii_agent_cost_alerts_total[1h])) > 0
+        labels:
+          severity: ticket
+        annotations:
+          summary: "The assistant's estimated cost this month: {{ $labels.level }}"
+          description: >-
+            The month's estimated model spend is heading past the figure set
+            (AGENT_MONTHLY_ALERT_MICROUSD), or is past it. An estimate from token counts at the
+            configured prices, not an invoice. Nothing was paused.
+          runbook: docs/runbooks/ai-agent.md
+
+      - alert: PriceIntelParserDrift
+        expr: sum(increase(suskii_price_intel_alerts_total{kind="drift"}[1h])) > 0
+        labels:
+          severity: ticket
+        annotations:
+          summary: "A site's pages stopped yielding prices to its recipe"
+          description: >-
+            Reads of the site now start at the recipe's next method. A person changes the recipe,
+            or approves one the price intelligence assistant prepared from the kept page.
+          runbook: docs/runbooks/price-intelligence.md
+
+      - alert: PriceIntelBudgetReached
+        expr: sum(increase(suskii_price_intel_alerts_total{kind="budget", level="100"}[1h])) > 0
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'A price intelligence budget reached its cap'
+          description: >-
+            A vendor or a site is at its daily or monthly cap and is not read again until the
+            period ends. Indicative prices there are shown as stale, or not at all.
+          runbook: docs/runbooks/price-intelligence.md

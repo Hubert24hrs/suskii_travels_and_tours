@@ -1,0 +1,23 @@
+# Semgrep (phase 11): what is not shipped code, or is generated.
+node_modules/
+dist/
+build/
+.next/
+.turbo/
+coverage/
+storybook-static/
+apps/api/src/generated/
+apps/api/openapi.json
+apps/api/prisma/data/
+packages/api-client/src/schema.ts
+apps/mobile/android/
+apps/mobile/ios/
+# Tests and their fixtures hold fake secrets and deliberately unsafe inputs.
+*.spec.ts
+*.test.ts
+*.test.tsx
+*.e2e-spec.ts
+apps/api/test/
+apps/web/e2e/
+apps/admin/e2e/
+apps/mobile/maestro/

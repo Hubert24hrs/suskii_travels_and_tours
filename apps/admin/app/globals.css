@@ -1,0 +1,9 @@
+@import 'tailwindcss';
+@import '@suskii/design-tokens/theme.css';
+
+/* Scan the component library so its classes are generated. */
+@source '../node_modules/@suskii/ui-web/src';
+
+body {
+  @apply bg-background font-body text-foreground antialiased;
+}

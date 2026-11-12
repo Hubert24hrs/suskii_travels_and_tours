@@ -1,0 +1,1380 @@
+import { addDays, BOOKING_TERMS_VERSION, localDate } from '@suskii/shared';
+import type { Response } from 'supertest';
+
+import { AgentApprovalsService } from '../src/agent/approvals/agent-approvals.service';
+import { MockPaymentProvider } from '../src/payments/mock-payment-provider';
+
+import {
+  adminOperations,
+  cleanAdminContent,
+  committedOpenApi,
+  staffSession,
+  type AdminOperation,
+  type OpenApiDocument,
+} from './helpers/admin';
+import {
+  bearer,
+  E2E_TURNSTILE,
+  enrolTotp,
+  PASSWORD,
+  signUp,
+  type TokenSession,
+} from './helpers/flows';
+import { localIn, paidRental, PNG as RENTAL_PNG } from './helpers/rentals';
+import { driverApplicant, IKEJA, requestRide, VICTORIA_ISLAND } from './helpers/rides';
+import { createTestApp, resetState, type TestContext } from './helpers/test-app';
+
+/**
+ * ADR-034, phase 10 acceptance: every admin mutation, performed successfully through the route
+ * its OpenAPI operation names, records one of the audit actions it declares (`x-audit`) with the
+ * staff member as actor. The last test fails if any admin mutation was not exercised.
+ */
+const DOCUMENT: OpenApiDocument = committedOpenApi();
+const MUTATIONS = adminOperations(DOCUMENT).filter((operation) => operation.method !== 'get');
+
+const today = localDate(new Date(), 'UTC');
+const inDays = (days: number): string => addDays(today, days);
+const ngn = (naira: number) => ({ amountMinor: naira * 100, currency: 'NGN' });
+const policy = [
+  { daysBefore: 7, refundBps: 10_000 },
+  { daysBefore: 0, refundBps: 0 },
+];
+let keySequence = 0;
+const idempotencyKey = (): string => `e2e-admin-audit-${Date.now()}-${(keySequence += 1)}`;
+
+const PDF = Buffer.from('%PDF-1.7\n% admin audit e2e\n%%EOF\n');
+const PNG = Buffer.concat([
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+  Buffer.from('PHOTO'),
+]);
+
+const traveller = (givenNames: string, surname: string) => ({
+  type: 'adult',
+  title: 'mr',
+  gender: 'm',
+  givenNames,
+  surname,
+  dateOfBirth: '1985-02-11',
+  nationality: 'NG',
+  document: {
+    number: `A${Math.floor(Math.random() * 1e7)}`,
+    issuingCountry: 'NG',
+    expiryDate: inDays(3000),
+  },
+});
+
+function successStatus(operation: AdminOperation): number {
+  const responses = (
+    DOCUMENT.paths[operation.path]?.[operation.method] as {
+      responses?: Record<string, unknown>;
+    }
+  )?.responses;
+  const code = Object.keys(responses ?? {}).find((status) => status.startsWith('2'));
+  if (!code) throw new Error(`${operation.operationId} declares no success response`);
+  return Number(code);
+}
+
+describe('admin audit coverage (e2e)', () => {
+  let ctx: TestContext;
+  let admin: TokenSession;
+  let approver: TokenSession;
+  const covered = new Set<string>();
+
+  beforeAll(async () => {
+    ctx = await createTestApp({
+      RATE_LIMIT_ENABLED: false,
+      REFUND_APPROVAL_THRESHOLD_NGN: 0,
+      // Only the risk review case sends a card: a foreign card holds its payments (ADR-040).
+      CLIENT_COUNTRY_HEADER: 'cf-ipcountry',
+      PAYMENT_RISK_REVIEW_SCORE: 30,
+      // The staff agents answer from the mock inside the API.
+      AGENT_ENABLED: true,
+      AGENT_SERVICE: 'mock',
+    });
+    await ctx.background.drain();
+    await resetState(ctx);
+    await cleanAdminContent(ctx);
+    admin = await staffSession(ctx, 'audit-admin@suskii.test', ['super_admin']);
+    approver = await staffSession(ctx, 'audit-approver@suskii.test', ['super_admin']);
+  });
+  afterAll(async () => {
+    await ctx.background.drain();
+    await cleanAdminContent(ctx);
+    await ctx.close();
+  });
+
+  function operation(operationId: string): AdminOperation {
+    const found = MUTATIONS.find((candidate) => candidate.operationId === operationId);
+    if (!found) throw new Error(`${operationId} is not an admin mutation`);
+    return found;
+  }
+
+  /**
+   * Performs the mutation on the route its operation names, expects the declared success status
+   * and at least one new audit entry with one of its declared actions and the actor.
+   */
+  async function audited(
+    operationId: string,
+    params: Record<string, string>,
+    send: (request: ReturnType<ReturnType<TestContext['http']>['post']>) => PromiseLike<Response>,
+    actor: TokenSession = admin,
+  ): Promise<Response> {
+    const op = operation(operationId);
+    const path = op.path.replace(/\{(\w+)\}/g, (_, name: string) => {
+      const value = params[name];
+      if (value === undefined) throw new Error(`${operationId}: missing path parameter ${name}`);
+      return encodeURIComponent(value);
+    });
+    const where = { action: { in: op.audit }, actorUserId: actor.userId };
+    const before = await ctx.prisma.auditLog.count({ where });
+    const response = await send(ctx.http()[op.method](path).set(bearer(actor.accessToken)));
+    expect({ operationId, status: response.status }).toEqual({
+      operationId,
+      status: successStatus(op),
+    });
+    await ctx.background.drain();
+    const after = await ctx.prisma.auditLog.count({ where });
+    expect({ operationId, audited: after > before }).toEqual({ operationId, audited: true });
+    covered.add(operationId);
+    return response;
+  }
+
+  const none = (request: PromiseLike<Response>) => request;
+
+  it('users: roles, disable, enable and MFA reset', async () => {
+    const target = await signUp(ctx, 'audit-target@example.com');
+    await enrolTotp(ctx, target.accessToken);
+    await audited('adminSetUserRoles', { id: target.userId }, (request) =>
+      request.send({ roles: ['customer', 'support'] }),
+    );
+    await audited('adminDisableUser', { id: target.userId }, none);
+    await audited('adminEnableUser', { id: target.userId }, none);
+    await audited('adminResetUserMfa', { id: target.userId }, none);
+    await audited('adminRevokeUserSessions', { id: target.userId }, none);
+  });
+
+  it('pricing: markup, fee and tax rules', async () => {
+    const markup = await audited('adminCreateMarkupRule', {}, (request) =>
+      request.send({
+        name: 'Domestic flights',
+        vertical: 'flights',
+        priority: 100,
+        active: true,
+        channel: null,
+        userTier: null,
+        supplier: null,
+        originCode: null,
+        destinationCode: null,
+        originCountry: 'NG',
+        destinationCountry: 'NG',
+        carrierCode: null,
+        cabinClass: null,
+        type: 'percentage',
+        value: 300,
+        currency: null,
+        minAmountMinor: null,
+        maxAmountMinor: null,
+        validFrom: null,
+        validTo: null,
+      }),
+    );
+    await audited('adminUpdateMarkupRule', { id: markup.body.id as string }, (request) =>
+      request.send({ value: 350, active: false }),
+    );
+    const fee = await audited('adminCreateFeeRule', {}, (request) =>
+      request.send({
+        code: 'service_fee',
+        label: 'Service fee',
+        vertical: 'hotels',
+        active: true,
+        sortOrder: 0,
+        channel: null,
+        userTier: null,
+        type: 'fixed',
+        value: 150_000,
+        currency: 'NGN',
+        basis: 'per_booking',
+        minAmountMinor: null,
+        maxAmountMinor: null,
+        validFrom: null,
+        validTo: null,
+      }),
+    );
+    await audited('adminUpdateFeeRule', { id: fee.body.id as string }, (request) =>
+      request.send({ active: false }),
+    );
+    const tax = await audited('adminCreateTaxRule', {}, (request) =>
+      request.send({
+        country: 'NG',
+        code: 'vat',
+        label: 'VAT',
+        rateBps: 750,
+        basis: 'margin',
+        vertical: 'hotels',
+        active: true,
+        registrationNumber: 'TIN 01234567-0001',
+        validFrom: null,
+        validTo: null,
+      }),
+    );
+    await audited('adminUpdateTaxRule', { id: tax.body.id as string }, (request) =>
+      request.send({ active: false }),
+    );
+  });
+
+  it('promos, deal routes and destinations', async () => {
+    const promo = await audited('adminCreatePromoCode', {}, (request) =>
+      request.send({
+        code: 'e2eaudit10',
+        description: 'Audit coverage',
+        type: 'percentage',
+        value: 1000,
+        currency: 'NGN',
+        maxDiscountMinor: 500_000,
+        minSpendMinor: null,
+        verticals: [],
+        validFrom: null,
+        validTo: null,
+        maxRedemptions: 100,
+        maxRedemptionsPerUser: 1,
+        requiresAccount: true,
+        active: true,
+      }),
+    );
+    expect(promo.body.code).toBe('E2EAUDIT10');
+    await audited('adminUpdatePromoCode', { id: promo.body.id as string }, (request) =>
+      request.send({ active: false }),
+    );
+
+    const route = await audited('adminCreateDealRoute', {}, (request) =>
+      request.send({
+        slug: 'e2e-lagos-to-accra-first',
+        originCode: 'LOS',
+        destinationCode: 'ACC',
+        cabinClass: 'first',
+        stayNights: 5,
+        active: false,
+        sortOrder: 900,
+      }),
+    );
+    await audited('adminUpdateDealRoute', { id: route.body.id as string }, (request) =>
+      request.send({ stayNights: 6 }),
+    );
+
+    const city = await ctx.prisma.city.findFirstOrThrow({
+      where: { destination: null, countryCode: 'NG' },
+      orderBy: { name: 'asc' },
+    });
+    const destination = await audited('adminCreateDestination', {}, (request) =>
+      request.send({
+        cityId: city.id,
+        slug: 'e2e-destination',
+        featured: false,
+        sortOrder: 900,
+        imageUrl: null,
+        published: false,
+      }),
+    );
+    await audited('adminUpdateDestination', { id: destination.body.id as string }, (request) =>
+      request.send({ sortOrder: 901 }),
+    );
+  });
+
+  it('content: CMS blocks, FAQs and trust signals', async () => {
+    await audited('adminSaveCmsBlock', { locale: 'en-NG', key: 'page.e2e-audit' }, (request) =>
+      request.send({
+        content: {
+          title: 'Audit page',
+          group: 'company',
+          sections: [{ heading: null, paragraphs: ['Only for the audit suite.'] }],
+        },
+        published: false,
+      }),
+    );
+    const faq = await audited('adminCreateFaq', {}, (request) =>
+      request.send({
+        locale: 'en-US',
+        question: 'E2E: is this audited?',
+        answer: 'Yes.',
+        sortOrder: 900,
+        published: false,
+      }),
+    );
+    await audited('adminUpdateFaq', { id: faq.body.id as string }, (request) =>
+      request.send({ answer: 'Yes, every change.' }),
+    );
+
+    await ctx.prisma.trustSignal.create({
+      data: { key: 'e2e_awards', label: 'Award winning', sortOrder: 900 },
+    });
+    await audited('adminUpdateTrustSignal', { key: 'e2e_awards' }, (request) =>
+      request.send({ label: 'Award-winning support' }),
+    );
+    await audited('adminVerifyTrustSignal', { key: 'e2e_awards' }, (request) =>
+      request.send({ evidenceUrl: 'https://example.com/award.pdf' }),
+    );
+    await audited('adminUnverifyTrustSignal', { key: 'e2e_awards' }, (request) =>
+      request.send({ reason: 'Award expired' }),
+    );
+  });
+
+  it('Suskii Prime plans', async () => {
+    const plan = await audited('adminCreatePrimePlan', {}, (request) =>
+      request.send({
+        slug: 'prime-audit',
+        name: 'Suskii Prime Audit',
+        summary: 'Only for the audit suite.',
+        period: 'year',
+        prices: [{ amountMinor: 2_500_000, currency: 'NGN' }],
+        benefits: { markupShareBps: 5_000, waivedFeeCodes: [], prioritySupport: false },
+      }),
+    );
+    await audited('adminUpdatePrimePlan', { id: plan.body.id as string }, (request) =>
+      request.send({ summary: 'Changed by the audit suite.' }),
+    );
+  });
+
+  describe('catalog, bookings, vouchers and refunds', () => {
+    let lagosId: string;
+    let tourDepartureId: string;
+    let bookingId: string;
+    let paymentId: string;
+    let voucherCode: string;
+
+    beforeAll(async () => {
+      lagosId = (
+        await ctx.prisma.city.findFirstOrThrow({ where: { name: 'Lagos', countryCode: 'NG' } })
+      ).id;
+    });
+
+    it('packages, tours and add-ons', async () => {
+      const pkg = await audited('adminCreatePackage', {}, (request) =>
+        request.send({
+          slug: 'audit-package',
+          title: 'Audit package',
+          summary: 'Two nights.',
+          cityId: lagosId,
+          nights: 2,
+          cancellationPolicy: policy,
+        }),
+      );
+      const packageId = pkg.body.id as string;
+      const departure = await audited('adminCreatePackageDeparture', { id: packageId }, (request) =>
+        request.send({
+          startDate: inDays(50),
+          endDate: inDays(52),
+          capacity: 5,
+          prices: { adult: ngn(100_000), child: null, infant: null },
+        }),
+      );
+      await audited('adminUpdatePackage', { id: packageId }, (request) =>
+        request.send({ status: 'published' }),
+      );
+      await audited('adminUpdatePackageDeparture', { id: departure.body.id as string }, (request) =>
+        request.send({ capacity: 6 }),
+      );
+
+      const tour = await audited('adminCreateTour', {}, (request) =>
+        request.send({
+          slug: 'audit-tour',
+          title: 'Audit walking tour',
+          summary: 'Markets on foot.',
+          cityId: lagosId,
+          timeZone: 'Africa/Lagos',
+          durationMinutes: 120,
+          meetingPoint: { name: 'Tafawa Balewa Square', address: 'Lagos Island', notes: null },
+          cancellationPolicy: policy,
+        }),
+      );
+      const tourId = tour.body.id as string;
+      const tourDeparture = await audited('adminCreateTourDeparture', { id: tourId }, (request) =>
+        request.send({
+          startsAtLocal: `${inDays(20)}T09:00`,
+          capacity: 8,
+          prices: { adult: ngn(30_000), child: null, infant: null },
+        }),
+      );
+      tourDepartureId = tourDeparture.body.id as string;
+      await audited('adminUpdateTour', { id: tourId }, (request) =>
+        request.send({ status: 'published' }),
+      );
+      await audited('adminUpdateTourDeparture', { id: tourDepartureId }, (request) =>
+        request.send({ capacity: 10 }),
+      );
+
+      const addon = await audited('adminCreateAddon', {}, (request) =>
+        request.send({
+          slug: 'audit-transfer',
+          type: 'airport_transfer',
+          title: 'Airport transfer',
+          summary: 'Private car.',
+          description: 'Meet and greet at arrivals.',
+          countryCodes: ['NG'],
+          pricingBasis: 'per_booking',
+          price: ngn(25_000),
+          maxTravellers: 4,
+          requiredDetails: [],
+          cancellationPolicy: policy,
+        }),
+      );
+      await audited('adminUpdateAddon', { id: addon.body.id as string }, (request) =>
+        request.send({ status: 'published' }),
+      );
+    });
+
+    it('booking notes, contact reveal, confirmation resend and voucher redemption', async () => {
+      const quote = await ctx
+        .http()
+        .post('/v1/inhouse-quotes')
+        .send({
+          kind: 'tour',
+          departureId: tourDepartureId,
+          travellers: { adults: 2, children: 0, infants: 0 },
+        })
+        .expect(201);
+      const created = await ctx
+        .http()
+        .post('/v1/bookings')
+        .set('Idempotency-Key', idempotencyKey())
+        .send({
+          quoteId: quote.body.quoteId,
+          contact: { email: 'audit-guest@example.com', phone: '+2348012345678' },
+          passengers: [traveller('Ada', 'Eze'), traveller('Obi', 'Eze')],
+          termsVersion: BOOKING_TERMS_VERSION,
+          acceptTerms: true,
+          turnstileToken: 'e2e-turnstile',
+        })
+        .expect(201);
+      bookingId = created.body.booking.id as string;
+      const token = { 'X-Booking-Token': created.body.accessToken as string };
+      const payment = await ctx
+        .http()
+        .post(`/v1/bookings/${bookingId}/payments`)
+        .set('Idempotency-Key', idempotencyKey())
+        .set(token)
+        .send({})
+        .expect(201);
+      const reference = (payment.body.checkoutUrl as string).split('/').pop() ?? '';
+      await ctx
+        .http()
+        .post(`/v1/payments/mock/${reference}/complete`)
+        .send({ outcome: 'succeeded' })
+        .expect(200);
+      await ctx.background.drain();
+      const booking = await ctx.http().get(`/v1/bookings/${bookingId}`).set(token).expect(200);
+      expect(booking.body.status).toBe('CONFIRMED');
+      voucherCode = booking.body.voucher.code as string;
+      paymentId = (
+        await ctx.prisma.payment.findFirstOrThrow({ where: { bookingId, status: 'succeeded' } })
+      ).id;
+
+      await audited('adminAddBookingNote', { bookingId }, (request) =>
+        request.send({ text: 'Called the guest about the meeting point.' }),
+      );
+      const contact = await audited('adminRevealBookingContact', { bookingId }, none);
+      expect(contact.body).toEqual({
+        email: 'audit-guest@example.com',
+        phone: '+2348012345678',
+        redacted: false,
+      });
+      ctx.emails.outbox.length = 0;
+      await audited('adminResendBookingConfirmation', { bookingId }, none);
+      expect(ctx.emails.outbox.map((message) => message.to)).toContain('audit-guest@example.com');
+      await audited('adminRedeemVoucher', {}, (request) => request.send({ code: voucherCode }));
+    });
+
+    it('reviews: publish and reject', async () => {
+      // Written straight to the table: eligibility is covered by reviews.e2e-spec.ts.
+      const item = await ctx.prisma.bookingItem.findFirstOrThrow({ where: { bookingId } });
+      const subject = await ctx.prisma.reviewSubject.create({
+        data: { kind: 'tour', refId: item.id, name: 'Audit walking tour' },
+      });
+      const pending = () =>
+        ctx.prisma.review.create({
+          data: {
+            subjectId: subject.id,
+            bookingId,
+            bookingItemId: item.id,
+            rating: 9,
+            tripType: 'friends',
+            locale: 'en-NG',
+            travelledOn: today.slice(0, 7),
+          },
+        });
+      const first = await pending();
+      await audited('adminPublishReview', { id: first.id }, none);
+      await ctx.prisma.review.delete({ where: { id: first.id } });
+      const second = await pending();
+      await audited('adminRejectReview', { id: second.id }, (request) =>
+        request.send({ reason: 'spam' }),
+      );
+      await ctx.prisma.review.delete({ where: { id: second.id } });
+    });
+
+    it('companies: suspend and reinstate', async () => {
+      // Written straight to the table: the customer side is covered by companies.e2e-spec.ts.
+      const company = await ctx.prisma.company.create({
+        data: { name: 'Audit Ltd', countryCode: 'NG', billingEmail: 'ap@audit.test' },
+      });
+      await audited('adminSuspendCompany', { id: company.id }, none);
+      await audited('adminReinstateCompany', { id: company.id }, none);
+    });
+
+    it('refunds: create, reject, approve and resolve (maker-checker)', async () => {
+      const request = () => ({
+        paymentId,
+        amount: ngn(1_000),
+        reason: 'goodwill',
+        note: 'Late start',
+      });
+      const rejected = await audited('adminCreateRefund', { bookingId }, (call) =>
+        call.set('Idempotency-Key', idempotencyKey()).send(request()),
+      );
+      expect(rejected.body.status).toBe('pending_approval');
+      await audited(
+        'adminRejectRefund',
+        { refundId: rejected.body.id as string },
+        (call) => call.send({ reason: 'Already compensated' }),
+        approver,
+      );
+
+      const second = await ctx
+        .http()
+        .post(`/v1/admin/bookings/${bookingId}/refunds`)
+        .set('Idempotency-Key', idempotencyKey())
+        .set(bearer(admin.accessToken))
+        .send(request())
+        .expect(201);
+      // The provider accepts the refund but has not settled it: staff resolve it by hand.
+      ctx.app.get(MockPaymentProvider).holdRefunds = true;
+      try {
+        await audited('adminApproveRefund', { refundId: second.body.id as string }, none, approver);
+        const pending = await ctx.prisma.refund.findUniqueOrThrow({
+          where: { id: second.body.id as string },
+        });
+        expect(pending.status).toBe('processing');
+      } finally {
+        ctx.app.get(MockPaymentProvider).holdRefunds = false;
+      }
+      await audited('adminResolveRefund', { refundId: second.body.id as string }, (call) =>
+        call.send({ outcome: 'succeeded', providerRefundId: 'mock-refund-audit' }),
+      );
+    });
+  });
+
+  it('visa: products, rules and the officer workflow', async () => {
+    const product = await audited('adminCreateVisaProduct', {}, (request) =>
+      request.send({
+        slug: 'audit-uk-visitor',
+        title: 'UK visitor visa assistance',
+        summary: 'We check and submit your application.',
+        destination: 'GB',
+        purposes: ['tourism'],
+        processingDaysMin: 15,
+        processingDaysMax: 30,
+        price: ngn(80_000),
+        checklist: [
+          { key: 'passport', label: 'Passport', description: 'Bio page', required: true },
+          { key: 'photo', label: 'Photo', description: 'Plain background', required: true },
+        ],
+      }),
+    );
+    const productId = product.body.id as string;
+    await audited('adminUpdateVisaProduct', { id: productId }, (request) =>
+      request.send({ status: 'published' }),
+    );
+
+    await audited('adminUpsertVisaRule', {}, (request) =>
+      request.send({
+        nationality: 'NG',
+        destination: 'GB',
+        purpose: 'tourism',
+        requirement: 'visa_required',
+        notes: 'Apply four weeks ahead.',
+        verifiedAt: today,
+      }),
+    );
+    const rule = await ctx.prisma.visaRule.findFirstOrThrow({
+      where: { nationality: 'NG', destination: 'GB', purpose: 'tourism' },
+    });
+    await audited('adminDeleteVisaRule', { ruleId: rule.id }, none);
+
+    // A confirmed application with both documents uploaded and submitted.
+    const quote = await ctx
+      .http()
+      .post('/v1/inhouse-quotes')
+      .send({
+        kind: 'visa',
+        productId,
+        purpose: 'tourism',
+        nationality: 'NG',
+        travelDate: inDays(60),
+        travellers: { adults: 1, children: 0, infants: 0 },
+      })
+      .expect(201);
+    const created = await ctx
+      .http()
+      .post('/v1/bookings')
+      .set('Idempotency-Key', idempotencyKey())
+      .send({
+        quoteId: quote.body.quoteId,
+        contact: { email: 'audit-visa@example.com', phone: '+2348012345678' },
+        passengers: [traveller('Chinedu', 'Okafor')],
+        termsVersion: BOOKING_TERMS_VERSION,
+        acceptTerms: true,
+        turnstileToken: 'e2e-turnstile',
+      })
+      .expect(201);
+    const visaBookingId = created.body.booking.id as string;
+    const token = { 'X-Booking-Token': created.body.accessToken as string };
+    const payment = await ctx
+      .http()
+      .post(`/v1/bookings/${visaBookingId}/payments`)
+      .set('Idempotency-Key', idempotencyKey())
+      .set(token)
+      .send({})
+      .expect(201);
+    await ctx
+      .http()
+      .post(
+        `/v1/payments/mock/${(payment.body.checkoutUrl as string).split('/').pop() ?? ''}/complete`,
+      )
+      .send({ outcome: 'succeeded' })
+      .expect(200);
+    await ctx.background.drain();
+    const booking = await ctx.http().get(`/v1/bookings/${visaBookingId}`).set(token).expect(200);
+    const applicationId = booking.body.visa.applications[0].id as string;
+    const base = `/v1/bookings/${visaBookingId}/visa-applications/${applicationId}`;
+    const upload = (key: string, bytes: Buffer, contentType: string) =>
+      ctx
+        .http()
+        .put(`${base}/documents/${key}`)
+        .set(token)
+        .set('Content-Type', contentType)
+        .set('X-File-Name', `${key}.bin`)
+        .send(bytes)
+        .expect(200);
+    await upload('passport', PDF, 'application/pdf');
+    await upload('photo', PNG, 'image/png');
+    await ctx.background.drain();
+    await ctx.http().post(`${base}/submit`).set(token).expect(200);
+    const document = (checklistKey: string) =>
+      ctx.prisma.visaDocument.findFirstOrThrow({
+        where: { applicationId, checklistKey, supersededAt: null },
+      });
+    const passport = await document('passport');
+    const photo = await document('photo');
+
+    await audited('adminTransitionVisaApplication', { applicationId }, (request) =>
+      request.send({ to: 'in_review', note: 'Checking the bank statement.' }),
+    );
+    await audited('adminCommentVisaApplication', { applicationId }, (request) =>
+      request.send({ note: 'Called the applicant.' }),
+    );
+    await audited('adminCreateVisaDocumentLink', { documentId: passport.id }, none);
+    await audited('adminRejectVisaDocument', { documentId: photo.id }, (request) =>
+      request.send({ message: 'The photo background is patterned.' }),
+    );
+  });
+
+  it('referrals held for review', async () => {
+    const inviter = await signUp(ctx, 'audit-inviter@example.com');
+    const mine = await ctx
+      .http()
+      .get('/v1/me/referrals')
+      .set(bearer(inviter.accessToken))
+      .expect(200);
+    // The suite runs from one address; give the referrer's sessions another one.
+    await ctx.prisma.session.updateMany({
+      where: { userId: inviter.userId },
+      data: { ipHash: 'elsewhere' },
+    });
+    await ctx
+      .http()
+      .post('/v1/auth/register')
+      .send({
+        turnstileToken: E2E_TURNSTILE,
+        email: 'audit-temp@mailinator.com',
+        password: PASSWORD,
+        referralCode: mine.body.code as string,
+      })
+      .expect(202);
+    await ctx.background.drain();
+    const flagged = await ctx.prisma.referral.findFirstOrThrow({
+      where: { referrerId: inviter.userId },
+    });
+    expect(flagged.status).toBe('review');
+    await audited('adminDecideReferral', { id: flagged.id }, (request) =>
+      request.send({ decision: 'reject' }),
+    );
+  });
+
+  it('payment risk reviews: approve and reject', async () => {
+    /** A guest flight booking paid with a Nigerian card from Ghana: held for review. */
+    const heldBooking = async (): Promise<string> => {
+      const search = await ctx
+        .http()
+        .post('/v1/flights/searches')
+        .send({
+          slices: [{ origin: 'LOS', destination: 'ABV', departureDate: inDays(30) }],
+          passengers: { adults: 1, children: 0, infants: 0 },
+          cabinClass: 'economy',
+        })
+        .expect(200);
+      const quote = await ctx
+        .http()
+        .post(`/v1/flights/offers/${search.body.offers[0].id as string}/quote`)
+        .expect(201);
+      const created = await ctx
+        .http()
+        .post('/v1/bookings')
+        .set('Idempotency-Key', idempotencyKey())
+        .send({
+          quoteId: quote.body.quoteId,
+          contact: { email: 'audit-risk@example.com', phone: '+2348012345678' },
+          passengers: [traveller('Kemi', 'Ade')],
+          termsVersion: BOOKING_TERMS_VERSION,
+          acceptTerms: true,
+          turnstileToken: E2E_TURNSTILE,
+        })
+        .expect(201);
+      const id = created.body.booking.id as string;
+      const payment = await ctx
+        .http()
+        .post(`/v1/bookings/${id}/payments`)
+        .set('Idempotency-Key', idempotencyKey())
+        .set('X-Booking-Token', created.body.accessToken as string)
+        .set('cf-ipcountry', 'GH')
+        .send({})
+        .expect(201);
+      await ctx
+        .http()
+        .post(
+          `/v1/payments/mock/${(payment.body.checkoutUrl as string).split('/').pop() ?? ''}/complete`,
+        )
+        .send({ outcome: 'succeeded', card: { country: 'NG', fingerprint: `card-${id}` } })
+        .expect(200);
+      await ctx.background.drain();
+      return (await ctx.prisma.paymentRiskReview.findFirstOrThrow({ where: { bookingId: id } })).id;
+    };
+    await audited('adminApprovePaymentReview', { id: await heldBooking() }, none);
+    await audited('adminRejectPaymentReview', { id: await heldBooking() }, (request) =>
+      request.send({ reason: 'confirmed_fraud' }),
+    );
+  });
+
+  it('ground: bus operators, agents, terminals, routes, layouts and departures', async () => {
+    const busPolicy = [
+      { daysBefore: 1, refundBps: 10_000 },
+      { daysBefore: 0, refundBps: 0 },
+    ];
+    const operator = await audited('adminCreateBusOperator', {}, (request) =>
+      request.send({ slug: 'audit-coaches', name: 'Audit Coaches', cancellationPolicy: busPolicy }),
+    );
+    const operatorId = operator.body.id as string;
+    await audited('adminUpdateBusOperator', { id: operatorId }, (request) =>
+      request.send({ status: 'published' }),
+    );
+    const agent = await signUp(ctx, 'audit-agent@example.com');
+    await audited('adminAddOperatorAgent', { id: operatorId, userId: agent.userId }, none);
+    await audited('adminRemoveOperatorAgent', { id: operatorId, userId: agent.userId }, none);
+    const terminal = async (slug: string, city: string) =>
+      (
+        await audited('adminCreateBusTerminal', {}, (request) =>
+          request.send({
+            slug,
+            name: `${city} terminal`,
+            cityName: city,
+            stateName: city,
+            countryCode: 'NG',
+            address: `${city} road`,
+            lat: 6.5,
+            lng: 3.4,
+            timeZone: 'Africa/Lagos',
+          }),
+        )
+      ).body.id as string;
+    const originId = await terminal('audit-lagos', 'Lagos');
+    const destinationId = await terminal('audit-ibadan', 'Ibadan');
+    await audited('adminUpdateBusTerminal', { id: destinationId }, (request) =>
+      request.send({ lat: 7.35, lng: 3.87 }),
+    );
+    const route = await audited('adminCreateBusRoute', {}, (request) =>
+      request.send({ operatorId, originId, destinationId, distanceKm: 128, durationMinutes: 150 }),
+    );
+    const routeId = route.body.id as string;
+    await audited('adminUpdateBusRoute', { id: routeId }, (request) =>
+      request.send({ durationMinutes: 160 }),
+    );
+    const layout = await audited('adminCreateBusLayout', {}, (request) =>
+      request.send({
+        operatorId,
+        name: 'Minibus',
+        layout: { rows: [['1A', '1B', '1C']] },
+        amenities: ['air_conditioning'],
+      }),
+    );
+    const layoutId = layout.body.id as string;
+    await audited('adminUpdateBusLayout', { id: layoutId }, (request) =>
+      request.send({ name: 'Minibus 3' }),
+    );
+    const trip = await audited('adminCreateBusTrip', {}, (request) =>
+      request.send({
+        routeId,
+        layoutId,
+        departsAtLocal: `${inDays(6)}T07:00`,
+        fareMinor: 850_000,
+        currency: 'NGN',
+      }),
+    );
+    await audited('adminScheduleBusTrips', {}, (request) =>
+      request.send({
+        routeId,
+        layoutId,
+        fromDate: inDays(7),
+        toDate: inDays(8),
+        times: ['06:30'],
+        fareMinor: 850_000,
+        currency: 'NGN',
+      }),
+    );
+    await audited('adminUpdateBusTrip', { id: trip.body.id as string }, (request) =>
+      request.send({ fareMinor: 900_000, blockedSeats: ['1A'] }),
+    );
+    await audited('adminCancelBusTrip', { id: trip.body.id as string }, (request) =>
+      request.send({ reason: 'weather' }),
+    );
+  });
+
+  it('rides and drivers: fare rules, places, review, suspension, stops and incidents', async () => {
+    await audited('adminSaveRideFareRule', {}, (request) =>
+      request.send({
+        cityName: 'Lagos',
+        category: 'standard',
+        currency: 'NGN',
+        baseMinor: 50_000,
+        perKmMinor: 15_000,
+        perMinuteMinor: 2_000,
+        bookingFeeMinor: 20_000,
+        minimumMinor: 150_000,
+        cancellationFeeMinor: 50_000,
+        freeCancelSeconds: 120,
+        waitGraceSeconds: 300,
+        driverShareBps: 8_000,
+        surgeBps: 0,
+        active: true,
+      }),
+    );
+    const place = await audited('adminCreateRidePlace', {}, (request) =>
+      request.send({
+        name: 'Audit Airport',
+        kind: 'airport',
+        cityName: 'Lagos',
+        lat: IKEJA.lat,
+        lng: IKEJA.lng,
+      }),
+    );
+    await audited('adminUpdateRidePlace', { id: place.body.id as string }, (request) =>
+      request.send({ name: 'Audit Airport (MM2)' }),
+    );
+
+    const applicant = await driverApplicant(ctx, 'audit-driver@example.com');
+    const documents = await ctx.prisma.driverDocument.findMany({
+      where: { driverId: applicant.driverId, supersededAt: null },
+    });
+    for (const [index, document] of documents.entries()) {
+      const params = { driverId: applicant.driverId, documentId: document.id };
+      const send = (request: ReturnType<ReturnType<TestContext['http']>['post']>) =>
+        request.send({ decision: 'approve' });
+      if (index === 0) await audited('adminReviewDriverDocument', params, send);
+      else
+        await send(
+          ctx
+            .http()
+            .post(`/v1/admin/drivers/${applicant.driverId}/documents/${document.id}/review`)
+            .set(bearer(admin.accessToken)),
+        ).expect(204);
+    }
+    await audited(
+      'adminReviewDriverVehicle',
+      { driverId: applicant.driverId, vehicleId: applicant.vehicleId },
+      (request) => request.send({ decision: 'approve' }),
+    );
+    await audited('adminApproveDriver', { driverId: applicant.driverId }, (request) =>
+      request.send({}),
+    );
+    await audited('adminSuspendDriver', { driverId: applicant.driverId }, (request) =>
+      request.send({ reason: 'safety_concern' }),
+    );
+    await audited('adminReinstateDriver', { driverId: applicant.driverId }, none);
+    const rejected = await driverApplicant(ctx, 'audit-rejected@example.com');
+    await audited('adminRejectDriver', { driverId: rejected.driverId }, (request) =>
+      request.send({ reason: 'documents_unclear' }),
+    );
+
+    await ctx
+      .http()
+      .post('/v1/admin/rides/places')
+      .set(bearer(admin.accessToken))
+      .send({
+        name: 'Audit Hotel',
+        kind: 'landmark',
+        cityName: 'Lagos',
+        lat: VICTORIA_ISLAND.lat,
+        lng: VICTORIA_ISLAND.lng,
+      })
+      .expect(201);
+    const rider = await signUp(ctx, 'audit-rider@example.com');
+    const { rideId } = await requestRide(ctx, bearer(rider.accessToken));
+    const incident = await ctx.prisma.safetyIncident.create({ data: { kind: 'sos', rideId } });
+    await audited('adminAcknowledgeIncident', { id: incident.id }, none);
+    await audited('adminResolveIncident', { id: incident.id }, (request) =>
+      request.send({ resolution: 'false_alarm' }),
+    );
+    await audited('adminCancelRide', { rideId }, (request) =>
+      request.send({ reason: 'rider_request' }),
+    );
+  });
+
+  it('rentals: fleet, licence review, photos, handovers and the deposit', async () => {
+    const created = await audited('adminCreateRentalVehicle', {}, (request) =>
+      request.send({
+        slug: 'audit-corolla',
+        make: 'Toyota',
+        model: 'Corolla',
+        year: 2021,
+        category: 'economy',
+        transmission: 'automatic',
+        seats: 5,
+        plate: 'AUD-123-XY',
+        cityName: 'Lagos',
+        branchName: 'Ikeja branch',
+        branchAddress: '1 Obafemi Awolowo Way',
+        lat: 6.6,
+        lng: 3.35,
+        timeZone: 'Africa/Lagos',
+        currency: 'NGN',
+        dailyMinor: 4_500_000,
+        depositMinor: 10_000_000,
+        cancellationPolicy: policy,
+      }),
+    );
+    const vehicleId = created.body.id as string;
+    await audited('adminUpdateRentalVehicle', { id: vehicleId }, (request) =>
+      request.send({ status: 'published' }),
+    );
+    const renter = await signUp(ctx, 'audit-renter@example.com');
+    const renterHeaders = bearer(renter.accessToken);
+    const { reservationId } = await paidRental(ctx, renterHeaders, {
+      vehicleId,
+      pickupAtLocal: localIn(4),
+      returnAtLocal: localIn(28),
+    });
+    await ctx
+      .http()
+      .put(`/v1/rentals/reservations/${reservationId}/licence`)
+      .set(renterHeaders)
+      .send({ number: 'LAGAUDIT0001', expiresOn: '2031-01-31' })
+      .expect(200);
+    await ctx
+      .http()
+      .put(`/v1/rentals/reservations/${reservationId}/licence/document`)
+      .set(renterHeaders)
+      .set('Content-Type', 'image/png')
+      .send(RENTAL_PNG)
+      .expect(200);
+    await ctx.background.drain();
+    await audited('adminReviewRentalLicence', { reservationId }, (request) =>
+      request.send({ decision: 'approve' }),
+    );
+    const upload = async () =>
+      (
+        await audited('adminUploadRentalPhoto', { reservationId }, (request) =>
+          request.set('Content-Type', 'image/png').send(RENTAL_PNG),
+        )
+      ).body.id as string;
+    const out = await upload();
+    await audited('adminRecordRentalHandover', { reservationId }, (request) =>
+      request.send({
+        kind: 'check_out',
+        odometerKm: 100,
+        fuelEighths: 8,
+        damageNotes: null,
+        photoIds: [out],
+      }),
+    );
+    const back = await upload();
+    await audited('adminRecordRentalHandover', { reservationId }, (request) =>
+      request.send({
+        kind: 'check_in',
+        odometerKm: 250,
+        fuelEighths: 8,
+        damageNotes: null,
+        photoIds: [back],
+      }),
+    );
+    await audited('adminReleaseRentalDeposit', { reservationId }, (request) =>
+      request.send({ keptMinor: 0 }),
+    );
+  });
+
+  it('finance: resolving a reconciliation discrepancy', async () => {
+    const discrepancy = await ctx.prisma.reconciliationDiscrepancy.create({
+      data: {
+        kind: 'ledger_missing',
+        subjectType: 'payout',
+        subjectId: '0192f0e0-0000-7000-8000-00000000d15c',
+        currency: 'NGN',
+        expectedMinor: 100_000n,
+      },
+    });
+    await audited('adminResolveReconciliationDiscrepancy', { id: discrepancy.id }, (request) =>
+      request.send({ resolution: 'accepted' }),
+    );
+  });
+
+  it('metasearch partners: create, change and rotate the key', async () => {
+    const created = await audited('adminCreateMetasearchPartner', {}, (request) =>
+      request.send({ name: 'Audit Meta', code: 'audit-meta' }),
+    );
+    const id = (created.body.partner as { id: string }).id;
+    await audited('adminUpdateMetasearchPartner', { partnerId: id }, (request) =>
+      request.send({ requestsPerMinute: 30, active: false }),
+    );
+    await audited('adminRotateMetasearchKey', { partnerId: id }, none);
+  });
+
+  it('support: reply, internal note and update', async () => {
+    const member = await signUp(ctx, 'audit-support@example.com');
+    const started = await ctx
+      .http()
+      .post('/v1/support/conversations')
+      .set(bearer(member.accessToken))
+      .send({ category: 'payment', message: 'Was my payment received?' })
+      .expect(201);
+    const id = (started.body.conversation as { id: string }).id;
+    await audited('adminReplySupportConversation', { id }, (request) =>
+      request.send({ message: 'Yes, it arrived this morning.' }),
+    );
+    await audited('adminUpdateSupportConversation', { id }, (request) =>
+      request.send({ status: 'resolved', priority: 'urgent' }),
+    );
+  });
+
+  it('status page: open, update and resolve an incident', async () => {
+    const opened = await audited('adminOpenStatusIncident', {}, (request) =>
+      request.send({
+        title: 'Audit incident',
+        impact: 'minor',
+        components: ['search'],
+        status: 'investigating',
+        message: 'Looking into slow searches.',
+      }),
+    );
+    const id = (opened.body as { id: string }).id;
+    await audited('adminUpdateStatusIncident', { id }, (request) =>
+      request.send({ status: 'resolved', message: 'Searches are fast again.' }),
+    );
+  });
+
+  it('privacy registers: requests and breaches with their notices', async () => {
+    const request = await audited('adminOpenPrivacyRequest', {}, (r) =>
+      r.send({
+        kind: 'access',
+        jurisdiction: 'NG',
+        channel: 'email',
+        receivedAt: new Date(Date.now() - 3_600_000).toISOString(),
+        subjectEmail: 'audit-request@example.com',
+      }),
+    );
+    await audited('adminClosePrivacyRequest', { id: (request.body as { id: string }).id }, (r) =>
+      r.send({ outcome: 'completed' }),
+    );
+    const breach = await audited('adminOpenPrivacyBreach', {}, (r) =>
+      r.send({
+        title: 'Audit breach',
+        details: 'Recorded by the audit coverage test.',
+        awareAt: new Date(Date.now() - 3_600_000).toISOString(),
+        highRisk: false,
+        categories: ['other_personal_data'],
+        jurisdictions: ['GB'],
+      }),
+    );
+    const id = (breach.body as { id: string }).id;
+    await audited('adminRecordPrivacyBreachNotice', { id }, (r) =>
+      r.send({ decision: 'not_required', jurisdiction: 'GB' }),
+    );
+    await audited('adminClosePrivacyBreach', { id }, (r) => r.send({}));
+  });
+
+  it('assistant: pause, release and autonomy', async () => {
+    const paused = await audited('adminPauseAgent', {}, (request) =>
+      request.send({ reason: 'maintenance' }),
+    );
+    expect(paused.body).toMatchObject({ paused: true, reason: 'maintenance', known: true });
+    const released = await audited('adminResumeAgent', {}, none);
+    expect(released.body).toMatchObject({ paused: false, reason: null });
+    const level = await audited('adminSetAgentAutonomy', {}, (request) =>
+      request.send({ subject: 'agent', name: 'concierge', level: 'manual' }),
+    );
+    expect(level.body).toEqual({ subject: 'agent', name: 'concierge', level: 'manual', set: true });
+    const off = await audited('adminSwitchAgent', { agent: 'hotels' }, (request) =>
+      request.send({ enabled: false }),
+    );
+    expect(off.body).toEqual({ agent: 'hotels', enabled: false });
+    await audited('adminSwitchAgent', { agent: 'hotels' }, (request) =>
+      request.send({ enabled: true }),
+    );
+    await audited('adminRecordAgentEval', {}, (request) =>
+      request.send({
+        suite: 'safety',
+        mode: 'recorded',
+        passed: true,
+        cases: 38,
+        held: 38,
+        figures: { violations: 0 },
+        ranAt: '2026-11-10T09:00:00.000Z',
+      }),
+    );
+  });
+
+  it('knowledge base: add, change, archive and restore', async () => {
+    const added = await audited('adminAddKnowledge', {}, (request) =>
+      request
+        .query({ title: 'Audit policy', audience: 'customer', language: 'en' })
+        .set('content-type', 'text/plain')
+        .send(Buffer.from('Refunds reach the original payment method.', 'utf8')),
+    );
+    const documentId = (added.body as { id: string }).id;
+    await audited('adminChangeKnowledge', { documentId }, (request) =>
+      request.send({ audience: 'staff' }),
+    );
+    await audited('adminArchiveKnowledge', { documentId }, none);
+    await audited('adminRestoreKnowledge', { documentId }, none);
+  });
+
+  it('staff agents: a conversation, a question and the approvals queue', async () => {
+    const conversation = await audited('adminStartAgentConversation', {}, (request) =>
+      request.send({ locale: 'en-NG' }),
+    );
+    const conversationId = (conversation.body as { id: string }).id;
+    const asked = await audited('adminSendAgentMessage', {}, (request) =>
+      request.send({ conversationId, text: 'What is waiting for a person today?' }),
+    );
+    await ctx.background.drain();
+    const runId = (asked.body as { runId: string }).runId;
+
+    /** What an agent prepared for the admin: decided by the other super admin, never by them. */
+    const proposed = async (code: string): Promise<string> => {
+      const made = await ctx.app.get(AgentApprovalsService).propose({
+        kind: 'promo_code',
+        requestedBy: admin.userId,
+        agent: 'marketing',
+        runId,
+        conversationId,
+        subject: null,
+        payload: {
+          code,
+          description: null,
+          type: 'percentage',
+          value: 1000,
+          currency: null,
+          maxDiscountMinor: null,
+          minSpendMinor: null,
+          verticals: [],
+          validFrom: null,
+          validTo: null,
+          maxRedemptions: null,
+          maxRedemptionsPerUser: null,
+          requiresAccount: true,
+          active: true,
+        },
+      });
+      if (!('id' in made)) throw new Error('The proposal was refused');
+      return made.id;
+    };
+    const approved = await audited(
+      'adminApproveAgentApproval',
+      { approvalId: await proposed('E2EAGENT10') },
+      (request) => request.set('Idempotency-Key', idempotencyKey()).send({}),
+      approver,
+    );
+    expect(approved.body).toMatchObject({ status: 'approved', result: { type: 'promo_code' } });
+    const promo = await ctx.prisma.promoCode.findUniqueOrThrow({ where: { code: 'E2EAGENT10' } });
+    expect(promo.active).toBe(false);
+    await audited(
+      'adminRejectAgentApproval',
+      { approvalId: await proposed('E2EAGENT20') },
+      (request) => request.send({ reason: 'not_needed' }),
+      approver,
+    );
+  });
+
+  it('price intelligence: a site, its decisions, a read, a switch and a budget', async () => {
+    const domain = 'audit-hotels.example.com';
+    const created = await audited('adminCreatePriceSource', {}, (request) =>
+      request.send({
+        domain,
+        name: 'Audit Hotels',
+        products: ['hotel'],
+        country: 'NG',
+        currency: 'NGN',
+        locale: 'en-NG',
+        urlTemplates: { hotel: `https://${domain}/search?city={place}&in={from}` },
+        recipes: {
+          hotel: {
+            version: 'hotel-v1',
+            methods: [{ method: 'structured_data', types: ['Hotel'] }],
+          },
+        },
+        vendors: ['mock'],
+        timeZone: 'Africa/Lagos',
+      }),
+    );
+    const sourceId = (created.body as { id: string }).id;
+    expect(created.body).toMatchObject({ status: 'review', readable: 'review_mock_only' });
+    await audited('adminUpdatePriceSource', { sourceId }, (request) =>
+      request.send({ robots: 'allowed', terms: 'silent' }),
+    );
+    const approved = await audited('adminApprovePriceSource', { sourceId }, (request) =>
+      request.send({ basis: 'public_data_assessment', basisReference: 'Legal file PI-2026-014' }),
+    );
+    expect(approved.body).toMatchObject({ status: 'approved', basis: 'public_data_assessment' });
+    const read = await audited('adminReadPriceSource', { sourceId }, (request) =>
+      request.send({ product: 'hotel', query: { place: 'Lagos', from: inDays(30) } }),
+    );
+    expect(read.body).toMatchObject({ state: 'read', failure: null });
+    await audited('adminBlockPriceSource', { sourceId }, none);
+    const reviewed = await audited('adminReviewPriceSource', { sourceId }, none);
+    expect(reviewed.body).toMatchObject({ status: 'review', basis: null });
+
+    const stopped = await audited('adminStopPriceIntel', {}, (request) =>
+      request.send({ scope: 'domain', subject: domain }),
+    );
+    expect(stopped.body).toEqual({ items: [{ scope: 'domain', subject: domain }] });
+    const released = await audited('adminReleasePriceIntel', {}, (request) =>
+      request.send({ scope: 'domain', subject: domain }),
+    );
+    expect(released.body).toEqual({ items: [] });
+    const budget = await audited('adminSetPriceIntelBudget', {}, (request) =>
+      request.send({
+        scope: 'domain',
+        subject: domain,
+        dailyCapMicroUsd: 5_000,
+        monthlyCapMicroUsd: 100_000,
+      }),
+    );
+    expect(budget.body).toMatchObject({ dailyCapMicroUsd: 5_000, set: true });
+  });
+
+  it('assisted quotes: an offer, a closed request, booked by hand and unbookable', async () => {
+    const traveller = await signUp(ctx, 'audit-quote@example.com');
+    const headers = bearer(traveller.accessToken);
+    const ask = async (): Promise<string> =>
+      (
+        await ctx
+          .http()
+          .post('/v1/quotes/assisted')
+          .set(headers)
+          .set('Idempotency-Key', idempotencyKey())
+          .send({
+            product: 'hotel',
+            title: 'Audit Hotel, standard room',
+            request: {
+              destination: 'Lagos',
+              startDate: inDays(30),
+              endDate: inDays(32),
+              adults: 1,
+            },
+            currency: 'NGN',
+          })
+          .expect(201)
+      ).body.id as string;
+    const verified = {
+      supplierName: 'Audit Wholesale',
+      supplierPrice: { amountMinor: 12_000_000, currency: 'NGN' },
+      evidenceUrl: 'https://files.suskii.test/audit/price.pdf',
+      details: {
+        title: 'Audit Hotel, standard room',
+        summary: 'Two nights for one, room only. Not refundable.',
+        startDate: inDays(30),
+        endDate: inDays(32),
+        refundable: false,
+      },
+    };
+    /** The offer booked and paid by the traveller: a booking that waits to be booked by hand. */
+    const paidFrom = async (assistedQuoteId: string): Promise<void> => {
+      const offered = await audited('adminOfferAssistedQuote', { assistedQuoteId }, (request) =>
+        request.send(verified),
+      );
+      const quoteId = (offered.body as { offer: { quoteId: string } }).offer.quoteId;
+      const created = await ctx
+        .http()
+        .post('/v1/bookings')
+        .set(headers)
+        .set('Idempotency-Key', idempotencyKey())
+        .send({
+          quoteId,
+          contact: { email: 'audit-quote@example.com', phone: '+2348012345678' },
+          passengers: [
+            {
+              type: 'adult',
+              title: 'ms',
+              gender: 'f',
+              givenNames: 'Ngozi',
+              surname: 'Eze',
+              dateOfBirth: '1990-04-01',
+              nationality: 'NG',
+            },
+          ],
+          termsVersion: BOOKING_TERMS_VERSION,
+          acceptTerms: true,
+        })
+        .expect(201);
+      const payment = await ctx
+        .http()
+        .post(`/v1/bookings/${created.body.booking.id as string}/payments`)
+        .set(headers)
+        .set('Idempotency-Key', idempotencyKey())
+        .expect(201);
+      const reference = (payment.body.checkoutUrl as string).split('/').pop() ?? '';
+      await ctx
+        .http()
+        .post(`/v1/payments/mock/${reference}/complete`)
+        .send({ outcome: 'succeeded' })
+        .expect(200);
+      await ctx.background.drain();
+    };
+
+    const first = await ask();
+    await paidFrom(first);
+    const booked = await audited(
+      'adminMarkAssistedQuoteBooked',
+      { assistedQuoteId: first },
+      (request) =>
+        request.send({
+          supplierReference: 'AUD-1001',
+          evidenceUrl: 'https://files.suskii.test/audit/confirmation.pdf',
+        }),
+    );
+    expect(booked.body).toMatchObject({ booking: { status: 'CONFIRMED' } });
+
+    const second = await ask();
+    await paidFrom(second);
+    await audited('adminMarkAssistedQuoteUnbookable', { assistedQuoteId: second }, (request) =>
+      request.send({ reason: 'supplier_declined' }),
+    );
+
+    const third = await ask();
+    const closed = await audited('adminCloseAssistedQuote', { assistedQuoteId: third }, (request) =>
+      request.send({ reason: 'not_sold_by_suskii' }),
+    );
+    expect(closed.body).toMatchObject({ status: 'unavailable' });
+  });
+
+  it('covered every admin mutation', () => {
+    const missing = MUTATIONS.map((op) => op.operationId).filter((id) => !covered.has(id));
+    expect(missing).toEqual([]);
+    expect(covered.size).toBe(MUTATIONS.length);
+  });
+});

@@ -1,0 +1,63 @@
+{{- $name := printf "%s-worker" (include "suskii.fullname" .) -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "suskii.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  selector:
+    matchLabels:
+      {{- include "suskii.selector" (list . "worker") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "suskii.labels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+    spec:
+      serviceAccountName: {{ $name }}
+      automountServiceAccountToken: false
+      # Queue jobs finish or are retried by BullMQ; give running ones time to complete.
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        {{- include "suskii.podSecurityContext" . | nindent 8 }}
+      {{- include "suskii.imagePullSecrets" . | nindent 6 }}
+      containers:
+        - name: worker
+          image: {{ include "suskii.image" (list . "worker") }}
+          ports:
+            - { name: health, containerPort: 4100 }
+          env:
+            - { name: NODE_ENV, value: production }
+            - { name: WORKER_HEALTH_PORT, value: '4100' }
+            - { name: SENTRY_ENVIRONMENT, value: {{ .Values.global.environment | quote }} }
+            - { name: API_INTERNAL_URL, value: {{ printf "http://%s-api" (include "suskii.fullname" .) | quote }} }
+            {{- if .Values.meshMtls }}
+            # Declared: a service mesh encrypts and authenticates pod-to-pod traffic (ADR-038).
+            - { name: API_INTERNAL_ALLOW_PLAINTEXT, value: 'true' }
+            {{- end }}
+            {{- include "suskii.plainEnv" (list "worker.env" .Values.worker.env (list "NODE_ENV" "WORKER_HEALTH_PORT" "SENTRY_ENVIRONMENT" "API_INTERNAL_URL" "API_INTERNAL_ALLOW_PLAINTEXT")) | nindent 12 }}
+          envFrom:
+            - secretRef: { name: {{ .Values.secrets.worker }} }
+          startupProbe:
+            httpGet: { path: /health, port: health }
+            periodSeconds: 3
+            failureThreshold: 40
+          livenessProbe:
+            httpGet: { path: /health, port: health }
+            periodSeconds: 15
+            failureThreshold: 4
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+          securityContext:
+            {{- include "suskii.containerSecurityContext" . | nindent 12 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - { name: tmp, emptyDir: { sizeLimit: 128Mi } }

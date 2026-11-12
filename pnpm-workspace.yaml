@@ -18,6 +18,9 @@ catalog:
   eslint-config-next: 16.3.6
   eslint-config-expo: ~57.0.2
   globals: ^17.12.0
+  eslint-plugin-react: ^7.37.5
+  eslint-plugin-react-hooks: ^7.1.1
+  eslint-plugin-jsx-a11y: ^6.10.2
   husky: ^9.1.7
   lint-staged: ^17.6.0
   '@commitlint/cli': ^21.2.3
@@ -25,12 +28,47 @@ catalog:
   tsup: ^8.5.1
   tsx: ^4.23.15
   rimraf: ^6.1.3
-  vitest: ^5.0.2
-  '@vitest/coverage-v8': ^5.0.2
+  vitest: ^5.0.5
+  '@vitest/coverage-v8': ^5.0.5
 
   # Runtime libraries
-  zod: ^4.6.5
+  zod: ^4.6.7
   pino: ^10.3.1
+  ws: ^8.22.0
+  '@types/ws': ^8.18.2
+
+  # Styling (web: Tailwind v4; mobile: NativeWind 4 on Tailwind v3, see the tailwind3 catalog)
+  tailwindcss: ^4.3.3
+  '@tailwindcss/postcss': ^4.3.3
+  '@tailwindcss/vite': ^4.3.3
+  postcss: ^8.5.28
+
+  # Web UI (packages/ui-web)
+  radix-ui: ^1.6.7
+  '@daypicker/react': ^10.0.1
+  date-fns: ^4.4.0
+  clsx: ^2.1.1
+  # Field Core Web Vitals on the website (ADR-044), loaded after the page is interactive.
+  web-vitals: ^6.2.2
+  tailwind-merge: ^3.7.0
+  class-variance-authority: ^0.7.1
+  lucide-react: ^1.48.0
+  '@fontsource-variable/plus-jakarta-sans': ^5.3.0
+  '@fontsource-variable/dm-sans': ^5.3.0
+
+  # Storybook and browser tests (packages/ui-web)
+  storybook: ^10.6.3
+  '@storybook/react': ^10.6.3
+  '@storybook/react-vite': ^10.6.3
+  '@storybook/addon-a11y': ^10.6.3
+  '@storybook/addon-docs': ^10.6.3
+  eslint-plugin-storybook: ^10.6.3
+  vite: ^8.3.4
+  '@vitejs/plugin-react': ^6.1.1
+  '@vitest/browser-playwright': ^5.0.5
+  vitest-browser-react: ^2.3.0
+  playwright: ^1.63.0
+  axe-core: ^4.13.0
 
   # Backend (NestJS)
   '@nestjs/common': ^12.1.1
@@ -48,12 +86,77 @@ catalog:
   '@types/supertest': ^7.2.1
   '@types/express': ^5.0.6
 
+  # API platform (apps/api)
+  # LLM adapter for AI trip search (ADR-061), confined to apps/api/src/ai-search/anthropic,
+  # and for the agent service's model factory (ADR-106), confined to apps/agent/src/model.
+  '@anthropic-ai/sdk': 1.1.0
+  # Agent service (apps/agent, ADR-101): the graph runtime and its PostgreSQL checkpointer.
+  # Pinned exactly: the checkpoint tables are a checked-in migration copied from this version
+  # (ADR-103), and a test fails when the library's own set-up would change them.
+  '@langchain/langgraph': 1.7.2
+  '@langchain/core': 1.3.5
+  '@langchain/langgraph-checkpoint-postgres': 1.1.2
+  prisma: 7.10.0
+  '@prisma/client': 7.10.0
+  '@prisma/adapter-pg': 7.10.0
+  '@prisma/instrumentation': 7.10.0
+  pg: ^8.23.0
+  '@types/pg': ^8.23.1
+  ioredis: ^6.0.0
+  jose: ^6.2.12
+  '@node-rs/argon2': ^2.2.1
+  nestjs-pino: ^5.2.1
+  pino-http: ^11.0.0
+  pino-pretty: ^13.1.3
+  helmet: ^8.3.0
+  cookie-parser: ^1.4.7
+  '@types/cookie-parser': ^1.4.10
+  compression: ^1.8.2
+  '@types/compression': ^1.8.1
+  nodemailer: ^10.1.7
+  # Reads prices out of public pages with CSS selectors (ADR-102). It parses; it never runs a
+  # page's scripts.
+  node-html-parser: ^9.0.7
+  '@types/nodemailer': ^8.0.2
+  '@opentelemetry/api': ^1.9.0
+  '@opentelemetry/sdk-node': ^0.222.0
+  '@opentelemetry/auto-instrumentations-node': ^0.80.0
+  '@opentelemetry/exporter-trace-otlp-http': ^0.222.0
+  testcontainers: ^12.2.0
+  '@testcontainers/postgresql': ^12.2.0
+  '@testcontainers/redis': ^12.2.0
+  csv-parse: ^7.0.3
+  csv-stringify: ^6.9.0
+  fast-check: ^4.10.2
+  '@opentelemetry/exporter-metrics-otlp-http': ^0.222.0
+  '@opentelemetry/sdk-metrics': ^2.11.0
+  '@opentelemetry/resources': ^2.11.0
+  '@photostructure/tz-lookup': ^11.7.0
+
+  # Web app (apps/web)
+  uqr: ^0.1.3
+  pdf-lib: ^1.17.1
+  '@fontsource/plus-jakarta-sans': ^5.3.0
+  '@playwright/test': ^1.63.0
+  '@axe-core/playwright': ^4.13.0
+  lighthouse: ^13.5.0
+  chrome-launcher: ^1.2.1
+
+  # Worker queues (apps/worker)
+  bullmq: ^6.3.9
+
+  # Generated API client (packages/api-client)
+  openapi-typescript: ^7.13.0
+  openapi-fetch: ^0.17.0
+  openapi-react-query: ^0.5.4
+  '@tanstack/react-query': ^5.104.0
+
   # React (web, admin, mobile)
   react: 19.2.3
   react-dom: 19.2.3
   '@types/react': ~19.2.18
   '@types/react-dom': ~19.2.7
-  next: 16.3.6
+  next: 16.4.1
 
   # Mobile (versions from expo@57 bundledNativeModules.json)
   expo: ~57.0.25
@@ -65,25 +168,169 @@ catalog:
   react-native: 0.86.3
   react-native-safe-area-context: ~5.7.0
   react-native-screens: ~4.26.0
+  react-native-reanimated: 4.5.1
+  react-native-gesture-handler: ~2.32.0
+  react-native-svg: 15.15.4
+  expo-font: ~57.0.4
+  babel-preset-expo: ~57.0.13
+  '@expo-google-fonts/plus-jakarta-sans': ^0.4.2
+  '@expo-google-fonts/dm-sans': ^0.4.2
+  expo-secure-store: ~57.0.4
+  expo-notifications: ~57.0.21
+  expo-web-browser: ~57.0.3
+  expo-file-system: ~57.0.7
+  expo-document-picker: ~57.0.3
+  expo-sharing: ~57.0.22
+  expo-camera: ~57.0.6
+  # Ed25519 checks of bus ticket QR codes offline (operator scanner, audited, no native code)
+  '@noble/curves': 2.4.0
+  expo-device: ~57.0.2
+  expo-application: ~57.0.3
+  expo-crypto: ~57.0.3
+  expo-localization: ~57.0.2
+  expo-screen-capture: ~57.0.3
+  expo-updates: ~57.0.23
+  expo-dev-client: ~57.0.19
+  expo-build-properties: ~57.0.22
+  # Fingerprint sign-in, and Google and Apple sign-in in the app (ADR-067)
+  expo-local-authentication: ~57.0.3
+  expo-apple-authentication: ~57.0.2
+  expo-splash-screen: ~57.0.9
+  expo-system-ui: ~57.0.4
+  '@expo/app-integrity': 57.0.2
+  '@shopify/flash-list': 2.0.2
+  # Encrypted cache for trips and documents index (ADR-020); outside Expo's bundled set.
+  react-native-mmkv: ^4.3.2
+  react-native-nitro-modules: ^0.37.1
+  # Hermes implements only part of Intl; these fill in what @suskii/i18n uses (ADR-020).
+  '@formatjs/intl-getcanonicallocales': ^3.2.12
+  '@formatjs/intl-locale': ^5.3.12
+  '@formatjs/intl-pluralrules': ^6.3.15
+  '@formatjs/intl-relativetimeformat': ^12.3.15
+  '@formatjs/intl-listformat': ^8.3.15
+  '@formatjs/intl-displaynames': ^7.3.15
+
+  # Native UI (packages/ui-native)
+  nativewind: ^4.2.7
+  # NativeWind's Babel transform injects imports of this package into app and ui-native files.
+  react-native-css-interop: 0.2.7
+  # NativeWind's Babel preset names this plugin without depending on it, and Babel resolves it
+  # from the app's babel.config.js, so apps using the preset list it themselves.
+  '@babel/plugin-transform-react-jsx': ^7.29.7
+  lucide-react-native: ^1.48.0
+  jest-expo: ~57.0.5
+  '@testing-library/react-native': ^14.0.1
+  # 1.3 needs React 19.3 (react-reconciler 0.34); Expo SDK 57 pins React 19.2.3.
+  test-renderer: ~1.2.0
+
+# Named catalogs for the rare case where two majors must coexist.
+catalogs:
+  # NativeWind 4.2 (stable) requires Tailwind v3; NativeWind 5 (Tailwind v4) is still RC. ADR-003.
+  tailwind3:
+    tailwindcss: ^3.4.19
+    # Alias used by @suskii/design-tokens to compile-test the NativeWind preset next to Tailwind v4.
+    tailwindcss-v3: npm:tailwindcss@^3.4.19
+
+  # jest-expo 57 is built on Jest 29; the API stays on Jest 30.
+  expo-jest:
+    jest: ^29.7.0
+    '@types/jest': ^29.5.14
 
 # pnpm 10 blocks dependency lifecycle scripts by default. Only packages listed
 # here may run install scripts (native binaries only).
 onlyBuiltDependencies:
+  - '@prisma/engines'
   - '@swc/core'
   - esbuild
+  - prisma
   - sharp
   - unrs-resolver
 
 # Ship prebuilt binaries via optional dependencies; their source-build fallback is not needed.
 ignoredBuiltDependencies:
   - '@parcel/watcher'
+  # Optional native speed-ups pulled in by testcontainers (ssh transport) and protobufjs.
+  - cpu-features
+  - protobufjs
+  - ssh2
 
 # Keep transitive React Native packages on the versions Expo SDK 57 ships with
 # (expo/bundledNativeModules.json). Revisit on every Expo SDK upgrade.
 overrides:
   react-native-worklets: 0.10.1
   '@react-native/metro-config': 0.86.3
+  # test-renderer 1.3 requires React 19.3; expo-router's optional RNTL peer would pull it in.
+  test-renderer: ~1.2.0
+  # Security fixes for transitive dependencies (phase 11, pnpm audit and Trivy). Drop each one
+  # once its parent depends on the fixed version.
+  # @prisma/config pins 7.1.5 (GHSA-ggr8-5vv4-36mx); it only calls deepmerge(), unchanged in 8.
+  deepmerge-ts@<8.0.0: ^8.0.2
+  # The Prisma CLI's MySQL driver (GHSA-3f6p-5ww8-9rcr); this project uses PostgreSQL only.
+  mysql2@<3.22.0: ^3.22.0
+  # react-devtools-core in React Native development tooling (GHSA-pqg4-j6r4-53mv).
+  shell-quote@<1.11.0: ^1.11.0
+  # postcss and Tailwind (GHSA-68fv-2mgg-jv7q).
+  source-map-js@<1.2.2: ^1.2.2
+  # ajv in commitlint (GHSA-w74x-v6f9-j3xg; developer tooling).
+  fast-uri@<3.1.9: ^3.1.9
+  # eslint-plugin-react-hooks' config validation (GHSA-mrhx-c7xc-m3w5; lint only).
+  zod@>=4.0.0 <4.6.6: ^4.6.7
+  # The Expo CLI pins zod 3, which has no fixed release (GHSA-mrhx-c7xc-m3w5). It only builds
+  # dev-tools plugin schemas with object, string, enum and array, which zod 4 keeps as they are.
+  '@expo/cli>zod': ^4.6.7
+  # Babel 7, eslint-plugin-import/react and istanbul pin semver 6, whose only release with the
+  # ReDoS fix (6.3.1) has no provenance, so the pnpm trust policy refuses it whenever the graph
+  # is re-resolved. They call satisfies, intersects, lt, gt, valid and parse, unchanged in 7.
+  semver@<7: ^7.8.5
+  # OpenTelemetry host metrics in the API (GHSA-3f7j-7jwc-fxfj, a Windows-only command injection
+  # in services(); the API runs on Linux and never calls it). Inside the parent's ^5.31.6 range.
+  systeminformation@<5.33.16: ^5.33.16
+  # The Expo CLI's development certificates (GHSA-7wch-p9px-956x, GHSA-jc66-7q78-782g,
+  # GHSA-8hrf-8g6f-7xwp, GHSA-hqq3-7jhf-c5jx, GHSA-5x38-2vff-x55p, GHSA-86w9-cpqp-85rv).
+  # Inside its ^1.3.3 range.
+  node-forge@<1.4.1: ^1.4.1
+  # Lighthouse's puppeteer pulls chromium-bidi, which pins zod 3 (same advisory). Its zod schemas
+  # only run in the WebDriver BiDi mapper, which puppeteer loads on demand; Lighthouse uses CDP.
+  'chromium-bidi>zod': ^4.6.7
+  # ts-jest's templating dependency (GHSA-8r5x-fm3f-whwj, GHSA-p8wg-vrv2-v86f; tests only).
+  handlebars@<4.7.10: ^4.7.10
+  # testcontainers' HTTP client (GHSA-xjj6-f33q-929c; tests only).
+  undici@>=8.0.0 <8.12.2: ^8.12.3
+  # Express 5's body parsers in @nestjs/platform-express (GHSA-27r3-jxmh-p828, trailing bytes
+  # after a compressed body). The API also refuses compressed request bodies (415).
+  body-parser@>=2.0.0 <2.4.0: ^2.4.0
+  # Multipart parsing in @nestjs/platform-express (GHSA-q7qp-rjg7-q26m, a pending async
+  # fileFilter after request teardown). The API registers no multipart route.
+  multer@>=2.0.0 <2.5.0: ^2.5.0
+
+# High advisories with no fixed release, reviewed in docs/security/dependency-exceptions.md.
+# CI's `pnpm audit --prod --audit-level high` ignores only these ids; review them monthly.
+auditConfig:
+  ignoreGhsas:
+    # decode-uri-component 0.2.2 via expo-router > query-string: the fix is backported by the
+    # patch below (the fixed 0.5 line is ESM-only and query-string 7 requires CommonJS).
+    - GHSA-qr28-fpjm-wq7f
+    # braces in @expo/cli's Metro file map; patterns come from the project, not from users.
+    - GHSA-vfj7-8cjw-p6xm
+
+# Security fixes backported where the fixed release cannot be used (dependency-exceptions.md).
+patchedDependencies:
+  decode-uri-component@0.2.2: patches/decode-uri-component@0.2.2.patch
+
+# Supply-chain guards (phase 11): new releases wait three days before pnpm resolves them, so a
+# compromised publish is usually caught first; transitive dependencies may not come from git or
+# tarball URLs; and a package whose new version lost the provenance its earlier versions had is
+# refused. Security fixes that cannot wait go in `minimumReleaseAgeExclude`.
+minimumReleaseAge: 4320
+blockExoticSubdeps: true
+trustPolicy: no-downgrade
 
 # Fail fast on the wrong Node.js version (the API's Jest setup needs Node >= 24.9
 # for require(esm); see ADR-002) instead of failing later with confusing errors.
 engineStrict: true
+
+# Peers verified to work beyond their declared range.
+peerDependencyRules:
+  allowedVersions:
+    # Declares ^5; generation is verified on TypeScript 6 by `pnpm generate:api` in CI.
+    openapi-typescript>typescript: '6'

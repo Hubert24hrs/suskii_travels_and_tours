@@ -1,0 +1,80 @@
+'use client';
+
+import { cn } from '@suskii/ui-web';
+import { useRouter } from 'next/navigation';
+import { useTransition } from 'react';
+
+export interface PreferenceSelectProps {
+  /** The route that stores the preference cookie (`/preferences/<name>`). */
+  action: string;
+  name: 'currency' | 'locale' | 'dataSaver';
+  label: string;
+  value: string;
+  /** `lang` marks a label written in another language (language names, ADR-076). */
+  options: readonly { value: string; label: string; lang?: string }[];
+  /** Label of the submit button shown when JavaScript is unavailable. */
+  submitLabel: string;
+  className?: string;
+}
+
+/**
+ * Currency, locale or data-saver selector. Changing it posts the form to its route and refreshes the page so
+ * server-rendered prices and dates update; without JavaScript the form still works via the button
+ * (the route sends the browser back to the page).
+ */
+export function PreferenceSelect({
+  action,
+  name,
+  label,
+  value,
+  options,
+  submitLabel,
+  className,
+}: PreferenceSelectProps) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  return (
+    <form
+      method="post"
+      action={action}
+      className={cn('flex max-w-full flex-wrap items-center gap-2', className)}
+      onSubmit={(event) => {
+        event.preventDefault();
+        const data = new FormData(event.currentTarget);
+        startTransition(async () => {
+          try {
+            await fetch(action, { method: 'POST', body: data, headers: { Accept: '*/*' } });
+          } finally {
+            router.refresh();
+          }
+        });
+      }}
+    >
+      {/* Wraps and shrinks: option text runs long in some languages (ADR-076). */}
+      <label className="flex max-w-full min-w-0 flex-wrap items-center gap-2 font-body text-body-sm text-foreground">
+        <span>{label}</span>
+        <select
+          name={name}
+          defaultValue={value}
+          disabled={pending}
+          onChange={(event) => event.currentTarget.form?.requestSubmit()}
+          className="min-h-12 max-w-full min-w-0 rounded-md border border-border-strong bg-surface px-3 font-body text-body-sm text-foreground focus-visible:focus-ring"
+        >
+          {options.map((option) => (
+            <option key={option.value} value={option.value} lang={option.lang}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <noscript>
+        <button
+          type="submit"
+          className="min-h-12 px-2 font-body text-body-sm font-bold text-primary"
+        >
+          {submitLabel}
+        </button>
+      </noscript>
+    </form>
+  );
+}

@@ -1,11 +1,182 @@
-import { Stack } from 'expo-router';
+import '../global.css';
+
+import { DMSans_400Regular, DMSans_500Medium, DMSans_700Bold } from '@expo-google-fonts/dm-sans';
+import {
+  PlusJakartaSans_700Bold,
+  PlusJakartaSans_800ExtraBold,
+} from '@expo-google-fonts/plus-jakarta-sans';
+import { getMessages } from '@suskii/i18n';
+import * as Notifications from 'expo-notifications';
+import { useFonts } from 'expo-font';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState, useSyncExternalStore } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+import { appConfig, setHostedServer, subscribeServer } from '../src/config';
+import { appUpdate } from '../src/lib/app-update';
+import { untilStarted } from '../src/lib/bootstrap';
+import { openSecureCache } from '../src/lib/cache';
+import { resolveNotificationPath } from '../src/lib/deep-links';
+import { discoverHostedServer } from '../src/lib/hosted-server';
+import { configureNotifications } from '../src/lib/push';
+import type { SessionStore } from '../src/lib/session';
+import { AppProvider, createSessionStore, deviceLocale, useT } from '../src/providers/app-provider';
+import { UpdateRequiredScreen } from '../src/screens/update-required-screen';
+
+/** Test builds look for the hosted test server first, unless the tester chose a server. */
+const discoversServer = (): boolean =>
+  appConfig.testServerDiscoveryUrl !== '' && !appConfig.customServer;
+
+/**
+ * Finds the hosted test server (test builds, ADR-066), then opens the encrypted cache and restores
+ * the session before the first screen renders, trying again until it works (the keychain is
+ * locked during a background start). When the hosted server moves, the session starts again
+ * against the new address.
+ */
+function useBootstrap(): { store: SessionStore; server: string } | null {
+  const server = useSyncExternalStore(subscribeServer, () => appConfig.apiBaseUrl);
+  const [discovered, setDiscovered] = useState(() => !discoversServer());
+  const [session, setSession] = useState<{ store: SessionStore; server: string } | null>(null);
+  useEffect(() => {
+    configureNotifications(getMessages(deviceLocale()).mobile.notificationChannel);
+    if (!discoversServer()) return;
+    void discoverHostedServer(appConfig.testServerDiscoveryUrl).then((found) => {
+      setHostedServer(found);
+      setDiscovered(true);
+    });
+  }, []);
+  useEffect(() => {
+    if (!discovered) return;
+    let cancelled = false;
+    void untilStarted(
+      async () => {
+        await openSecureCache();
+        const store = createSessionStore();
+        await store.load();
+        return store;
+      },
+      { cancelled: () => cancelled },
+    ).then((store) => {
+      if (store && !cancelled) setSession({ store, server });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [discovered, server]);
+  return session?.server === server ? session : null;
+}
+
+/** A tapped notification opens its trip or a fixed screen; only validated paths are followed. */
+function useNotificationTaps(): void {
+  const router = useRouter();
+  useEffect(() => {
+    const open = (data: unknown) => {
+      const path = resolveNotificationPath((data as { path?: unknown } | undefined)?.path);
+      if (path) router.push(path);
+    };
+    const last = Notifications.getLastNotificationResponse();
+    if (last) open(last.notification.request.content.data);
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) =>
+      open(response.notification.request.content.data),
+    );
+    return () => subscription.remove();
+  }, [router]);
+}
+
+/** Every screen, or only the update screen once the API has retired this version (426). */
+function Gate() {
+  const updateRequired = useSyncExternalStore(
+    (listener) => appUpdate.subscribe(listener),
+    () => appUpdate.required,
+  );
+  return updateRequired ? <UpdateRequiredScreen /> : <Screens />;
+}
+
+function Screens() {
+  const { t } = useT();
+  useNotificationTaps();
+  return (
+    <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal', headerTitleAlign: 'center' }}>
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="search/flights" options={{ title: t('mobile.search.titles.flights') }} />
+      <Stack.Screen name="search/hotels" options={{ title: t('mobile.search.titles.hotels') }} />
+      <Stack.Screen name="search/groups" options={{ title: t('groups.title') }} />
+      <Stack.Screen name="hotels/[hotelId]" options={{ title: '' }} />
+      <Stack.Screen name="checkout/[quoteId]" options={{ title: t('mobile.checkout.title') }} />
+      <Stack.Screen name="trips/[id]/index" options={{ title: '' }} />
+      <Stack.Screen
+        name="trips/[id]/visa/[applicationId]"
+        options={{ title: t('mobile.visa.title') }}
+      />
+      <Stack.Screen name="trips/[id]/addons" options={{ title: t('mobile.addons.title') }} />
+      <Stack.Screen name="trips/plan" options={{ title: t('trips.title') }} />
+      <Stack.Screen name="trips/built/[tripId]" options={{ title: t('trips.page.title') }} />
+      <Stack.Screen name="packages/index" options={{ title: t('mobile.search.titles.packages') }} />
+      <Stack.Screen name="packages/[slug]" options={{ title: '' }} />
+      <Stack.Screen name="tours/index" options={{ title: t('mobile.search.titles.tours') }} />
+      <Stack.Screen name="tours/[slug]" options={{ title: '' }} />
+      <Stack.Screen name="cars" options={{ title: t('mobile.cars.title') }} />
+      <Stack.Screen name="status" options={{ title: t('status.heading') }} />
+      <Stack.Screen name="buses/index" options={{ title: t('cars.buses.title') }} />
+      <Stack.Screen
+        name="buses/trips/[tripId]"
+        options={{ title: t('mobile.cars.busTripTitle') }}
+      />
+      <Stack.Screen name="rides/index" options={{ title: t('cars.rides.title') }} />
+      <Stack.Screen name="rides/[rideId]" options={{ title: t('cars.rides.live.title') }} />
+      <Stack.Screen name="rentals/index" options={{ title: t('cars.rentals.title') }} />
+      <Stack.Screen name="rentals/[slug]" options={{ title: '' }} />
+      <Stack.Screen name="driver/index" options={{ title: t('mobile.cars.driver.title') }} />
+      <Stack.Screen name="operator/scan" options={{ title: t('mobile.cars.operator.title') }} />
+      <Stack.Screen name="account/profile" options={{ title: t('account.nav.overview') }} />
+      <Stack.Screen
+        name="account/notifications"
+        options={{ title: t('account.nav.notifications') }}
+      />
+      <Stack.Screen
+        name="account/sessions"
+        options={{ title: t('account.security.sessions.heading') }}
+      />
+      <Stack.Screen name="account/referrals" options={{ title: t('account.nav.referrals') }} />
+      <Stack.Screen name="account/alerts" options={{ title: t('account.nav.alerts') }} />
+      <Stack.Screen name="account/company" options={{ title: t('account.nav.company') }} />
+      <Stack.Screen name="account/privacy" options={{ title: t('account.nav.privacy') }} />
+      <Stack.Screen
+        name="sign-in"
+        options={{ presentation: 'modal', title: t('mobile.auth.signInTitle') }}
+      />
+      <Stack.Screen
+        name="register"
+        options={{ presentation: 'modal', title: t('mobile.auth.registerTitle') }}
+      />
+    </Stack>
+  );
+}
 
 export default function RootLayout() {
+  // Family names must match @suskii/design-tokens fontFamily.native.
+  const [fontsLoaded] = useFonts({
+    PlusJakartaSans_700Bold,
+    PlusJakartaSans_800ExtraBold,
+    DMSans_400Regular,
+    DMSans_500Medium,
+    DMSans_700Bold,
+  });
+  const session = useBootstrap();
+
+  // Custom font families are unknown to iOS until loaded, so render nothing until then.
+  if (!fontsLoaded || !session) return null;
+
   return (
-    <>
-      <StatusBar style="auto" />
-      <Stack />
-    </>
+    <GestureHandlerRootView className="flex-1">
+      <SafeAreaProvider>
+        <AppProvider key={session.server} session={session.store}>
+          <StatusBar style="dark" />
+          <Gate />
+        </AppProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

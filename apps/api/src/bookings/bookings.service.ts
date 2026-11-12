@@ -1,0 +1,1077 @@
+import { isIP } from 'node:net';
+
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+
+import {
+  BOOKING_TERMS_VERSION,
+  checkPassengers,
+  contactDetailsSchema,
+  equals,
+  fromWire,
+  MAX_SAVED_TRAVELLERS,
+  PASSENGER_ISSUES,
+  PASSENGER_TYPES,
+  toWire,
+  type ContactDetails,
+  type Money,
+  type PassengerInput,
+  type PassengerIssue,
+} from '@suskii/shared';
+
+import { AuditService } from '../audit/audit.service';
+import { AttestationService } from '../attestation/attestation.service';
+import { TurnstileVerifier } from '../bot-protection/turnstile';
+import { BackgroundTasks } from '../common/background-tasks';
+import { fromJsonValue, toJsonValue } from '../common/json';
+import type { RequestContext } from '../common/request-context';
+import { uuidv7 } from '../common/uuid';
+import { APP_CONFIG, type AppConfig } from '../config/config';
+import { CompanyApprovalNotices, CompanyPolicyEvaluator } from '../companies/company-policy';
+import { AdAttribution } from '../marketing/ad-attribution';
+import { FieldEncryption } from '../crypto/field-encryption';
+import { HmacService } from '../crypto/hmac.service';
+import { randomToken } from '../crypto/random';
+import { Prisma, type Traveller } from '../generated/prisma/client';
+import { CarsFlags } from '../ground/cars-flags';
+import { TicketSigner } from '../ground/ticket-signer';
+import { SALES_CLOSE_MINUTES } from '../buses/bus-holds.service';
+import { PrismaService } from '../infra/prisma.service';
+import { withCurrentTier } from '../prime/prime-status';
+import { FxService } from '../pricing/fx.service';
+import { PricingService } from '../pricing/pricing.service';
+import type { ClientContext } from '../search/client-context';
+import {
+  offerUnavailable,
+  promoInvalid,
+  quoteExpired,
+  supplierUnavailable,
+} from '../search/search.errors';
+
+import { bookingReference, documentHint } from './booking-codes';
+import {
+  BOOKING_INCLUDE,
+  bookingPrice,
+  EMPTY_VIEW,
+  itemPayload,
+  pendingPrice,
+  toBookingDto,
+  toBookingSummary,
+  type BookingRecord,
+  type BookingView,
+} from './booking-presenter';
+import {
+  isInhouse,
+  itineraryFacts,
+  priceBookingItem,
+  totalOf,
+  type ExtraSelection,
+  type ItemPayload,
+  type PromoInput,
+} from './booking-pricing';
+import { BookingTransitions, type BookingActor } from './booking-transitions';
+import {
+  addonDetailsInvalid,
+  botCheckFailed,
+  bookingConflict,
+  companyBookingUnavailable,
+  extrasInvalid,
+  seatsInvalid,
+  passengersInvalid,
+  priceConsentMismatch,
+  termsOutdated,
+} from './booking.errors';
+import type { BookingDto, BookingSummaryDto, CreateBookingRequest } from './bookings.schemas';
+import { BookingAccessLinks } from './booking-access-links';
+import { BookingDocumentsService } from './booking-documents.service';
+import { BookingFundsService } from './booking-funds.service';
+import { busTicketViews } from './bus-tickets';
+import { InhouseFulfilment } from './inhouse-fulfilment';
+import { cancellableFlight } from './flight-cancellation';
+import { FlightSeatsService, SeatChoiceError } from './flight-seats.service';
+import { changeSlices, refundOfferOpen } from './schedule-changes';
+import { cancellationTerms, inhouseItineraryFacts, seatDeparture } from './inhouse-items';
+import { RENTAL_RESERVATION_INCLUDE, rentalReservationView } from './rental-views';
+import { claimBusSeats, claimRental, reserveSeats, syncRentalDeposit } from './seat-inventory';
+import {
+  addonDetailsContext,
+  contactContext,
+  customerIpContext,
+  passportContext,
+  rentalLicenceNumberContext,
+} from '../crypto/encryption-contexts';
+import { FLIGHT_SUPPLIERS, HOTEL_SUPPLIERS } from '../suppliers/suppliers.module';
+import type { FlightSupplier, HotelSupplier } from '../suppliers/supplier.types';
+import { bookingsCreated } from '../telemetry/metrics';
+
+/** Prices are held for at most this long after pricing (ADR-014). */
+export const PRICE_HOLD_MS = 30 * 60_000;
+const REFERENCE_ATTEMPTS = 5;
+const DOCUMENT_BACKFILL_AFTER_MS = 2 * 60_000;
+
+/** Who is asking: the pricing client, request metadata and a guest access token if any. */
+export interface BookingCaller {
+  client: ClientContext;
+  context: RequestContext;
+  token: string | null;
+  /** Raw `X-Suskii-Attestation` header (mobile guests, ADR-023). */
+  attestation?: string | null;
+}
+
+interface PreparedPassenger {
+  id: string;
+  position: number;
+  input: PassengerInput;
+  passport: { number: string; issuingCountry: string; expiryDate: string } | null;
+}
+
+const TYPE_ORDER: Record<(typeof PASSENGER_TYPES)[number], number> = {
+  adult: 0,
+  child: 1,
+  infant: 2,
+};
+
+export const customerActor = (caller: BookingCaller): BookingActor => ({
+  type: 'customer',
+  userId: caller.client.userId,
+  context: caller.context,
+});
+
+const dateOnly = (value: string): Date => new Date(`${value}T00:00:00.000Z`);
+const earliest = (...dates: Date[]): Date => new Date(Math.min(...dates.map((d) => d.getTime())));
+
+/**
+ * Creating, reading, re-consenting and cancelling bookings (ADR-014, ADR-015). Access is by
+ * ownership for account bookings and by the HMAC-checked access token for guest bookings; anyone
+ * else gets 404.
+ */
+@Injectable()
+export class BookingsService {
+  private readonly logger = new Logger(BookingsService.name);
+
+  constructor(
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
+    private readonly prisma: PrismaService,
+    private readonly pricing: PricingService,
+    private readonly fx: FxService,
+    private readonly hmac: HmacService,
+    private readonly encryption: FieldEncryption,
+    private readonly turnstile: TurnstileVerifier,
+    private readonly transitions: BookingTransitions,
+    private readonly audit: AuditService,
+    private readonly documents: BookingDocumentsService,
+    private readonly background: BackgroundTasks,
+    private readonly accessLinks: BookingAccessLinks,
+    private readonly funds: BookingFundsService,
+    private readonly attestation: AttestationService,
+    private readonly fulfilment: InhouseFulfilment,
+    private readonly ticketSigner: TicketSigner,
+    private readonly flags: CarsFlags,
+    private readonly companyPolicy: CompanyPolicyEvaluator,
+    private readonly approvalNotices: CompanyApprovalNotices,
+    private readonly adAttribution: AdAttribution,
+    @Inject(FLIGHT_SUPPLIERS) private readonly flightSuppliers: FlightSupplier[],
+    @Inject(HOTEL_SUPPLIERS) private readonly hotelSuppliers: HotelSupplier[],
+    private readonly seats: FlightSeatsService,
+  ) {}
+
+  // -------------------------------------------------------------------------
+  // Access and presentation
+  // -------------------------------------------------------------------------
+
+  /** The booking if the caller owns it or holds its access token; otherwise 404. */
+  async load(
+    bookingId: string,
+    caller: Pick<BookingCaller, 'client' | 'token'>,
+  ): Promise<BookingRecord> {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: BOOKING_INCLUDE,
+    });
+    if (!booking || !(await this.canAccess(booking, caller))) throw new NotFoundException();
+    return booking;
+  }
+
+  /** Owner by session; guests by the checkout token or a live access link from an email. */
+  private async canAccess(
+    booking: { id: string; userId: string | null; accessTokenHash: string | null },
+    caller: Pick<BookingCaller, 'client' | 'token'>,
+  ): Promise<boolean> {
+    if (booking.userId && caller.client.userId === booking.userId) return true;
+    if (!caller.token || booking.userId) return false;
+    if (
+      booking.accessTokenHash &&
+      this.hmac.verify('booking-access', caller.token, booking.accessTokenHash)
+    ) {
+      return true;
+    }
+    return this.accessLinks.valid(booking.id, caller.token);
+  }
+
+  contact(booking: { id: string; contactEncrypted: string }): ContactDetails {
+    const value: unknown = JSON.parse(
+      this.encryption.decrypt(booking.contactEncrypted, contactContext(booking.id)),
+    );
+    if (typeof value === 'object' && value !== null && 'redacted' in value) return REDACTED_CONTACT;
+    return contactDetailsSchema.parse(value);
+  }
+
+  async present(booking: BookingRecord): Promise<BookingDto> {
+    const now = new Date();
+    const [fx, funds] = await Promise.all([
+      this.fx.converter(),
+      this.funds.forBooking(booking, now),
+    ]);
+    const view = await this.view(booking, funds.paid, now);
+    return toBookingDto(booking, this.contact(booking), fx, now, funds, view);
+  }
+
+  /** Vouchers, cancellation terms, linked add-ons and visa applications (ADR-026 to ADR-028). */
+  private async view(booking: BookingRecord, paid: Money, now: Date): Promise<BookingView> {
+    const item = booking.items[0];
+    if (!item) return EMPTY_VIEW;
+    const payload = itemPayload(item);
+    const [
+      voucher,
+      linked,
+      addons,
+      applications,
+      membership,
+      busTickets,
+      ride,
+      rental,
+      scheduleChange,
+    ] = await Promise.all([
+      booking.status === 'CONFIRMED' && isInhouse(payload) && payload.kind !== 'visa'
+        ? this.prisma.bookingVoucher.findUnique({ where: { bookingItemId: item.id } })
+        : null,
+      booking.linkedBookingId
+        ? this.prisma.booking.findUnique({
+            where: { id: booking.linkedBookingId },
+            select: { id: true, reference: true },
+          })
+        : null,
+      booking.vertical === 'travel_addons'
+        ? []
+        : this.prisma.booking.findMany({
+            // Only the same traveller's add-ons: someone else may have linked one by reference.
+            where: {
+              linkedBookingId: booking.id,
+              status: { not: 'DRAFT' },
+              ...(booking.userId
+                ? { userId: booking.userId }
+                : { userId: null, contactEmailHash: booking.contactEmailHash }),
+            },
+            orderBy: { createdAt: 'asc' },
+            select: {
+              id: true,
+              reference: true,
+              status: true,
+              items: { select: { payload: true }, take: 1, orderBy: { createdAt: 'asc' } },
+            },
+          }),
+      payload.kind === 'visa'
+        ? this.prisma.visaApplication.findMany({
+            where: { bookingId: booking.id },
+            orderBy: { applicantPosition: 'asc' },
+          })
+        : [],
+      payload.kind === 'membership'
+        ? this.prisma.primeMembership.findUnique({
+            where: { bookingId: booking.id },
+            select: { startsAt: true, endsAt: true },
+          })
+        : null,
+      // Boarding passes stay listed after boarding or a refund, with their status.
+      payload.kind === 'bus'
+        ? this.prisma.busTicket.findMany({ where: { bookingItemId: item.id } })
+        : [],
+      payload.kind === 'ride'
+        ? this.prisma.ride.findUnique({ where: { bookingItemId: item.id }, select: { id: true } })
+        : null,
+      payload.kind === 'rental'
+        ? this.prisma.rentalReservation.findUnique({
+            where: { bookingItemId: item.id },
+            include: RENTAL_RESERVATION_INCLUDE,
+          })
+        : null,
+      payload.kind === 'flight'
+        ? this.prisma.flightScheduleChange.findFirst({
+            where: { bookingId: booking.id },
+            orderBy: { detectedAt: 'desc' },
+          })
+        : null,
+    ]);
+    const cancellable = cancellableFlight(booking, this.flightSuppliers, now);
+    return {
+      voucher: voucher ? this.fulfilment.view(voucher) : null,
+      cancellation:
+        isInhouse(payload) &&
+        (payload.kind !== 'rental' || rental?.status === 'reserved') &&
+        !busTickets.some((ticket) => ticket.status === 'boarded')
+          ? cancellationTerms(payload, booking.status, paid, now)
+          : null,
+      flightCancellable: cancellable !== null,
+      scheduleChange: scheduleChange
+        ? {
+            id: scheduleChange.id,
+            status: scheduleChange.status,
+            acceptable: scheduleChange.status === 'open' && scheduleChange.acceptable,
+            significant: scheduleChange.significant,
+            refundOffer:
+              paid.minor > 0n &&
+              refundOfferOpen(scheduleChange, cancellable?.item.id === scheduleChange.bookingItemId)
+                ? { amount: toWire(paid) }
+                : null,
+            detectedAt: scheduleChange.detectedAt.toISOString(),
+            previous: changeSlices(scheduleChange.removed),
+            updated: changeSlices(scheduleChange.added),
+          }
+        : null,
+      linkedBooking: linked,
+      addons: addons.flatMap((addon) => {
+        const first = addon.items[0];
+        const addonPayload = first ? itemPayload(first) : null;
+        return addonPayload?.kind === 'addon'
+          ? [
+              {
+                id: addon.id,
+                reference: addon.reference,
+                status: addon.status,
+                title: addonPayload.title,
+                type: addonPayload.type,
+              },
+            ]
+          : [];
+      }),
+      applications: applications.map((application) => ({
+        id: application.id,
+        applicantPosition: application.applicantPosition,
+        status: application.status,
+        submittedAt: application.submittedAt?.toISOString() ?? null,
+        updatedAt: application.updatedAt.toISOString(),
+      })),
+      membershipTerm: membership,
+      rideId: ride?.id ?? null,
+      showPriceBreakdown: this.flags.enabled('price_breakdown'),
+      rental: rental
+        ? rentalReservationView(rental, (licence) =>
+            this.encryption.decrypt(
+              licence.numberEncrypted,
+              rentalLicenceNumberContext(licence.id),
+            ),
+          )
+        : null,
+      busTickets:
+        payload.kind === 'bus'
+          ? busTicketViews(busTickets, booking.passengers, payload, this.ticketSigner)
+          : [],
+    };
+  }
+
+  async get(bookingId: string, caller: BookingCaller): Promise<BookingDto> {
+    const booking = await this.load(bookingId, caller);
+    // A confirmed booking whose documents failed to generate gets them now, off the request.
+    // Recent confirmations are left to ticketing, which is still rendering and emailing them.
+    const settled =
+      booking.confirmedAt !== null &&
+      Date.now() - booking.confirmedAt.getTime() > DOCUMENT_BACKFILL_AFTER_MS;
+    if (booking.status === 'CONFIRMED' && booking.documents.length === 0 && settled) {
+      this.background.run('booking-documents', () => this.documents.ensure(booking.id));
+    }
+    return this.present(booking);
+  }
+
+  /**
+   * The account's bookings, newest first (Trips). Only bookings that reached PRICED are listed;
+   * the cursor is the last id of the previous page (UUIDv7 ids sort by creation time).
+   */
+  async listForUser(
+    userId: string,
+    query: { cursor?: string | undefined; limit: number },
+  ): Promise<{ bookings: BookingSummaryDto[]; nextCursor: string | null }> {
+    const rows = await this.prisma.booking.findMany({
+      where: {
+        userId,
+        status: { not: 'DRAFT' },
+        // Memberships are not trips; they are listed by getMyPrime.
+        vertical: { not: 'prime' },
+        ...(query.cursor ? { id: { lt: query.cursor } } : {}),
+      },
+      orderBy: { id: 'desc' },
+      take: query.limit + 1,
+      select: {
+        id: true,
+        reference: true,
+        status: true,
+        vertical: true,
+        createdAt: true,
+        totalMinor: true,
+        currency: true,
+        items: { select: { payload: true }, take: 1, orderBy: { createdAt: 'asc' } },
+      },
+    });
+    const page = rows.slice(0, query.limit);
+    return {
+      bookings: page.flatMap((row) => toBookingSummary(row) ?? []),
+      nextCursor: rows.length > query.limit ? (page.at(-1)?.id ?? null) : null,
+    };
+  }
+
+  async reload(bookingId: string): Promise<BookingRecord> {
+    return this.prisma.booking.findUniqueOrThrow({
+      where: { id: bookingId },
+      include: BOOKING_INCLUDE,
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Create
+  // -------------------------------------------------------------------------
+
+  async create(
+    input: CreateBookingRequest,
+    caller: BookingCaller,
+  ): Promise<{ booking: BookingDto; accessToken: string | null }> {
+    const userId = caller.client.userId;
+    if (!userId) {
+      // Web guests send Turnstile; the app sends a device attestation instead (ADR-023).
+      const verified =
+        input.turnstileToken !== null
+          ? await this.turnstile.verify(input.turnstileToken, {
+              remoteIp: caller.context.ip,
+              action: 'checkout',
+            })
+          : (await this.attestation.verify(caller.attestation ?? undefined, 'checkout')) ===
+            'valid';
+      if (!verified) throw botCheckFailed();
+    }
+    if (input.termsVersion !== BOOKING_TERMS_VERSION) throw termsOutdated();
+
+    const quote = await this.prisma.offer.findUnique({ where: { id: input.quoteId } });
+    if (!quote) throw new NotFoundException();
+    const payload = fromJsonValue<ItemPayload>(quote.payload);
+    const now = new Date();
+    if (quote.expiresAt <= now) throw offerUnavailable(payload.request);
+    if (payload.kind === 'hotel' && !('query' in payload)) throw quoteExpired();
+    // A membership, ride or rental belongs to the account that asked for its quote (ADR-030,
+    // ADR-049): rides need an account for tracking and safety, rentals for the licence check,
+    // handovers and the deposit refund. An assisted offer was verified for one traveller's
+    // request and is theirs alone (ADR-104).
+    if (
+      (payload.kind === 'membership' ||
+        payload.kind === 'ride' ||
+        payload.kind === 'rental' ||
+        payload.kind === 'assisted') &&
+      (!userId || quote.userId !== userId)
+    ) {
+      throw new NotFoundException();
+    }
+    // Company trips (ADR-078) need an account; memberships, on-demand rides and assisted
+    // offers are personal.
+    if (
+      input.company &&
+      (!userId ||
+        payload.kind === 'membership' ||
+        payload.kind === 'ride' ||
+        payload.kind === 'assisted')
+    ) {
+      throw companyBookingUnavailable();
+    }
+
+    const passengers = await this.preparePassengers(input, payload, userId);
+    const extras = [
+      ...this.prepareExtras(input, payload, passengers),
+      ...(await this.prepareSeats(input, payload, passengers)),
+    ];
+    const itemId = uuidv7();
+    const storedPayload = this.withAddonDetails(input, payload, itemId);
+    const seats = isInhouse(payload) ? seatDeparture(payload) : null;
+
+    let promo: PromoInput = null;
+    if (input.promoCode) {
+      promo = await this.pricing.findPromo(input.promoCode, userId);
+      if (!promo) throw promoInvalid();
+    }
+    const [pricer, fx, client] = await Promise.all([
+      this.pricing.pricer(quote.vertical, quote.currency),
+      this.fx.converter(),
+      withCurrentTier(this.prisma, caller.client, now),
+    ]);
+    const priced = priceBookingItem(pricer, fx, payload, client, extras, promo, now);
+    if (promo && priced.promo?.status !== 'applied') throw promoInvalid();
+    // The policy is checked here, from the quote and its priced total, never from the client.
+    const company =
+      input.company && userId
+        ? await this.companyPolicy.forBooking(userId, payload, priced.total, fx, now)
+        : null;
+
+    const bookingId = uuidv7();
+    const accessToken = userId ? null : randomToken(32);
+    const actor = customerActor(caller);
+    const offerExpiry = new Date(
+      payload.kind === 'flight' ? payload.offer.expiresAt : quote.expiresAt.toISOString(),
+    );
+
+    const data = {
+      id: bookingId,
+      status: 'DRAFT' as const,
+      vertical: quote.vertical,
+      userId,
+      accessTokenHash: accessToken ? this.hmac.digest('booking-access', accessToken) : null,
+      contactEncrypted: this.encryption.encrypt(
+        JSON.stringify(input.contact),
+        contactContext(bookingId),
+      ),
+      contactEmailHash: this.hmac.digest('booking-email', input.contact.email),
+      currency: priced.total.currency,
+      totalMinor: priced.total.minor,
+      price: priced.price,
+      promoCodeId: priced.price.discount ? (promo?.data.id ?? null) : null,
+      channel: caller.client.channel ?? 'web',
+      locale: input.locale,
+      termsVersion: input.termsVersion,
+      termsAcceptedAt: now,
+      paymentDeadline: earliest(
+        payload.kind === 'bus'
+          ? earliest(offerExpiry, new Date(payload.holdExpiresAt))
+          : offerExpiry,
+        new Date(now.getTime() + PRICE_HOLD_MS),
+      ),
+      linkedBookingId: payload.kind === 'addon' ? payload.linkedBookingId : null,
+      // A metasearch partner's arrival (ADR-081) follows its quote into the booking.
+      metasearchLandingId: quote.metasearchLandingId,
+      ...(company ?? {}),
+      items: {
+        create: [
+          {
+            id: itemId,
+            type: payload.kind,
+            offerId: quote.id,
+            supplier: quote.supplier,
+            supplierOfferId: quote.supplierOfferId,
+            payload: toJsonValue(storedPayload) as Prisma.InputJsonValue,
+            services: extras as unknown as Prisma.InputJsonValue,
+            totalMinor: priced.total.minor,
+            currency: priced.total.currency,
+            customerIpEncrypted: this.customerIp(payload, itemId, caller.context.ip),
+            ...(seats
+              ? {
+                  [seats.kind === 'package' ? 'packageDepartureId' : 'tourDepartureId']:
+                    seats.departureId,
+                  seats: seats.seats,
+                  seatState: 'reserved' as const,
+                }
+              : {}),
+          },
+        ],
+      },
+      passengers: {
+        create:
+          payload.kind === 'hotel' ||
+          payload.kind === 'membership' ||
+          payload.kind === 'ride' ||
+          payload.kind === 'rental'
+            ? input.guests.map((guest, index) => ({
+                id: uuidv7(),
+                position: index,
+                type: 'adult' as const,
+                givenNames: guest.givenNames,
+                surname: guest.surname,
+                roomIndex: payload.kind === 'hotel' ? index : null,
+              }))
+            : passengers.map((passenger) => this.passengerRow(passenger)),
+      },
+    } satisfies Omit<Prisma.BookingUncheckedCreateInput, 'reference'>;
+
+    await this.insertWithReference(async (tx, reference) => {
+      // Package and tour seats are taken with the booking, or neither is (ADR-025).
+      if (seats) await reserveSeats(tx, seats);
+      await tx.booking.create({ data: { ...data, reference } });
+      // Bus seats come from the traveller's live hold, in seat order (ADR-051).
+      if (payload.kind === 'bus') {
+        await claimBusSeats(
+          tx,
+          {
+            holdId: payload.holdId,
+            tripId: payload.tripId,
+            seats: payload.seats,
+            bookingItemId: itemId,
+            passengerIds: passengers.map((passenger) => passenger.id),
+          },
+          now,
+        );
+      }
+      // The car is blocked with the booking, or neither is written (exclusion constraint).
+      if (payload.kind === 'rental') await claimRental(tx, payload, itemId, this.config);
+      await this.transitions.created(tx, { id: bookingId, status: 'DRAFT' }, actor);
+      await this.transitions.apply(tx, { id: bookingId, status: 'DRAFT' }, 'price', actor);
+      if (userId) await this.saveTravellers(tx, userId, passengers, actor);
+    });
+    bookingsCreated.add(1, { vertical: data.vertical, channel: data.channel });
+
+    // After the commit and never failing the booking: the attribution waits for payment (ADR-079).
+    await this.adAttribution.keep(bookingId, input.marketing);
+    const booking = await this.reload(bookingId);
+    if (company?.approvalStatus === 'pending' && userId) {
+      const notice = {
+        id: booking.id,
+        reference: booking.reference,
+        companyId: company.companyId,
+        userId,
+      };
+      this.background.run('company-approval-request', () =>
+        this.approvalNotices.requestApproval(notice),
+      );
+    }
+    return { booking: await this.present(booking), accessToken };
+  }
+
+  /** Retries with a fresh reference if one collides (the unique index decides). */
+  private async insertWithReference(
+    write: (tx: Prisma.TransactionClient, reference: string) => Promise<void>,
+  ): Promise<void> {
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        await this.prisma.$transaction((tx) => write(tx, bookingReference()));
+        return;
+      } catch (error) {
+        const collided =
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002' &&
+          JSON.stringify(error.meta ?? {}).includes('reference');
+        if (!collided || attempt >= REFERENCE_ATTEMPTS) throw error;
+      }
+    }
+  }
+
+  private passengerRow(
+    passenger: PreparedPassenger,
+  ): Prisma.BookingPassengerCreateWithoutBookingInput {
+    const { input, passport } = passenger;
+    return {
+      id: passenger.id,
+      position: passenger.position,
+      type: input.type,
+      title: input.title,
+      gender: input.gender,
+      givenNames: input.givenNames,
+      surname: input.surname,
+      dateOfBirth: dateOnly(input.dateOfBirth),
+      nationality: input.nationality,
+      passportEncrypted: passport
+        ? this.encryption.encrypt(
+            passport.number,
+            passportContext('booking-passenger', passenger.id),
+          )
+        : null,
+      documentHint: passport ? documentHint(passport.number) : null,
+      issuingCountry: passport?.issuingCountry ?? null,
+      documentExpiry: passport ? dateOnly(passport.expiryDate) : null,
+      travellerId: input.travellerId,
+      mealRequest: input.meal,
+    };
+  }
+
+  /**
+   * Resolves saved travellers' passports, checks every passenger against the offer and itinerary,
+   * and orders them as suppliers expect (adults, children, infants).
+   */
+  private async preparePassengers(
+    input: CreateBookingRequest,
+    payload: ItemPayload,
+    userId: string | null,
+  ): Promise<PreparedPassenger[]> {
+    if (
+      payload.kind === 'hotel' ||
+      payload.kind === 'membership' ||
+      payload.kind === 'ride' ||
+      payload.kind === 'rental'
+    ) {
+      // Hotel rooms take a lead guest each; a membership names its member, a ride its rider and
+      // a rental its renter.
+      const expected = payload.kind === 'hotel' ? payload.request.rooms.length : 1;
+      if (input.passengers.length > 0 || input.guests.length !== expected) {
+        throw passengersInvalid([
+          { index: null, path: ['guests'], code: PASSENGER_ISSUES.countMismatch },
+        ]);
+      }
+      return [];
+    }
+    if (input.guests.length > 0) {
+      throw passengersInvalid([
+        { index: null, path: ['guests'], code: PASSENGER_ISSUES.countMismatch },
+      ]);
+    }
+
+    const travellerIds = input.passengers
+      .map((passenger) => passenger.travellerId)
+      .filter((id): id is string => id !== null);
+    const travellers = new Map<string, Traveller>();
+    if (travellerIds.length > 0 && userId) {
+      const rows = await this.prisma.traveller.findMany({
+        where: { id: { in: travellerIds }, userId },
+      });
+      for (const row of rows) travellers.set(row.id, row);
+    }
+
+    const issues: PassengerIssue[] = [];
+    // A meal request is taken only when the fare's supplier passes it on to the airline.
+    const takesMeals = payload.kind === 'flight' && payload.offer.mealRequests === true;
+    input.passengers.forEach((passenger, index) => {
+      if (passenger.meal !== null && !takesMeals)
+        issues.push({ index, path: ['meal'], code: PASSENGER_ISSUES.mealUnavailable });
+    });
+    const resolved = input.passengers.map((passenger, index) => {
+      if (passenger.travellerId === null) {
+        const document = passenger.document;
+        return document?.number
+          ? {
+              number: document.number,
+              issuingCountry: document.issuingCountry,
+              expiryDate: document.expiryDate,
+            }
+          : null;
+      }
+      const traveller = travellers.get(passenger.travellerId);
+      if (!traveller) {
+        issues.push({ index, path: ['travellerId'], code: PASSENGER_ISSUES.travellerNotFound });
+        return null;
+      }
+      const stored = traveller.passportEncrypted
+        ? this.encryption.decrypt(
+            traveller.passportEncrypted,
+            passportContext('traveller', traveller.id),
+          )
+        : null;
+      const document = passenger.document;
+      const number = document?.number ?? stored;
+      const issuingCountry = document?.issuingCountry ?? traveller.issuingCountry;
+      const expiry =
+        document?.expiryDate ?? traveller.documentExpiry?.toISOString().slice(0, 10) ?? null;
+      return number && issuingCountry && expiry
+        ? { number, issuingCountry, expiryDate: expiry }
+        : null;
+    });
+    if (issues.length > 0) throw passengersInvalid(issues);
+
+    const { errors } = checkPassengers(
+      input.passengers.map((passenger, index) => ({
+        type: passenger.type,
+        dateOfBirth: passenger.dateOfBirth,
+        document: resolved[index] ? { expiryDate: resolved[index].expiryDate } : null,
+      })),
+      isInhouse(payload) ? inhouseItineraryFacts(payload) : itineraryFacts(payload),
+    );
+    // Eligibility was checked for one nationality; each applicant must hold it (ADR-026).
+    if (payload.kind === 'visa') {
+      input.passengers.forEach((passenger, index) => {
+        if (passenger.nationality !== payload.nationality)
+          errors.push({ index, path: ['nationality'], code: PASSENGER_ISSUES.nationalityMismatch });
+      });
+    }
+    if (errors.length > 0) throw passengersInvalid(errors);
+
+    const order = input.passengers
+      .map((passenger, index) => ({ passenger, index }))
+      .sort(
+        (a, b) => TYPE_ORDER[a.passenger.type] - TYPE_ORDER[b.passenger.type] || a.index - b.index,
+      );
+    const prepared: PreparedPassenger[] = new Array<PreparedPassenger>(input.passengers.length);
+    order.forEach(({ passenger, index }, position) => {
+      prepared[index] = {
+        id: uuidv7(),
+        position,
+        input: passenger,
+        passport: resolved[index] ?? null,
+      };
+    });
+    return prepared;
+  }
+
+  /**
+   * Add-ons: checks the details the product needs and stores them encrypted with the item's id
+   * (a pickup address is personal data). Other products take no add-on details.
+   */
+  /**
+   * The checkout IP, encrypted, for a hotel whose supplier must send it when it books after
+   * payment (ADR-086); IPv4-mapped addresses are kept as plain IPv4. Null for everything else.
+   */
+  private customerIp(payload: ItemPayload, itemId: string, ip: string): string | null {
+    if (payload.kind !== 'hotel') return null;
+    const supplier = this.hotelSuppliers.find((s) => s.name === payload.hotel.supplier);
+    if (!supplier?.needsCustomerIp) return null;
+    const mapped = ip.startsWith('::ffff:') ? ip.slice('::ffff:'.length) : null;
+    const address = mapped && isIP(mapped) === 4 ? mapped : ip;
+    if (isIP(address) === 0) return null;
+    return this.encryption.encrypt(address, customerIpContext(itemId));
+  }
+
+  private withAddonDetails(
+    input: CreateBookingRequest,
+    payload: ItemPayload,
+    itemId: string,
+  ): ItemPayload {
+    const details = input.addonDetails;
+    if (payload.kind !== 'addon') {
+      if (details) throw addonDetailsInvalid([]);
+      return payload;
+    }
+    const wanted = {
+      flight_number: details?.flightNumber ?? null,
+      arrival_time: details?.arrivalTime ?? null,
+      pickup_address: details?.pickupAddress ?? null,
+    };
+    const missing = payload.requiredDetails.filter(
+      (field) => field !== 'dates_of_birth' && wanted[field] === null,
+    );
+    if (missing.length > 0) throw addonDetailsInvalid(missing);
+    if (!details) return payload;
+    return {
+      ...payload,
+      detailsEncrypted: this.encryption.encrypt(
+        JSON.stringify(details),
+        addonDetailsContext(itemId),
+      ),
+    };
+  }
+
+  /** Validates extras against the offer and maps passenger indexes to booking positions. */
+  private prepareExtras(
+    input: CreateBookingRequest,
+    payload: ItemPayload,
+    passengers: PreparedPassenger[],
+  ): ExtraSelection[] {
+    if (input.extras.length === 0) return [];
+    if (payload.kind !== 'flight') throw extrasInvalid();
+    const seen = new Set<string>();
+    return input.extras.map((extra) => {
+      const service = payload.offer.services.find((candidate) => candidate.id === extra.serviceId);
+      const passenger = passengers[extra.passengerIndex];
+      const key = `${extra.serviceId}|${extra.passengerIndex}`;
+      if (
+        !service ||
+        !passenger ||
+        passenger.input.type === 'infant' ||
+        extra.quantity > service.maxQuantity ||
+        seen.has(key)
+      ) {
+        throw extrasInvalid();
+      }
+      seen.add(key);
+      return {
+        serviceId: service.id,
+        passengerIndex: passenger.position,
+        quantity: extra.quantity,
+        type: service.type,
+        weightKg: service.weightKg,
+      };
+    });
+  }
+
+  /**
+   * Chosen seats as extras (ADR-094): checked against the airline's seat map as it is now, each
+   * with the airline's price. Passenger indexes become booking positions, as for extras.
+   */
+  private async prepareSeats(
+    input: CreateBookingRequest,
+    payload: ItemPayload,
+    passengers: PreparedPassenger[],
+  ): Promise<ExtraSelection[]> {
+    if (input.seats.length === 0) return [];
+    if (payload.kind !== 'flight') throw seatsInvalid('unknown_flight');
+    try {
+      return await this.seats.select(
+        payload.offer,
+        input.seats,
+        passengers.map((passenger) => passenger.position),
+      );
+    } catch (error) {
+      if (error instanceof SeatChoiceError) throw seatsInvalid(error.issue);
+      // The map could not be read: nothing is booked on a seat we could not confirm.
+      this.logger.warn({ reason: (error as Error).name }, 'seat map unavailable at booking');
+      throw supplierUnavailable();
+    }
+  }
+
+  /** "Save this traveller" at checkout: creates or updates saved travellers (limit permitting). */
+  private async saveTravellers(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    passengers: PreparedPassenger[],
+    actor: BookingActor,
+  ): Promise<void> {
+    const toSave = passengers.filter((passenger) => passenger.input.saveTraveller);
+    if (toSave.length === 0) return;
+    let count = await tx.traveller.count({ where: { userId } });
+    for (const { input, passport } of toSave) {
+      const fields = {
+        title: input.title,
+        gender: input.gender,
+        givenNames: input.givenNames,
+        surname: input.surname,
+        dateOfBirth: dateOnly(input.dateOfBirth),
+        nationality: input.nationality,
+      };
+      if (input.travellerId) {
+        await tx.traveller.updateMany({
+          where: { id: input.travellerId, userId },
+          data: {
+            ...fields,
+            ...(passport
+              ? {
+                  passportEncrypted: this.encryption.encrypt(
+                    passport.number,
+                    passportContext('traveller', input.travellerId),
+                  ),
+                  documentHint: documentHint(passport.number),
+                  issuingCountry: passport.issuingCountry,
+                  documentExpiry: dateOnly(passport.expiryDate),
+                }
+              : {}),
+          },
+        });
+        continue;
+      }
+      // The limit is a soft convenience cap: skipping is better than failing a booking.
+      if (count >= MAX_SAVED_TRAVELLERS) continue;
+      const id = uuidv7();
+      await tx.traveller.create({
+        data: {
+          id,
+          userId,
+          ...fields,
+          passportEncrypted: passport
+            ? this.encryption.encrypt(passport.number, passportContext('traveller', id))
+            : null,
+          documentHint: passport ? documentHint(passport.number) : null,
+          issuingCountry: passport?.issuingCountry ?? null,
+          documentExpiry: passport ? dateOnly(passport.expiryDate) : null,
+        },
+      });
+      count += 1;
+      await this.audit.record(
+        {
+          action: 'traveller.created',
+          actorUserId: userId,
+          targetType: 'traveller',
+          targetId: id,
+          ...(actor.context ? { context: actor.context } : {}),
+          metadata: { source: 'checkout' },
+        },
+        tx,
+      );
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Consent and cancel
+  // -------------------------------------------------------------------------
+
+  /** Accepts a re-priced total; `total` must equal the pending total exactly. */
+  async consent(
+    bookingId: string,
+    total: { amountMinor: number; currency: string },
+    caller: BookingCaller,
+  ): Promise<BookingDto> {
+    const booking = await this.load(bookingId, caller);
+    const agreed = fromWire(total);
+    const pending = pendingPrice(booking);
+    if (!pending) {
+      // Repeating a consent that already went through is harmless.
+      if (equals(totalOf(bookingPrice(booking)), agreed)) return this.present(booking);
+      throw priceConsentMismatch();
+    }
+    if (!equals(totalOf(pending.price), agreed)) throw priceConsentMismatch();
+    if (booking.status !== 'PRICED' && booking.status !== 'HELD') throw bookingConflict();
+
+    const actor = customerActor(caller);
+    const now = new Date();
+    const offerExpiry = pending.items
+      .map((item) =>
+        item.payload.kind === 'flight'
+          ? new Date(item.payload.offer.expiresAt)
+          : item.payload.kind === 'bus'
+            ? // Bus sales close before departure (holds and searches do the same).
+              new Date(Date.parse(item.payload.departsAtUtc) - SALES_CLOSE_MINUTES * 60_000)
+            : null,
+      )
+      .filter((date): date is Date => date !== null);
+    // A held booking keeps its plan's deadline; its single payment becomes the new total.
+    const hold =
+      booking.paymentPlan?.status === 'active' && booking.paymentPlan.kind === 'hold'
+        ? booking.paymentPlan
+        : null;
+    await this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.booking.updateMany({
+        where: { id: booking.id, status: booking.status },
+        data: {
+          price: pending.price,
+          totalMinor: agreed.minor,
+          pendingPrice: Prisma.DbNull,
+          ...(hold
+            ? {}
+            : {
+                paymentDeadline: earliest(new Date(now.getTime() + PRICE_HOLD_MS), ...offerExpiry),
+              }),
+        },
+      });
+      if (count !== 1) throw bookingConflict();
+      if (hold) {
+        await tx.paymentPlan.update({ where: { id: hold.id }, data: { totalMinor: agreed.minor } });
+        await tx.installment.updateMany({
+          where: { planId: hold.id, status: 'pending' },
+          data: { amountMinor: agreed.minor },
+        });
+      }
+      for (const item of pending.items) {
+        await tx.bookingItem.update({
+          where: { id: item.id },
+          data: {
+            supplierOfferId: item.supplierOfferId,
+            payload: toJsonValue(item.payload) as Prisma.InputJsonValue,
+            services: item.services as unknown as Prisma.InputJsonValue,
+            totalMinor: agreed.minor,
+          },
+        });
+        await syncRentalDeposit(tx, item.id, item.payload);
+      }
+      await this.audit.record(
+        {
+          action: 'booking.price_consented',
+          actorUserId: actor.userId ?? null,
+          targetType: 'booking',
+          targetId: booking.id,
+          context: caller.context,
+          metadata: {
+            previousMinor: booking.totalMinor.toString(),
+            currentMinor: agreed.minor.toString(),
+            currency: agreed.currency,
+          },
+        },
+        tx,
+      );
+    });
+    return this.present(await this.reload(booking.id));
+  }
+
+  async cancel(bookingId: string, caller: BookingCaller): Promise<BookingDto> {
+    const booking = await this.load(bookingId, caller);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.payment.updateMany({
+        where: { bookingId: booking.id, status: 'pending' },
+        data: { status: 'cancelled' },
+      });
+      await this.transitions.apply(tx, booking, 'cancel', customerActor(caller), {
+        reason: 'customer_request',
+        data: { pendingPrice: Prisma.DbNull },
+      });
+    });
+    return this.present(await this.reload(booking.id));
+  }
+}
+
+export { addonDetailsContext, contactContext, passportContext };
+/** Stored (encrypted) in place of the contact once an account is deleted (ADR-029). */
+export const REDACTED_CONTACT_PAYLOAD = JSON.stringify({ redacted: true });
+/** How a wiped contact reads: a reserved address no email is ever sent to. */
+export const REDACTED_CONTACT: ContactDetails = { email: 'redacted@redacted.invalid', phone: '' };

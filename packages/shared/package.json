@@ -5,7 +5,9 @@
   "description": "Framework-agnostic domain constants, Zod schemas, types and utilities shared by API, web, admin and mobile",
   "license": "UNLICENSED",
   "type": "module",
-  "sideEffects": false,
+  "sideEffects": [
+    "./src/zod-setup.ts"
+  ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -20,6 +22,16 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./lite": {
+      "import": {
+        "types": "./dist/lite.d.ts",
+        "default": "./dist/lite.js"
+      },
+      "require": {
+        "types": "./dist/lite.d.cts",
+        "default": "./dist/lite.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -31,6 +43,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:cov": "vitest run --coverage",
     "test:watch": "vitest",
     "clean": "rimraf dist .turbo coverage"
   },
@@ -39,8 +52,10 @@
   },
   "devDependencies": {
     "@suskii/config": "workspace:*",
+    "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
+    "fast-check": "catalog:",
     "rimraf": "catalog:",
     "tsup": "catalog:",
     "typescript": "catalog:",

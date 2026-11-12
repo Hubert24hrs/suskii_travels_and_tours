@@ -17,6 +17,7 @@ env:
   TURBO_TELEMETRY_DISABLED: 1
   NEXT_TELEMETRY_DISABLED: 1
   EXPO_NO_TELEMETRY: 1
+  STORYBOOK_DISABLE_TELEMETRY: 1
   # Pull requests only run tasks for workspaces affected by the diff against the base
   # branch (plus their dependents). Pushes to main and manual runs check everything.
   AFFECTED: ${{ github.event_name == 'pull_request' && '--affected' || '' }}
@@ -24,27 +25,50 @@ env:
 jobs:
   verify:
     name: Lint, typecheck, test, build
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # A named image, not `ubuntu-latest`: this job installs Chromium's system packages with apt
+    # and compares screenshots, so it must not change under us. When `ubuntu-latest` moved to
+    # 26.04 the browser cache missed and the package install failed to resolve the Ubuntu
+    # mirrors, before any test ran. Move to a newer image deliberately, with the screenshot
+    # baselines (visual-baselines.yml uses the same image).
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    # Throwaway services for the web and admin e2e stacks and the worker's BullMQ test. The API
+    # e2e suite starts its own containers (Testcontainers). Credentials are CI-only, never real.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: suskii
+          POSTGRES_PASSWORD: suskii_ci
+          POSTGRES_DB: suskii_web_e2e
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U suskii" --health-interval 5s --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7.4-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s
+          --health-retries 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Full history so `turbo --affected` can find the merge base.
           fetch-depth: 0
           persist-credentials: false
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v6
-
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
 
       - name: Restore Turborepo cache
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .turbo/cache
           key: turbo-${{ runner.os }}-${{ github.sha }}
@@ -54,8 +78,57 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # ui-web component tests run in real Chromium (axe colour-contrast needs a browser).
+      - name: Restore Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Playwright Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm --filter @suskii/ui-web exec playwright install chromium
+
+      # apt adds fallback fonts to the libraries the runner image already has. When the Ubuntu
+      # mirrors cannot be reached, the script starts the browser on what the image has and the
+      # job goes on under a warning, instead of ending before a single test ran. No test is
+      # skipped: a browser that cannot start fails this step.
+      - name: Install Playwright system dependencies
+        run: node scripts/ci-playwright-deps.mjs
+
       - name: Check formatting
         run: pnpm format:check
+
+      # ASVS and MASVS checklist (ADR-048): every requirement mapped, evidence paths exist, page current.
+      - name: Check security checklist
+        run: pnpm security:checklist --check
+
+      # Expand/contract guard (ADR-060): a migration added by this change must keep the revision
+      # still serving traffic working, or say on its own line why it is safe.
+      - name: Check new migrations are expand/contract
+        run: node scripts/check-migrations.mjs
+
+      # Repository scripts (migration guard, canary gate) have node:test suites.
+      - name: Script tests
+        run: pnpm test:scripts
+
+      # Alert rules (ADR-047): syntax and unit tests with a pinned, checksum-verified promtool.
+      - name: Check alert rules
+        run: |
+          archive="$RUNNER_TEMP/prometheus.tar.gz"
+          curl -fsSL -o "$archive" \
+            "https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
+          echo "${PROMETHEUS_SHA256}  ${archive}" | sha256sum -c -
+          tar -xzf "$archive" -C "$RUNNER_TEMP" --strip-components=1 \
+            "prometheus-${PROMETHEUS_VERSION}.linux-amd64/promtool"
+          "$RUNNER_TEMP/promtool" check rules infra/observability/alerts/suskii.rules.yml \
+            infra/observability/alerts/suskii.slo.rules.yml
+          "$RUNNER_TEMP/promtool" test rules infra/observability/alerts/suskii.rules.test.yml \
+            infra/observability/alerts/suskii.slo.rules.test.yml
+        env:
+          PROMETHEUS_VERSION: 3.14.0
+          PROMETHEUS_SHA256: f665c6da19eb7ba399c915d30c7d9793c9b417bf8a749b504bc470678631478d
 
       - name: Lint
         run: pnpm lint ${{ env.AFFECTED }}
@@ -65,9 +138,196 @@ jobs:
 
       - name: Unit tests
         run: pnpm test ${{ env.AFFECTED }}
+        env:
+          TEST_REDIS_URL: redis://localhost:6379/1
 
+      # Key ui-web components against reference screenshots made on this runner image
+      # (visual-baselines.yml); a failure uploads the actual and diff images with the reports.
+      - name: Visual regression (ui-web)
+        run: pnpm exec turbo run test:visual --filter=@suskii/ui-web ${{ env.AFFECTED }}
+
+      # 80% gates on the money, pricing and lifecycle rules (phase 11): unit coverage for the pure
+      # modules here, e2e coverage for the services that need Postgres in the next step.
+      - name: Coverage gates (unit)
+        run: pnpm exec turbo run test:cov --filter=@suskii/api --filter=@suskii/shared ${{ env.AFFECTED }}
+
+      # Testcontainers starts Postgres and Redis on the runner's Docker daemon. Runs with coverage:
+      # pricing, auth, the ledger, booking transitions and installments must stay at 80% or more.
       - name: E2E tests (API)
-        run: pnpm test:e2e ${{ env.AFFECTED }}
+        run: pnpm exec turbo run test:e2e:cov --filter=@suskii/api ${{ env.AFFECTED }}
+
+      # Builds web, API and worker, boots them against the service containers (seed plus one
+      # worker refresh), runs the Playwright suite, then the Lighthouse gate on its own.
+      - name: E2E and Lighthouse tests (web)
+        run: |
+          # Lighthouse drives Playwright's headless shell (installed with Chromium).
+          CHROME_PATH="$(find ~/.cache/ms-playwright -type f \( -name chrome-headless-shell -o -name headless_shell \) | head -n 1)"
+          export CHROME_PATH
+          pnpm exec turbo run test:e2e --filter=@suskii/web ${{ env.AFFECTED }}
+        env:
+          WEB_E2E_DATABASE_URL: postgresql://suskii:suskii_ci@localhost:5432/suskii_web_e2e
+          WEB_E2E_REDIS_URL: redis://localhost:6379/2
+          LIGHTHOUSE_RUNS: 3
+          # Every journey signs in from this runner's one address within a minute or two; the
+          # per-IP limits are covered by the API e2e suite (as for the admin console).
+          E2E_RATE_LIMIT_ENABLED: 'false'
+
+      # The assistant is off in production until the owner switches it on (ADR-101). The search
+      # and booking journeys run once more on a stack without it: no page may offer it, its
+      # pages must not exist, and nothing of search or booking may depend on it.
+      - name: E2E tests (web, assistant switched off)
+        run: |
+          pnpm exec turbo run build --filter=@suskii/web --filter=@suskii/api --filter=@suskii/worker
+          pnpm --filter @suskii/web exec playwright test e2e/assistant.spec.ts e2e/search.spec.ts e2e/booking.spec.ts --project=chromium
+        env:
+          E2E_AGENT: 'off'
+          WEB_E2E_DATABASE_URL: postgresql://suskii:suskii_ci@localhost:5432/suskii_web_e2e
+          WEB_E2E_REDIS_URL: redis://localhost:6379/2
+          E2E_RATE_LIMIT_ENABLED: 'false'
+
+      - name: Upload web test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: web-e2e-reports
+          path: |
+            apps/web/playwright-report/
+            apps/web/test-results/
+            apps/web/lighthouse-report/
+            packages/ui-web/.vitest/attachments/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      # Builds the console and the API, boots them against a new database on the service
+      # container (seed, demo inventory, e2e staff accounts and paid bookings) and runs the
+      # staff journeys, the audit log check and axe on every page.
+      - name: E2E tests (admin)
+        run: pnpm exec turbo run test:e2e --filter=@suskii/admin ${{ env.AFFECTED }}
+        env:
+          ADMIN_E2E_DATABASE_URL: postgresql://suskii:suskii_ci@localhost:5432/suskii_web_e2e
+          ADMIN_E2E_REDIS_URL: redis://localhost:6379/3
+
+      - name: Upload admin test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: admin-e2e-reports
+          # The run's throwaway credentials (state.json) stay out of the artifact.
+          path: |
+            apps/admin/playwright-report/
+            apps/admin/test-results/
+            !apps/admin/test-results/stack/state.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+      # The OpenAPI document and the generated client are committed; both must match the code.
+      - name: Check OpenAPI document and API client are up to date
+        run: |
+          pnpm generate:api
+          git diff --exit-code -- apps/api/openapi.json packages/api-client/src/schema.ts
 
       - name: Build
         run: pnpm build ${{ env.AFFECTED }}
+
+      # Everything in the app bundle is public; fail if a secret reached it (ADR-024). Native
+      # builds (APK, iOS app) are scanned in mobile.yml.
+      - name: Scan the mobile bundle for secrets
+        # Needs the mobile export, which pull requests skip when the app is unaffected.
+        run: |
+          node apps/mobile/scripts/scan-bundle.mjs --self-test
+          if [ -d apps/mobile/dist ]; then node apps/mobile/scripts/scan-bundle.mjs apps/mobile/dist; fi
+
+      # Tailwind drops unknown classes silently; fail when a class used in the web app has no CSS.
+      - name: Check Tailwind classes (web)
+        # Needs the web build, which pull requests skip when the web app is unaffected.
+        run: |
+          if [ -d apps/web/.next ]; then pnpm --filter @suskii/web check:classes; fi
+
+      - name: Build Storybook
+        run: pnpm build:storybook ${{ env.AFFECTED }}
+
+  # k6 load test (ADR-045): catalog reads, the guest booking journey and a guest's conversation
+  # with the assistant (answered by the mock inside the API) against the e2e stack with mock
+  # suppliers, judged on PROJECT_SPEC.json#/performance/api_targets. Its own runner, so the
+  # other suites do not skew the latencies.
+  load:
+    name: Load test (k6)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      K6_VERSION: v2.2.0
+      K6_SHA256: b5a8003c86f35f5cd5ceef1490312c48e587696c94d998cefc6d7b3b4cb1597d
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: suskii
+          POSTGRES_PASSWORD: suskii_ci
+          POSTGRES_DB: suskii_load
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U suskii" --health-interval 5s --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7.4-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s
+          --health-retries 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the web app, API and worker
+        run: pnpm exec turbo run build --filter=@suskii/web --filter=@suskii/api --filter=@suskii/worker
+
+      # A pinned release, checked against its published SHA-256 before it runs.
+      - name: Install k6
+        run: |
+          archive="$RUNNER_TEMP/k6.tar.gz"
+          curl -fsSL -o "$archive" \
+            "https://github.com/grafana/k6/releases/download/${K6_VERSION}/k6-${K6_VERSION}-linux-amd64.tar.gz"
+          echo "${K6_SHA256}  ${archive}" | sha256sum -c -
+          tar -xzf "$archive" -C "$RUNNER_TEMP" --strip-components=1 "k6-${K6_VERSION}-linux-amd64/k6"
+
+      # The e2e stack with rate limiting off: a load test measures capacity, not the per-IP limits.
+      - name: Start the stack
+        run: |
+          nohup pnpm --filter @suskii/web e2e:stack > stack.log 2>&1 &
+          for _ in $(seq 1 150); do
+            if grep -q 'STACK READY' stack.log; then exit 0; fi
+            sleep 2
+          done
+          cat stack.log
+          exit 1
+        env:
+          WEB_E2E_DATABASE_URL: postgresql://suskii:suskii_ci@localhost:5432/suskii_load
+          WEB_E2E_REDIS_URL: redis://localhost:6379/5
+          E2E_RATE_LIMIT_ENABLED: 'false'
+          # Every guest of the load test writes from one address (US$1,000 a day).
+          E2E_AGENT_GUEST_DAILY_MICROUSD: '1000000000'
+
+      - name: k6
+        run: '"$RUNNER_TEMP/k6" run --summary-export=k6-summary.json load/k6/api.js'
+
+      - name: Upload the k6 summary
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: k6-summary
+          path: k6-summary.json
+          if-no-files-found: ignore
+          retention-days: 14

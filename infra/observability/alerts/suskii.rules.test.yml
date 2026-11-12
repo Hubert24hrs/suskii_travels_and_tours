@@ -1,0 +1,315 @@
+# Unit tests for the alert rules: promtool test rules infra/observability/alerts/suskii.rules.test.yml
+rule_files:
+  - suskii.rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: a failed webhook pages at once
+    interval: 1m
+    input_series:
+      - series: 'suskii_payment_webhooks_total{provider="paystack", result="failed"}'
+        values: '0 0 1 1 1'
+      - series: 'suskii_payment_webhooks_total{provider="paystack", result="processed"}'
+        values: '0 5 10 15 20'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: PaymentWebhookProcessingFailed
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: PaymentWebhookProcessingFailed
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              provider: paystack
+            exp_annotations:
+              summary: 'paystack webhooks are failing inside the API'
+              description: >-
+                Verified payment events could not be applied. Providers retry, but payments
+                stay unconfirmed until the cause is fixed.
+              runbook: docs/runbooks/payment-provider-outage.md
+
+  - name: ticketing pages once the oldest booking waits 30 minutes, not before
+    interval: 1m
+    input_series:
+      # Every API replica reports the same gauge.
+      - series: 'suskii_ticketing_oldest_age_seconds{instance="api-1"}'
+        values: '1500+60x20'
+      - series: 'suskii_ticketing_oldest_age_seconds{instance="api-2"}'
+        values: '1500+60x20'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: TicketingStuck
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: TicketingStuck
+        exp_alerts:
+          - exp_labels:
+              severity: page
+            exp_annotations:
+              summary: 'A paid booking has waited more than 30 minutes for its ticket'
+              runbook: docs/runbooks/ticketing-backlog.md
+
+  - name: database connections compare one replica's view with the limit
+    interval: 1m
+    input_series:
+      # Two replicas each report 45 active and 40 idle of max 100: 85%, not 170%.
+      - series: 'suskii_db_connections{instance="api-1", state="active"}'
+        values: '45x15'
+      - series: 'suskii_db_connections{instance="api-2", state="active"}'
+        values: '45x15'
+      - series: 'suskii_db_connections{instance="api-1", state="idle"}'
+        values: '40x15'
+      - series: 'suskii_db_connections{instance="api-2", state="idle"}'
+        values: '40x15'
+      - series: 'suskii_db_connections{instance="api-1", state="max"}'
+        values: '100x15'
+      - series: 'suskii_db_connections{instance="api-2", state="max"}'
+        values: '100x15'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: DatabaseConnectionsHigh
+        exp_alerts:
+          - exp_labels:
+              severity: page
+            exp_annotations:
+              summary: 'The database is above 80% of its connection limit'
+              description: >-
+                New requests will soon fail to connect. Look for a connection leak or too many
+                replicas for the pool size before raising the limit.
+              runbook: docs/runbooks/database-restore.md
+
+  - name: the API error rate needs enough traffic to page
+    interval: 1m
+    input_series:
+      # 3% errors but only 0.1 requests a second: quiet.
+      - series: 'http_server_request_duration_seconds_count{http_response_status_code="500"}'
+        values: '0+0.18x30'
+      - series: 'http_server_request_duration_seconds_count{http_response_status_code="200"}'
+        values: '0+5.82x30'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: ApiErrorRateHigh
+        exp_alerts: []
+
+  - name: an SOS pages at once
+    interval: 1m
+    input_series:
+      - series: 'suskii_ride_sos_total{instance="api-1", by="rider"}'
+        values: '0 0 1 1 1'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: RideSosRaised
+        exp_alerts:
+          - exp_labels:
+              severity: page
+            exp_annotations:
+              summary: 'A rider or driver raised an SOS'
+              description: >-
+                Someone on a ride asked for help. Open the incident in the console (Rides and
+                safety) and follow the safety runbook now; their emergency contacts have been
+                texted.
+              runbook: docs/runbooks/ride-safety-incident.md
+
+  - name: a stalled dispatcher pages, a search inside the timeout does not
+    interval: 1m
+    input_series:
+      - series: 'suskii_rides_oldest_search_age_seconds{instance="api-1"}'
+        values: '120 180 240 300 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 960 1020 1080 1140 1200 1260 1320'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: RideDispatchStalled
+        exp_alerts: []
+      - eval_time: 31m
+        alertname: RideDispatchStalled
+        exp_alerts:
+          - exp_labels:
+              severity: page
+            exp_annotations:
+              summary: 'A ride has searched for a driver for over 15 minutes'
+              description: >-
+                Searches end with a refund after RIDE_MATCH_TIMEOUT_SECONDS (5 minutes), so the
+                dispatcher has stopped: riders are waiting on a paid ride that nobody is offered.
+              runbook: docs/runbooks/stuck-ride.md
+
+  - name: the no-driver rate needs enough searches
+    interval: 1m
+    input_series:
+      # Half the searches fail, but only 6 in the hour: quiet.
+      - series: 'suskii_ride_matches_total{instance="api-1", outcome="no_driver"}'
+        values: '0+0.05x90'
+      - series: 'suskii_ride_matches_total{instance="api-1", outcome="assigned"}'
+        values: '0+0.05x90'
+    alert_rule_test:
+      - eval_time: 90m
+        alertname: RideNoDriverRateHigh
+        exp_alerts: []
+
+  - name: a breach notice pages once it is due within 12 hours, an overdue request opens a ticket
+    interval: 1m
+    input_series:
+      # Every API replica reports the same registers.
+      - series: 'suskii_privacy_breach_notices_pending{instance="api-1", state="later"}'
+        values: '1x20'
+      - series: 'suskii_privacy_breach_notices_pending{instance="api-1", state="due_soon"}'
+        values: '0x5 1x15'
+      - series: 'suskii_privacy_breach_notices_pending{instance="api-2", state="due_soon"}'
+        values: '0x5 1x15'
+      - series: 'suskii_privacy_requests_open{instance="api-1", state="overdue"}'
+        values: '0x70 1x70'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: PrivacyBreachNoticeDue
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: PrivacyBreachNoticeDue
+        exp_alerts:
+          - exp_labels:
+              severity: page
+            exp_annotations:
+              summary: 'A regulator must hear about a personal data breach within 12 hours'
+              description: >-
+                A breach notice is pending with less than 12 hours to its deadline, or past it.
+                Notify the regulator, or record that no notice is required, in the console
+                (Privacy).
+              runbook: docs/runbooks/personal-data-breach.md
+      - eval_time: 100m
+        alertname: PrivacyRequestOverdue
+        exp_alerts: []
+      - eval_time: 135m
+        alertname: PrivacyRequestOverdue
+        exp_alerts:
+          - exp_labels:
+              severity: ticket
+            exp_annotations:
+              summary: 'A data rights request is past its due time'
+              description: >-
+                A request recorded in the privacy register has not been answered in the time its
+                jurisdiction allows. Answer it, or record the refusal and its reason.
+              runbook: docs/runbooks/data-rights-requests.md
+
+  - name: the assistant's failing runs raise a ticket when they are many and a large share
+    interval: 1m
+    input_series:
+      # A fifth of the runs fail: one a minute against four that answer.
+      - series: 'suskii_agent_runs_total{outcome="model_error", agent="flights", channel="web"}'
+        values: '0+1x60'
+      - series: 'suskii_agent_runs_total{outcome="answered", agent="flights", channel="web"}'
+        values: '0+3x60'
+      # A handful of failures among many answers is not an incident.
+      - series: 'suskii_agent_runs_total{outcome="timeout", agent="hotels", channel="app"}'
+        values: '0+0x60'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: AssistantRunsFailing
+        exp_alerts: []
+      - eval_time: 45m
+        alertname: AssistantRunsFailing
+        exp_alerts:
+          - exp_labels:
+              severity: ticket
+            exp_annotations:
+              summary: "Many of the assistant's runs are failing"
+              description: >-
+                The model provider or the agent service is failing, and people read a notice
+                instead of an answer. Search, booking and payment do not depend on it. Pause the
+                assistant if it lasts.
+              runbook: docs/runbooks/ai-agent.md
+
+  - name: a few failed runs among many answers raise nothing
+    interval: 1m
+    input_series:
+      - series: 'suskii_agent_runs_total{outcome="timeout", agent="flights", channel="web"}'
+        values: '0+1x60'
+      - series: 'suskii_agent_runs_total{outcome="answered", agent="flights", channel="web"}'
+        values: '0+20x60'
+    alert_rule_test:
+      - eval_time: 45m
+        alertname: AssistantRunsFailing
+        exp_alerts: []
+
+  - name: many refused answers raise a ticket, a few do not
+    interval: 1m
+    input_series:
+      - series: 'suskii_agent_runs_total{outcome="guard_blocked", agent="payments", channel="web"}'
+        values: '0+1x90'
+      - series: 'suskii_agent_runs_total{outcome="answered", agent="payments", channel="web"}'
+        values: '0+1x90'
+    alert_rule_test:
+      # Fifteen refused in the first quarter of an hour: not yet more than twenty.
+      - eval_time: 15m
+        alertname: AssistantAnswersRefused
+        exp_alerts: []
+      - eval_time: 70m
+        alertname: AssistantAnswersRefused
+        exp_alerts:
+          - exp_labels:
+              severity: ticket
+            exp_annotations:
+              summary: "The guard is refusing many of the assistant's answers"
+              description: >-
+                Answers hold figures, contacts or outcomes the tools did not return, twice in a
+                row. Nothing wrong was shown, but people get a notice instead of an answer: a
+                prompt, a tool or a model has drifted. Switch the agent off or roll the prompt
+                back.
+              runbook: docs/runbooks/ai-agent.md
+
+  - name: the monthly cost alert the API told becomes a ticket naming its level
+    interval: 1m
+    input_series:
+      - series: 'suskii_agent_cost_alerts_total{level="forecast"}'
+        values: '0 0 0 1 1 1'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: AssistantMonthlyCost
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: AssistantMonthlyCost
+        exp_alerts:
+          - exp_labels:
+              severity: ticket
+              level: forecast
+            exp_annotations:
+              summary: "The assistant's estimated cost this month: forecast"
+              description: >-
+                The month's estimated model spend is heading past the figure set
+                (AGENT_MONTHLY_ALERT_MICROUSD), or is past it. An estimate from token counts at
+                the configured prices, not an invoice. Nothing was paused.
+              runbook: docs/runbooks/ai-agent.md
+
+  - name: a parser drift and a budget at its cap each raise a ticket, a budget at half does not
+    interval: 1m
+    input_series:
+      - series: 'suskii_price_intel_alerts_total{kind="drift", level="opened"}'
+        values: '0 0 1 1 1'
+      - series: 'suskii_price_intel_alerts_total{kind="budget", level="50"}'
+        values: '0 1 1 1 1'
+      - series: 'suskii_price_intel_alerts_total{kind="budget", level="100"}'
+        values: '0 0 0 1 1'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: PriceIntelBudgetReached
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: PriceIntelParserDrift
+        exp_alerts:
+          - exp_labels:
+              severity: ticket
+            exp_annotations:
+              summary: "A site's pages stopped yielding prices to its recipe"
+              description: >-
+                Reads of the site now start at the recipe's next method. A person changes the
+                recipe, or approves one the price intelligence assistant prepared from the kept
+                page.
+              runbook: docs/runbooks/price-intelligence.md
+      - eval_time: 4m
+        alertname: PriceIntelBudgetReached
+        exp_alerts:
+          - exp_labels:
+              severity: ticket
+            exp_annotations:
+              summary: 'A price intelligence budget reached its cap'
+              description: >-
+                A vendor or a site is at its daily or monthly cap and is not read again until the
+                period ends. Indicative prices there are shown as stale, or not at all.
+              runbook: docs/runbooks/price-intelligence.md

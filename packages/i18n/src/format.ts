@@ -1,0 +1,143 @@
+import {
+  formatMoney,
+  fromWire,
+  roundDiv,
+  currencyExponent,
+  type Money,
+  type MoneyWire,
+} from '@suskii/shared/lite';
+
+import { intlLocale } from './translator';
+
+export type DateStyle = 'short' | 'medium' | 'long' | 'weekday' | 'month' | 'monthName';
+
+const DATE_OPTIONS: Record<DateStyle, Intl.DateTimeFormatOptions> = {
+  short: { day: 'numeric', month: 'short' },
+  medium: { day: 'numeric', month: 'short', year: 'numeric' },
+  long: { day: 'numeric', month: 'long', year: 'numeric' },
+  weekday: { weekday: 'short', day: 'numeric', month: 'short' },
+  /** A month on its own ("December 2026"); pass any day of it. */
+  month: { month: 'long', year: 'numeric' },
+  /** A month's name alone ("December"); pass any day of it. */
+  monthName: { month: 'long' },
+};
+
+const RELATIVE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ['year', 365 * 24 * 3600],
+  ['month', 30 * 24 * 3600],
+  ['week', 7 * 24 * 3600],
+  ['day', 24 * 3600],
+  ['hour', 3600],
+  ['minute', 60],
+];
+
+/** Calendar dates ("YYYY-MM-DD") are formatted in UTC so they never shift a day. */
+const calendarDate = (value: string): Date => new Date(`${value.slice(0, 10)}T00:00:00Z`);
+
+export interface Formatters {
+  readonly locale: string;
+  /** Exact amount with the currency's minor digits (hidden when the amount is whole). */
+  money(amount: Money | MoneyWire): string;
+  /**
+   * Headline "from" prices: rounded **up** to whole units, so the figure shown is never below
+   * what the customer pays.
+   */
+  moneyFrom(amount: Money | MoneyWire): string;
+  date(value: string, style?: DateStyle): string;
+  dateRange(start: string, end: string, style?: DateStyle): string;
+  /**
+   * A moment (deadline, due date) in the viewer's time zone, with the zone shown: "Thu, 10 Dec,
+   * 14:30 WAT". Browser-only use: the server does not know the viewer's zone.
+   */
+  dateTime(instant: string | Date, timeZone?: string): string;
+  /** "2 hours ago", "yesterday"; `now` is injectable for tests and stable server renders. */
+  relativeTime(instant: string | Date, now?: Date): string;
+  number(value: number): string;
+  list(items: readonly string[]): string;
+  /** A country's name from its ISO 3166-1 code ("NG" -> "Nigeria"); the code when unknown. */
+  country(code: string): string;
+}
+
+const toMoney = (amount: Money | MoneyWire): Money =>
+  'minor' in amount ? amount : fromWire(amount);
+
+export function createFormatters(locale: string): Formatters {
+  // `locale` stays the catalog code; Intl gets the Latin-digit form (ADR-076).
+  const intl = intlLocale(locale);
+  const dateFormats = new Map<DateStyle, Intl.DateTimeFormat>();
+  const dateFormat = (style: DateStyle): Intl.DateTimeFormat => {
+    let format = dateFormats.get(style);
+    if (!format) {
+      format = new Intl.DateTimeFormat(intl, { ...DATE_OPTIONS[style], timeZone: 'UTC' });
+      dateFormats.set(style, format);
+    }
+    return format;
+  };
+  const dateTimeFormats = new Map<string, Intl.DateTimeFormat>();
+  const relative = new Intl.RelativeTimeFormat(intl, { numeric: 'auto' });
+  const numbers = new Intl.NumberFormat(intl);
+  const lists = new Intl.ListFormat(intl, { style: 'long', type: 'conjunction' });
+  // Created on first use: engines without DisplayNames (Hermes before its polyfill) show codes.
+  let regions: Intl.DisplayNames | null | undefined;
+
+  return {
+    locale,
+    money: (amount) => formatMoney(toMoney(amount), intl, { hideZeroDecimals: true }),
+    moneyFrom(amount) {
+      const value = toMoney(amount);
+      const unit = 10n ** BigInt(currencyExponent(value.currency));
+      const whole = roundDiv(value.minor, unit, 'ceil') * unit;
+      return formatMoney({ minor: whole, currency: value.currency }, intl, {
+        hideZeroDecimals: true,
+      });
+    },
+    date: (value, style = 'medium') => dateFormat(style).format(calendarDate(value)),
+    dateRange(start, end, style = 'short') {
+      const format = dateFormat(style);
+      // Hermes (the mobile app) has no formatRange; join the two dates there.
+      return typeof format.formatRange === 'function'
+        ? format.formatRange(calendarDate(start), calendarDate(end))
+        : `${format.format(calendarDate(start))} – ${format.format(calendarDate(end))}`;
+    },
+    dateTime(instant, timeZone) {
+      const key = timeZone ?? '';
+      let format = dateTimeFormats.get(key);
+      if (!format) {
+        format = new Intl.DateTimeFormat(intl, {
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZoneName: 'short',
+          ...(timeZone ? { timeZone } : {}),
+        });
+        dateTimeFormats.set(key, format);
+      }
+      return format.format(typeof instant === 'string' ? new Date(instant) : instant);
+    },
+    relativeTime(instant, now = new Date()) {
+      const seconds = Math.round(
+        ((typeof instant === 'string' ? Date.parse(instant) : instant.getTime()) - now.getTime()) /
+          1000,
+      );
+      for (const [unit, size] of RELATIVE_UNITS) {
+        if (Math.abs(seconds) >= size) return relative.format(Math.trunc(seconds / size), unit);
+      }
+      return relative.format(0, 'minute');
+    },
+    number: (value) => numbers.format(value),
+    list: (items) => lists.format(items),
+    country(code) {
+      regions ??=
+        typeof Intl.DisplayNames === 'function'
+          ? new Intl.DisplayNames([intl], { type: 'region', fallback: 'code' })
+          : null;
+      try {
+        return regions?.of(code.toUpperCase()) ?? code;
+      } catch {
+        return code;
+      }
+    },
+  };
+}

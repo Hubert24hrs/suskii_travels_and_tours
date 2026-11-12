@@ -1,0 +1,37 @@
+'use client';
+
+import { useTranslator } from '@suskii/i18n/react';
+import { Button } from '@suskii/ui-web';
+import { useEffect } from 'react';
+
+import type { ErrorMessages } from '../lib/i18n';
+
+/**
+ * Error boundary for page segments. Shows no technical detail; server errors are logged and
+ * reported with their digest, and errors in the browser are reported here (ADR-046).
+ */
+export default function ErrorPage({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  const { t } = useTranslator<ErrorMessages>();
+  useEffect(() => {
+    void import('../lib/error-reporter').then(({ reportBrowserError }) =>
+      reportBrowserError(error, { kind: 'boundary', digest: error.digest }),
+    );
+  }, [error]);
+  return (
+    <div className="mx-auto flex w-full max-w-dialog flex-col gap-4 px-4 py-16">
+      <h1 className="font-heading text-h2 font-extrabold text-heading">
+        {t('pages.error.heading')}
+      </h1>
+      <p className="font-body text-body text-foreground">{t('pages.error.body')}</p>
+      <Button type="button" onClick={reset} className="self-start">
+        {t('pages.error.retry')}
+      </Button>
+    </div>
+  );
+}

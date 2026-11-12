@@ -1,0 +1,208 @@
+import { SetMetadata } from '@nestjs/common';
+
+/** What a limit counts against. Body fields are HMAC'd before they reach Redis. */
+export type RateLimitSubject = 'ip' | 'user' | { body: 'email' | 'phone' | 'reference' };
+
+export interface RateLimitPolicy {
+  /** Stable name; part of the Redis key and shared across routes that use the same policy. */
+  name: string;
+  limit: number;
+  windowSeconds: number;
+  by: RateLimitSubject;
+}
+
+export const RATE_LIMIT_POLICIES = 'suskii:rate-limit-policies';
+export const SKIP_RATE_LIMIT = 'suskii:skip-rate-limit';
+
+/** Infrastructure probes (load balancer health checks) are exempt. */
+export const SkipRateLimit = (): MethodDecorator & ClassDecorator =>
+  SetMetadata(SKIP_RATE_LIMIT, true);
+
+/**
+ * Adds stricter limits to a route, on top of the defaults (per route per caller, and a global
+ * per-IP ceiling).
+ */
+export const RateLimit = (...policies: RateLimitPolicy[]): MethodDecorator & ClassDecorator =>
+  SetMetadata(RATE_LIMIT_POLICIES, policies);
+
+/** Shared policies for credential and OTP endpoints. */
+export const AUTH_LIMITS = {
+  login: { name: 'auth-login-ip', limit: 10, windowSeconds: 60, by: 'ip' },
+  register: { name: 'auth-register-ip', limit: 10, windowSeconds: 3600, by: 'ip' },
+  refresh: { name: 'auth-refresh-ip', limit: 60, windowSeconds: 60, by: 'ip' },
+  mfa: { name: 'auth-mfa-ip', limit: 10, windowSeconds: 60, by: 'ip' },
+  otpSendIp: { name: 'auth-otp-send-ip', limit: 10, windowSeconds: 3600, by: 'ip' },
+  otpSendPhone: {
+    name: 'auth-otp-send-phone',
+    limit: 3,
+    windowSeconds: 600,
+    by: { body: 'phone' },
+  },
+  otpVerify: { name: 'auth-otp-verify-ip', limit: 10, windowSeconds: 60, by: 'ip' },
+  social: { name: 'auth-social-ip', limit: 20, windowSeconds: 60, by: 'ip' },
+  resetIp: { name: 'auth-reset-ip', limit: 5, windowSeconds: 3600, by: 'ip' },
+  resetEmail: { name: 'auth-reset-email', limit: 3, windowSeconds: 3600, by: { body: 'email' } },
+  verifyEmail: { name: 'auth-verify-email-ip', limit: 10, windowSeconds: 60, by: 'ip' },
+  sensitive: { name: 'account-sensitive-user', limit: 10, windowSeconds: 600, by: 'user' },
+} as const satisfies Record<string, RateLimitPolicy>;
+
+/** Data export and account deletion (ADR-029): costly and sensitive, so few per user. */
+export const PRIVACY_LIMITS = {
+  exportUser: { name: 'data-export-user', limit: 5, windowSeconds: 86_400, by: 'user' },
+  deleteUser: { name: 'account-delete-user', limit: 5, windowSeconds: 3600, by: 'user' },
+  /** Cookie choices: a person changes them a few times at most. */
+  cookieConsentIp: { name: 'cookie-consent-ip', limit: 20, windowSeconds: 600, by: 'ip' },
+} as const satisfies Record<string, RateLimitPolicy>;
+
+/** Field performance beacons: a page view sends one or two, so a generous per-IP ceiling. */
+export const TELEMETRY_LIMITS = {
+  webVitalsIp: { name: 'web-vitals-ip', limit: 120, windowSeconds: 600, by: 'ip' },
+} as const satisfies Record<string, RateLimitPolicy>;
+
+/** Search is expensive (supplier calls) and a scraping target: per-IP quotas plus cache-first. */
+export const SEARCH_LIMITS = {
+  searchIp: { name: 'search-ip', limit: 30, windowSeconds: 60, by: 'ip' },
+  searchIpDaily: { name: 'search-ip-daily', limit: 1000, windowSeconds: 86_400, by: 'ip' },
+  searchUser: { name: 'search-user', limit: 60, windowSeconds: 60, by: 'user' },
+  /** "Flexible dates" prices up to six more days per call, so it gets a fifth of the searches. */
+  datePricesIp: { name: 'date-prices-ip', limit: 6, windowSeconds: 60, by: 'ip' },
+  datePricesIpDaily: { name: 'date-prices-ip-daily', limit: 200, windowSeconds: 86_400, by: 'ip' },
+  quoteIp: { name: 'quote-ip', limit: 30, windowSeconds: 60, by: 'ip' },
+  promoIp: { name: 'promo-ip', limit: 10, windowSeconds: 600, by: 'ip' },
+  promoUser: { name: 'promo-user', limit: 10, windowSeconds: 600, by: 'user' },
+} as const satisfies Record<string, RateLimitPolicy>;
+
+/** Newsletter sign-up and email-link endpoints (ADR-012). */
+/** AI trip search (ADR-061): the cost cap bounds spend; these bound bursts. */
+export const AI_SEARCH_LIMITS = {
+  ip: { name: 'ai-search-ip', limit: 10, windowSeconds: 60, by: 'ip' },
+  ipDaily: { name: 'ai-search-ip-daily', limit: 200, windowSeconds: 86_400, by: 'ip' },
+  user: { name: 'ai-search-user', limit: 20, windowSeconds: 60, by: 'user' },
+} as const satisfies Record<string, RateLimitPolicy>;
+
+export const NEWSLETTER_LIMITS = {
+  subscribeIp: { name: 'newsletter-ip', limit: 5, windowSeconds: 600, by: 'ip' },
+  subscribeEmail: {
+    name: 'newsletter-email',
+    limit: 3,
+    windowSeconds: 3600,
+    by: { body: 'email' },
+  },
+  tokenIp: { name: 'newsletter-token-ip', limit: 20, windowSeconds: 600, by: 'ip' },
+} as const satisfies Record<string, RateLimitPolicy>;
+
+/** Checkout: booking creation and payment starts call suppliers and hold inventory. */
+export const BOOKING_LIMITS = {
+  createIp: { name: 'booking-create-ip', limit: 20, windowSeconds: 600, by: 'ip' },
+  createUser: { name: 'booking-create-user', limit: 20, windowSeconds: 600, by: 'user' },
+  paymentIp: { name: 'booking-payment-ip', limit: 30, windowSeconds: 600, by: 'ip' },
+  /** The mock checkout page (never in production): viewing and paying are counted apart. */
+  mockPaymentViewIp: { name: 'mock-payment-view-ip', limit: 30, windowSeconds: 600, by: 'ip' },
+  mockPaymentIp: { name: 'mock-payment-ip', limit: 30, windowSeconds: 600, by: 'ip' },
+  /** Holds tie up airline inventory: a tighter budget against seat spinning (ADR-018). */
+  holdIp: { name: 'booking-hold-ip', limit: 6, windowSeconds: 3600, by: 'ip' },
+  /** Each flight cancellation quote opens a pending cancellation with the airline (ADR-064). */
+  cancellationQuoteIp: {
+    name: 'flight-cancellation-quote-ip',
+    limit: 10,
+    windowSeconds: 600,
+    by: 'ip',
+  },
+  travellersUser: { name: 'travellers-user', limit: 60, windowSeconds: 600, by: 'user' },
+  /** "Manage booking" emails a link: few per address, fewer per booking (no email bombing). */
+  linkIp: { name: 'booking-link-ip', limit: 10, windowSeconds: 600, by: 'ip' },
+  linkReference: {
+    name: 'booking-link-reference',
+    limit: 3,
+    windowSeconds: 3600,
+    by: { body: 'reference' },
+  },
+} as const satisfies Record<string, RateLimitPolicy>;
+
+/** Mobile devices: push token registration and attestation challenges (ADR-022, ADR-023). */
+export const DEVICE_LIMITS = {
+  pushTokenIp: { name: 'push-token-ip', limit: 30, windowSeconds: 600, by: 'ip' },
+  challengeIp: { name: 'attestation-challenge-ip', limit: 60, windowSeconds: 600, by: 'ip' },
+} as const satisfies Record<string, RateLimitPolicy>;
+
+/** In-house catalog, add-on links and visa documents (ADR-025 to ADR-027). */
+export const INHOUSE_LIMITS = {
+  catalogIp: { name: 'inhouse-catalog-ip', limit: 120, windowSeconds: 60, by: 'ip' },
+  /** Reference and surname lookups: tight, like other booking lookups (ADR-027). */
+  addonLinkIp: { name: 'addon-link-ip', limit: 10, windowSeconds: 600, by: 'ip' },
+  visaUploadIp: { name: 'visa-upload-ip', limit: 60, windowSeconds: 3600, by: 'ip' },
+  visaLinkIp: { name: 'visa-link-ip', limit: 120, windowSeconds: 600, by: 'ip' },
+  voucherRedeemUser: { name: 'voucher-redeem-user', limit: 120, windowSeconds: 600, by: 'user' },
+} as const satisfies Record<string, RateLimitPolicy>;
+
+/** Partner offers and tracking (ADR-070). */
+export const PARTNER_LIMITS = {
+  /** Offers call the activity partner: generous for browsing, not for scraping. */
+  offersIp: { name: 'partner-offers-ip', limit: 60, windowSeconds: 60, by: 'ip' },
+  /** Every click is a row: plenty for a person, a ceiling for click inflation. */
+  redirectIp: { name: 'partner-redirect-ip', limit: 60, windowSeconds: 60, by: 'ip' },
+  /** Networks send postbacks from a few addresses, sometimes in bursts after an outage. */
+  postbackIp: { name: 'partner-postback-ip', limit: 600, windowSeconds: 60, by: 'ip' },
+} as const satisfies Record<string, RateLimitPolicy>;
+
+/** Verified reviews (ADR-077): public pages are cheap reads; writing is a few times per trip. */
+export const REVIEW_LIMITS = {
+  readIp: { name: 'review-read-ip', limit: 120, windowSeconds: 60, by: 'ip' },
+  writeIp: { name: 'review-write-ip', limit: 20, windowSeconds: 600, by: 'ip' },
+} as const satisfies Record<string, RateLimitPolicy>;
+
+/**
+ * Support conversations (ADR-083): starting one can email staff and the traveller, so it is
+ * capped per address; messages are capped so a script cannot flood a conversation; reading is
+ * polled every few seconds while a conversation is open.
+ */
+export const SUPPORT_LIMITS = {
+  startIp: { name: 'support-start-ip', limit: 10, windowSeconds: 3600, by: 'ip' },
+  messageIp: { name: 'support-message-ip', limit: 30, windowSeconds: 300, by: 'ip' },
+  readIp: { name: 'support-read-ip', limit: 120, windowSeconds: 60, by: 'ip' },
+} as const satisfies Record<string, RateLimitPolicy>;
+
+/**
+ * The assistant (ADR-101): a message starts model calls, so it is capped per address on top of
+ * the spend caps; reading a run is polled every second or two while an answer is being written.
+ */
+export const AGENT_LIMITS = {
+  startIp: { name: 'agent-start-ip', limit: 20, windowSeconds: 3600, by: 'ip' },
+  messageIp: { name: 'agent-message-ip', limit: 30, windowSeconds: 300, by: 'ip' },
+  readIp: { name: 'agent-read-ip', limit: 240, windowSeconds: 60, by: 'ip' },
+} as const satisfies Record<string, RateLimitPolicy>;
+
+/** Assisted quotes (ADR-104): each request is work for a person, so they are capped per account. */
+export const ASSISTED_QUOTE_LIMITS = {
+  requestUser: { name: 'assisted-quote-user', limit: 10, windowSeconds: 3600, by: 'user' },
+} as const satisfies Record<string, RateLimitPolicy>;
+
+/** Company accounts (ADR-078): invitations send email, so they are capped per account. */
+export const COMPANY_LIMITS = {
+  createUser: { name: 'company-create-user', limit: 5, windowSeconds: 3600, by: 'user' },
+  inviteUser: { name: 'company-invite-user', limit: 30, windowSeconds: 3600, by: 'user' },
+  acceptUser: { name: 'company-accept-user', limit: 10, windowSeconds: 600, by: 'user' },
+  exportUser: { name: 'company-export-user', limit: 20, windowSeconds: 600, by: 'user' },
+  topUpUser: { name: 'company-topup-user', limit: 10, windowSeconds: 3600, by: 'user' },
+} as const satisfies Record<string, RateLimitPolicy>;
+
+/** Cars (ADR-050): holds and quotes are scraping and hoarding targets; safety routes never starve. */
+export const CARS_LIMITS = {
+  catalogIp: { name: 'cars-catalog-ip', limit: 60, windowSeconds: 60, by: 'ip' },
+  holdIp: { name: 'bus-hold-ip', limit: 20, windowSeconds: 600, by: 'ip' },
+  holdUser: { name: 'bus-hold-user', limit: 20, windowSeconds: 600, by: 'user' },
+  scanUser: { name: 'ticket-scan-user', limit: 240, windowSeconds: 60, by: 'user' },
+  rideQuoteIp: { name: 'ride-quote-ip', limit: 30, windowSeconds: 60, by: 'ip' },
+  rideQuoteUser: { name: 'ride-quote-user', limit: 30, windowSeconds: 60, by: 'user' },
+  /** One position every five seconds, with slack for retries. */
+  locationUser: { name: 'driver-location-user', limit: 20, windowSeconds: 60, by: 'user' },
+  driverActionUser: { name: 'driver-action-user', limit: 60, windowSeconds: 60, by: 'user' },
+  rideActionUser: { name: 'ride-action-user', limit: 60, windowSeconds: 60, by: 'user' },
+  /** SOS is never limited below one a minute (ADR-050). */
+  sosUser: { name: 'ride-sos-user', limit: 5, windowSeconds: 60, by: 'user' },
+  shareIp: { name: 'ride-share-ip', limit: 120, windowSeconds: 60, by: 'ip' },
+  uploadUser: { name: 'driver-upload-user', limit: 20, windowSeconds: 3600, by: 'user' },
+  applyUser: { name: 'driver-apply-user', limit: 5, windowSeconds: 3600, by: 'user' },
+  /** Departure plans route through the maps provider: a few a minute is plenty. */
+  planIp: { name: 'trip-plan-ip', limit: 30, windowSeconds: 60, by: 'ip' },
+} as const satisfies Record<string, RateLimitPolicy>;
