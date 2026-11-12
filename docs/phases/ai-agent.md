@@ -1486,3 +1486,20 @@ the mock model (to see the screens) before the real one.
    it by hand in the console, pause and release, read a conversation as staff.
 8. Set the monthly figure and the fee rule for assisted quotes.
 9. Production, when content: the same steps, then the three switches.
+
+## After the report (2026-11-11)
+
+Found while bringing `main` up to date with the working branch, after the report above was
+written:
+
+- **The Agent eval workflow could not be started.** `agent-eval.yml` named the matrix in its
+  job's own `if`. GitHub refuses such a file: the workflow did not load, could not be started by
+  hand, and every push since sub-phase D recorded a failed run with no job. No pull request
+  check showed it, so the owner's first step in the list above would have failed. The list of
+  suites is now built from the input, and `pnpm check:workflows` (in the script tests CI runs)
+  refuses a job condition GitHub cannot read. What this does not prove: the workflow has still
+  never run a suite against a model. That needs the owner's `LLM_API_KEY`; without it the
+  workflow stops at its first step and names the missing secret.
+- **Not the assistant's, found by the same run:** the website's "Tonight in {city}" links were
+  dated by the visitor's calendar and failed every evening for cities further east (ADR-097,
+  amended). The website's tests met it only when they ran at 22:20 UTC.

@@ -46,13 +46,17 @@ env:
 jobs:
   eval:
     name: Agent eval (${{ matrix.suite }})
-    if: inputs.suite == 'all' || inputs.suite == matrix.suite
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
+      # One job for each suite asked for. The list is built from the input here, because a
+      # job's own `if` is read before its matrix exists and may not name it: GitHub refuses
+      # to load a workflow that does (scripts/check-workflows.mjs keeps watch).
       matrix:
-        suite: [routing, grounding, safety]
+        suite: >-
+          ${{ fromJSON(inputs.suite == 'all' && '["routing","grounding","safety"]' ||
+          format('["{0}"]', inputs.suite)) }}
     steps:
       - name: Check the model key is set
         env:

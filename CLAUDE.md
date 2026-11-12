@@ -248,6 +248,7 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `node scripts/helm-rehearsal.mjs`                  | Same on kind with the Helm chart (needs kind and Helm; runs in CI)                |
 | `pnpm smoke --api URL [--web URL] [--admin URL]`   | Post-deploy smoke tests (public routes only, safe on production)                  |
 | `pnpm check:migrations` / `pnpm test:scripts`      | Expand/contract guard on new migrations / node:test script suites                 |
+| `pnpm check:workflows`                             | Fail on a job condition GitHub cannot read (it would refuse the workflow file)    |
 | `docker compose --profile s3 up -d s3`             | S3-compatible store for `OBJECT_STORAGE=s3` locally (ADR-057)                     |
 | `pnpm --filter @suskii/api dev`                    | Run a single workspace                                                            |
 
@@ -1597,6 +1598,12 @@ Tooling notes for agents:
 - Workflows pin actions by commit SHA, at least two weeks old, and tools by version plus SHA-256
   or `go install` at a fixed version. Credential-gated steps fail at their first step with the
   missing settings named.
+- A job's own `if` may name only `github`, `needs`, `vars` and `inputs`. One that names `matrix`
+  (or `steps`, `runner`, `env`, `secrets`) makes GitHub refuse the whole file: it cannot be
+  started, every push records a failed run with no job, and no pull request check shows it.
+  Build the matrix from the input or put the condition on the steps. `pnpm check:workflows`
+  (part of `pnpm test:scripts`, which CI runs) refuses such a file. After adding a manual
+  workflow, look at the Actions list once: a run named after the file's path means it did not load.
 - Terraform changes: `terraform fmt`, then `validate` and TFLint run in `infra.yml`; operators
   apply them (`infra/terraform/README.md`). Store and privacy changes update `docs/release/` in
   the same change.
