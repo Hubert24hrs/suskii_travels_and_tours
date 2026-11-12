@@ -35,15 +35,30 @@ tags:
 - tapOn:
     id: cars-buses
 
-# Lagos to Ibadan, one seat, on the form's default date (three days out).
+# Lagos to Ibadan, one seat, on the form's default date (three days out). "From" is typed into
+# the search bar over the chips (a name typed in full is chosen without a tap); "To" is typed in
+# part and its chip, the only one left, is tapped.
 - extendedWaitUntil:
     visible:
-      id: bus-from-Lagos
+      id: bus-from-search
     timeout: 30000
 - tapOn:
-    id: bus-from-Lagos
+    id: bus-from-search
+- inputText: Lagos
+- pressKey: Enter
+- scrollUntilVisible:
+    element:
+      id: bus-to-search
 - tapOn:
-    id: bus-to-Ibadan
+    id: bus-to-search
+- inputText: Iba
+- pressKey: Enter
+- scrollUntilVisible:
+    element:
+      id: bus-to-Ibadan
+- scrollUntilVisible:
+    element:
+      id: bus-seats-1
 - tapOn:
     id: bus-seats-1
 - scrollUntilVisible:
