@@ -22,11 +22,14 @@ variable "service_account" {
 }
 
 variable "ingress" {
-  description = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER (behind the load balancer) or INGRESS_TRAFFIC_INTERNAL_ONLY."
+  description = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER (behind the load balancer), INGRESS_TRAFFIC_INTERNAL_ONLY, or INGRESS_TRAFFIC_ALL for the API alone while the platform has no edge (ADR-110)."
   type        = string
   validation {
-    condition     = contains(["INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER", "INGRESS_TRAFFIC_INTERNAL_ONLY"], var.ingress)
-    error_message = "Services are never directly public: use the load balancer or internal ingress."
+    condition = contains(
+      ["INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER", "INGRESS_TRAFFIC_INTERNAL_ONLY", "INGRESS_TRAFFIC_ALL"],
+      var.ingress,
+    )
+    error_message = "Use the load balancer, internal ingress, or INGRESS_TRAFFIC_ALL (the API without an edge, ADR-110)."
   }
 }
 

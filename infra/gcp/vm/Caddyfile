@@ -1,0 +1,14 @@
+# HTTPS in front of the API on the backend VM (ADR-111). Caddy gets and renews the certificate
+# by itself. It adds the caller's address for the API (TRUST_PROXY_HOPS=1) and drops any such
+# header a caller sent.
+#
+# Nothing is compressed here: the API compresses only the public reads it lists itself, because
+# an answer that can hold a token must not be compressed (ADR-075).
+{$SUSKII_API_HOST} {
+	# Routes for the worker and the agent service only. They reach the API on the private
+	# network; from outside these do not exist.
+	@internal path /v1/internal /v1/internal/*
+	respond @internal 404
+
+	reverse_proxy api:8080
+}

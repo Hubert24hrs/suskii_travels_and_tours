@@ -6,6 +6,79 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### The backend on one Google Cloud machine, the budget shape (2026-11-12, ADR-111)
+
+When the deployment was about to start, the managed shape below turned out to cost more each
+month than the owner can spend now. Asked to choose, the owner took one small machine.
+
+#### Added
+
+- **`scripts/gcp/deploy-vm.sh <project>`**: one Compute Engine machine in London that runs the
+  release images of the API, the worker and the agent service in containers beside PostgreSQL,
+  Redis and Caddy. HTTPS with a certificate Caddy gets by itself, on Google's free name for
+  the project (`api.endpoints.<project>.cloud.goog`) until there is a domain.
+- **`infra/terraform/vm/`** and **`infra/gcp/vm/`**: the network, a fixed address, the machine
+  with a data disk of its own, the image repository, the documents and backups buckets, the
+  secrets' names; the compose stack, Caddy's settings and the machine's start-up, deploy and
+  backup scripts.
+- **A dump of the database** every night and before each release's database step, to a
+  private bucket that deletes it after 30 days. The machine may add a dump and cannot read,
+  replace or delete one.
+- **Releases without a login**: the release is named in the machine's metadata, a watcher on
+  the machine deploys it and reports to the serial console and a guest attribute.
+
+#### How the assistant is kept from hurting the platform on one machine
+
+Its own container with its own tokens, model key and database role; a ceiling of 512 MB and
+three quarters of a processor; started last, so a release stands whether or not it comes up.
+With its container stopped, every platform route answered as before.
+
+#### Fixed
+
+- The managed shape's API could not be created: the run-service module refused public
+  ingress, which `edge = "none"` needs. A real plan against the project found it.
+- A test's pattern for a key file's header was read as a private key by the secret scan. The
+  test now parses the generated keys.
+
+#### What this shape gives up
+
+One machine, so a restart is an outage of a minute; a database that is ours to back up, with
+up to a day of loss; no WAF and no load balancer. It is a staging backend. ADR-111 lists it
+all, and the managed shape stays ready for when the budget allows.
+
+### The backend on Google Cloud, in one command (2026-11-12, ADR-110)
+
+The owner asked for the backend, and the assistant's backend beside it, to be deployed on
+Google's services.
+
+#### Added
+
+- **`scripts/gcp/deploy-backend.sh <project>`**, run by the owner in Google Cloud Shell: it
+  creates the network, Cloud SQL, Memorystore, the documents bucket, the image repository, one
+  identity per service and every secret (generated values go straight into Secret Manager and
+  are never shown), builds the images with Cloud Build, runs the migration job and rolls out
+  the API, the worker and the agent service. It can be stopped and run again.
+- **`infra/terraform/backend/`**, a root for the backend alone, and `edge = "none"` in the
+  platform module: no load balancer, no Cloudflare, no website or console. The API answers on
+  its own `run.app` address; the worker and the agent service are reachable from the VPC only.
+- **The owner's guide**, `docs/owner/deploy-backend-on-google-cloud.md`: what is needed (a
+  project with billing), the three lines to paste, what it creates and roughly what it costs.
+
+#### How the assistant is kept from hurting the platform
+
+Its own Cloud Run service and identity, its own schema in the database and nothing of the
+platform's tables, one way in (the API's tool gateway), limits on every run, daily spend caps,
+a pause switch, and one setting that removes it. No search, booking or payment route waits
+for it.
+
+#### Not done, and why
+
+- Nothing is deployed yet. This session holds no Google credential, and the first apply needs
+  the owner's project with billing. The script and the Terraform are checked for syntax and
+  format, and validated in CI; they have not been run against a project.
+- The website and the console are not part of this shape: they need the domain, so that the
+  API and the website are one site for the browser's cookies.
+
 ### Ask Suskii and plain copy (2026-11-12, ADR-109)
 
 The second part of the owner's changes: one assistant for the whole platform, and a rule for
