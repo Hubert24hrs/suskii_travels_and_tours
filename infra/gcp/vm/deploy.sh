@@ -192,7 +192,11 @@ fi
 rm -f /run/suskii/mailbox.password
 CADDY_CHANGED=false
 cmp -s /opt/suskii/Caddyfile.new /opt/suskii/Caddyfile || CADDY_CHANGED=true
-mv /opt/suskii/Caddyfile.new /opt/suskii/Caddyfile
+# Written in place, never renamed over: Caddy's container mounts this one file, and a file put
+# there by a rename would leave it reading the old one at the next reload.
+touch /opt/suskii/Caddyfile && chmod 0600 /opt/suskii/Caddyfile
+cat /opt/suskii/Caddyfile.new >/opt/suskii/Caddyfile
+rm -f /opt/suskii/Caddyfile.new
 
 STEP=images
 PROFILES=(--profile release)
