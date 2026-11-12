@@ -64,7 +64,7 @@ describe('routing (ADR-106)', () => {
     const { end } = await h.send('Please track my booking');
     expect(end).toMatchObject({ agent: 'bookings', agents: ['bookings'], outcome: 'answered' });
     expect(h.model.requests.map((entry) => entry.request.role)).toEqual(['specialist']);
-    expect(end.prompts).toEqual(['bookings@3']);
+    expect(end.prompts).toEqual(['bookings@4']);
   });
 
   it('asks the router model for everything else, and offers it only the agents switched on', async () => {
