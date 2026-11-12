@@ -142,3 +142,36 @@ test("covers every secret the API's own generator prints", () => {
   assert.ok(printed.length >= 7);
   for (const name of printed) assert.ok(NAMES.includes(name), `${name} is not seeded`);
 });
+
+test('with --passwords, also generates the database and cache passwords', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'seed-secrets-'));
+  try {
+    const gcloud = fakeGcloud(dir);
+    const args = ['--project', 'p', '--documents-account', 'docs@p.iam.gserviceaccount.com'];
+    // Without the flag nothing of the kind is made: the managed database has its own.
+    run(dir, args);
+    assert.equal(gcloud.read().secrets.POSTGRES_OWNER_PASSWORD, undefined);
+
+    const printed = run(dir, [...args, '--passwords']);
+    const { secrets } = gcloud.read();
+    const names = [
+      'POSTGRES_OWNER_PASSWORD',
+      'POSTGRES_APP_PASSWORD',
+      'POSTGRES_AGENT_PASSWORD',
+      'REDIS_PASSWORD',
+    ];
+    for (const name of names) {
+      // Long enough for the API's own role check, and safe inside a connection address.
+      assert.match(secrets[name], /^[A-Za-z0-9]{40}$/, name);
+      assert.ok(!printed.includes(secrets[name]), `${name} was printed`);
+    }
+    assert.equal(new Set(names.map((name) => secrets[name])).size, names.length);
+
+    // A second run keeps them: a changed password would lock the running database out.
+    const before = { ...secrets };
+    run(dir, [...args, '--passwords']);
+    for (const name of names) assert.equal(gcloud.read().secrets[name], before[name]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

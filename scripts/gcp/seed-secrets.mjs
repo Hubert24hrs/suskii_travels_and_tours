@@ -7,6 +7,9 @@
  *
  *   node scripts/gcp/seed-secrets.mjs --project <project id> --documents-account <email>
  *
+ * With --passwords it also generates the passwords of the PostgreSQL roles and of Redis, for
+ * the backend that runs its own on one VM (ADR-111).
+ *
  * It needs only Node (Cloud Shell has it) and an authenticated gcloud. The values are the ones
  * `pnpm --filter @suskii/api keys:generate` prints (apps/api/scripts/generate-secrets.ts): keep
  * the two in step.
@@ -19,6 +22,7 @@ const { values } = parseArgs({
   options: {
     project: { type: 'string' },
     'documents-account': { type: 'string' },
+    passwords: { type: 'boolean', default: false },
   },
 });
 const project = values.project;
@@ -63,6 +67,17 @@ function putIfMissing(name, make) {
 
 const base64Pem = (pem) => Buffer.from(pem).toString('base64');
 const token = (bytes = 32) => randomBytes(bytes).toString('base64url');
+const ALPHANUMERIC = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+/** Letters and digits only, so the value needs no escaping inside a connection address. */
+function password(length = 40) {
+  let out = '';
+  while (out.length < length) {
+    const byte = randomBytes(1)[0];
+    // 248 is the largest multiple of 62 below 256: every character is equally likely.
+    if (byte < 248) out += ALPHANUMERIC[byte % ALPHANUMERIC.length];
+  }
+  return out;
+}
 const privatePem = (key) => base64Pem(key.export({ type: 'pkcs8', format: 'pem' }).toString());
 
 // The access-token signing pair is one thing: both halves, or neither.
@@ -119,4 +134,16 @@ if (hasId && hasSecret) {
   }
   put('OBJECT_STORAGE_ACCESS_KEY_ID', accessId);
   put('OBJECT_STORAGE_SECRET_ACCESS_KEY', created.secret);
+}
+
+// The backend on one VM runs its own PostgreSQL and Redis: their passwords are generated too.
+if (values.passwords) {
+  for (const name of [
+    'POSTGRES_OWNER_PASSWORD',
+    'POSTGRES_APP_PASSWORD',
+    'POSTGRES_AGENT_PASSWORD',
+    'REDIS_PASSWORD',
+  ]) {
+    putIfMissing(name, password);
+  }
 }
