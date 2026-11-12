@@ -6,7 +6,8 @@
 # memory-only env files, the images, the database step, then the new containers. The platform
 # first, the assistant after it: an assistant that does not come up never fails the release.
 # The outcome is written where the operator can read it without a login: the serial console and
-# the instance's guest attribute `suskii/status`. No secret is printed.
+# the instance's guest attribute `suskii/status`, which names the whole release so that the
+# report of an earlier one is never taken for this one's. No secret is printed.
 set -euo pipefail
 
 RELEASE="${1:?usage: deploy.sh \"<image tag> [nonce]\"}"
@@ -19,14 +20,14 @@ status() {
     "$MD/instance/guest-attributes/suskii/status" >/dev/null || true
 }
 STEP=start
-trap 'status "failed $TAG at $STEP"' ERR
+trap 'status "failed $RELEASE at $STEP"' ERR
 
 STEP=files
 install -d -m 0700 /run/suskii
 md instance/attributes/suskii-compose >/opt/suskii/compose.yml
 md instance/attributes/suskii-caddyfile >/opt/suskii/Caddyfile
 md instance/attributes/suskii-settings >/opt/suskii/settings.json
-status "deploying $TAG"
+status "deploying $RELEASE"
 
 # The keys: read as the VM's own identity, written to files only root can read, in memory.
 STEP=keys
@@ -171,4 +172,4 @@ STEP=tidy
 docker image prune -af --filter until=48h >/dev/null 2>&1 || true
 echo "$RELEASE" >/run/suskii/deployed
 MEMORY="$(free -m | awk '/^Mem:/ { print $3 " of " $2 " MB in use" }')"
-status "ok $TAG assistant: $ASSISTANT; https://$HOST: $DOOR; memory: $MEMORY"
+status "ok $RELEASE; assistant: $ASSISTANT; https://$HOST: $DOOR; memory: $MEMORY"

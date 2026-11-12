@@ -31,8 +31,9 @@ if (!project) {
   process.exit(2);
 }
 
+// Errors only: gcloud's own notes ("Created version 1 of the secret") would drown the list.
 const gcloud = (args, input) =>
-  execFileSync('gcloud', [...args, '--project', project], {
+  execFileSync('gcloud', [...args, '--project', project, '--verbosity=error'], {
     input,
     encoding: 'utf8',
     stdio: ['pipe', 'pipe', 'inherit'],

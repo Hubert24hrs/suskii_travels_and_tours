@@ -188,9 +188,12 @@ else
 fi
 
 # --- 6. The release: named in the machine's metadata, deployed by the machine ------------------
+# The number makes this release its own, so the same images can be released again and the
+# machine's report of an earlier release is never taken for this one's.
+RELEASE="$TAG $(date -u +%s)"
 say "Releasing $TAG on $INSTANCE"
 gcloud compute instances add-metadata "$INSTANCE" --zone "$ZONE" \
-  --metadata "suskii-release=$TAG $(date -u +%s)" --quiet >/dev/null
+  --metadata "suskii-release=$RELEASE" --quiet >/dev/null
 
 read_status() {
   gcloud compute instances get-guest-attributes "$INSTANCE" --zone "$ZONE" \
@@ -204,13 +207,13 @@ outcome=""
 for _ in $(seq 1 120); do
   outcome="$(read_status)"
   case "$outcome" in
-    "ok $TAG"* | "failed $TAG"*) break ;;
+    "ok $RELEASE"* | "failed $RELEASE"*) break ;;
   esac
   sleep 10
 done
 echo "  $outcome"
 case "$outcome" in
-  "ok $TAG"*) ;;
+  "ok $RELEASE"*) ;;
   *)
     serial 40
     stop "the machine did not report the release as done. The lines above are from its console; the whole console: gcloud compute instances get-serial-port-output $INSTANCE --zone $ZONE"
