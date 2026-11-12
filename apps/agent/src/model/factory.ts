@@ -1,6 +1,7 @@
 import { type AgentConfig } from '../config.js';
 
 import { AnthropicAgentModel } from './anthropic-model.js';
+import { GeminiAgentModel } from './gemini-model.js';
 import { MockAgentModel } from './mock-model.js';
 import {
   ModelError,
@@ -55,6 +56,7 @@ export function createModelFactory(
     | 'AGENT_MODEL_SPECIALIST'
     | 'AGENT_MODEL_FALLBACK'
     | 'AGENT_MODEL_TIMEOUT_MS'
+    | 'AGENT_MODEL_THINKING_LEVEL'
   >,
 ): AgentModelFactory {
   const names: ModelNames = {
@@ -67,6 +69,16 @@ export function createModelFactory(
       new AnthropicAgentModel({
         apiKey: config.LLM_API_KEY,
         timeoutMs: config.AGENT_MODEL_TIMEOUT_MS,
+      }),
+      names,
+    );
+  }
+  if (config.AGENT_MODEL_PROVIDER === 'gemini' && config.LLM_API_KEY) {
+    return new AgentModelFactory(
+      new GeminiAgentModel({
+        apiKey: config.LLM_API_KEY,
+        timeoutMs: config.AGENT_MODEL_TIMEOUT_MS,
+        thinkingLevel: config.AGENT_MODEL_THINKING_LEVEL,
       }),
       names,
     );

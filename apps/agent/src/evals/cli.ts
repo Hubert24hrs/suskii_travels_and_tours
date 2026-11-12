@@ -11,8 +11,9 @@
  *
  * With `--recorded` the model turns come from the fixtures: the graph, the guard and the grader
  * are checked and no model is called (CI runs this as unit tests). Without it the configured
- * model plays the part under evaluation: set LLM_API_KEY, and AGENT_MODEL_ROUTER or
- * AGENT_MODEL_SPECIALIST to try another model. A real run costs a few cents; the summary prints
+ * model plays the part under evaluation: set LLM_API_KEY (the key of AGENT_MODEL_PROVIDER, which
+ * is gemini unless set to anthropic), and AGENT_MODEL_ROUTER or AGENT_MODEL_SPECIALIST to try
+ * another model. A real run costs a few cents; the summary prints
  * the tokens used, priced by AGENT_MODEL_PRICES in the API's settings. No eval reaches the API,
  * a database or a traveller's data: tool results are fixtures.
  */
@@ -22,7 +23,9 @@ import { parseArgs } from 'node:util';
 import { agentEvalResultSchema, type AgentEvalResult, type AgentModelUsage } from '@suskii/shared';
 import { z } from 'zod';
 
+import { MODEL_DEFAULTS } from '../config.js';
 import { AnthropicAgentModel } from '../model/anthropic-model.js';
+import { GEMINI_THINKING_LEVELS, GeminiAgentModel } from '../model/gemini-model.js';
 
 import { percent, type LiveModel } from './eval-kit.js';
 import {
@@ -42,11 +45,21 @@ import { loadSafetySuite, runSafetyEval, summariseSafety } from './safety.js';
 const SUITES = ['routing', 'grounding', 'safety'] as const;
 type Suite = (typeof SUITES)[number];
 
+/** An empty setting is an unset one: a workflow input left blank arrives as ''. */
+const optional = <T extends z.ZodType>(schema: T) =>
+  z.preprocess((value) => (value === '' ? undefined : value), schema.optional());
+
 const settings = z.object({
-  LLM_API_KEY: z.string().min(1).optional(),
-  AGENT_MODEL_ROUTER: z.string().min(1).default('claude-haiku-5-5'),
-  AGENT_MODEL_SPECIALIST: z.string().min(1).default('claude-sonnet-5-5'),
-  AGENT_MODEL_FALLBACK: z.string().min(1).default('claude-haiku-5-5'),
+  LLM_API_KEY: optional(z.string().min(1)),
+  // The provider that answers travellers (ADR-109) unless another is named.
+  AGENT_MODEL_PROVIDER: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.enum(['gemini', 'anthropic']).default('gemini'),
+  ),
+  AGENT_MODEL_ROUTER: optional(z.string().min(1)),
+  AGENT_MODEL_SPECIALIST: optional(z.string().min(1)),
+  AGENT_MODEL_FALLBACK: optional(z.string().min(1)),
+  AGENT_MODEL_THINKING_LEVEL: optional(z.enum(GEMINI_THINKING_LEVELS)),
   AGENT_MODEL_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(45_000),
 });
 
@@ -59,15 +72,23 @@ function liveModel(): LiveModel {
       'Set LLM_API_KEY to evaluate the model, or pass --recorded to check the pipeline only.',
     );
   }
+  const defaults = MODEL_DEFAULTS[env.AGENT_MODEL_PROVIDER];
   return {
-    model: new AnthropicAgentModel({
-      apiKey: env.LLM_API_KEY,
-      timeoutMs: env.AGENT_MODEL_TIMEOUT_MS,
-    }),
+    model:
+      env.AGENT_MODEL_PROVIDER === 'gemini'
+        ? new GeminiAgentModel({
+            apiKey: env.LLM_API_KEY,
+            timeoutMs: env.AGENT_MODEL_TIMEOUT_MS,
+            thinkingLevel: env.AGENT_MODEL_THINKING_LEVEL,
+          })
+        : new AnthropicAgentModel({
+            apiKey: env.LLM_API_KEY,
+            timeoutMs: env.AGENT_MODEL_TIMEOUT_MS,
+          }),
     names: {
-      router: env.AGENT_MODEL_ROUTER,
-      specialist: env.AGENT_MODEL_SPECIALIST,
-      fallback: env.AGENT_MODEL_FALLBACK,
+      router: env.AGENT_MODEL_ROUTER ?? defaults.router,
+      specialist: env.AGENT_MODEL_SPECIALIST ?? defaults.specialist,
+      fallback: env.AGENT_MODEL_FALLBACK ?? defaults.fallback,
     },
   };
 }

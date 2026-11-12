@@ -102,6 +102,14 @@ export const DEFAULT_AGENT_MODEL_PRICES: AgentModelPrices = {
     cacheRead: 100_000,
     cacheWrite: 2_500_000,
   },
+  // Google's list price for the paid tier, read on 2026-11-12: check it before relying on a
+  // cost figure. Gemini charges nothing extra to write its cache, so a write costs an input.
+  'gemini-2.5-flash': {
+    input: 300_000,
+    output: 2_500_000,
+    cacheRead: 30_000,
+    cacheWrite: 300_000,
+  },
   'mock-router': { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
   'mock-specialist': { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
   'mock-fallback': { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },

@@ -194,9 +194,10 @@ variable "worker_env" {
 
 variable "agent_env" {
   description = <<-EOT
-    Non-secret settings of the agent service: AGENT_MODEL_PROVIDER, AGENT_MODEL_ROUTER,
-    AGENT_MODEL_SPECIALIST, AGENT_MODEL_FALLBACK, AGENT_MAX_CONCURRENT_RUNS, LOG_LEVEL. Its tokens
-    and the model provider's key are secrets and never go here.
+    Non-secret settings of the agent service: AGENT_MODEL_PROVIDER (gemini unless set, ADR-109),
+    AGENT_MODEL_ROUTER, AGENT_MODEL_SPECIALIST, AGENT_MODEL_FALLBACK, AGENT_MODEL_THINKING_LEVEL,
+    AGENT_MAX_CONCURRENT_RUNS, LOG_LEVEL. Its tokens and the model provider's key are secrets and
+    never go here.
   EOT
   type        = map(string)
   default     = {}

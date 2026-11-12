@@ -92,7 +92,8 @@ agent:
   replicas: 1
   env:
     LOG_LEVEL: info
-    AGENT_MODEL_PROVIDER: anthropic
+    # Ask Suskii answers with Google's Gemini (ADR-109); LLM_API_KEY is the Gemini API key.
+    AGENT_MODEL_PROVIDER: gemini
   resources:
     requests: { cpu: 100m, memory: 384Mi }
     limits: { memory: 1Gi }
