@@ -106,9 +106,10 @@ putIfMissing('INTERNAL_API_TOKEN', () => token());
 // Between the API and the agent service (ADR-101): two different values.
 putIfMissing('AGENT_RUN_TOKEN', () => token());
 putIfMissing('AGENT_TOOLS_TOKEN', () => token());
-// Cloudflare's documented test secret, which accepts every answer: this environment has no
-// website yet, and the app proves itself with its device attestation instead. A real widget's
-// secret replaces it when the website goes live.
+// Cloudflare's documented test secret, so the API has one to start with. It opens nothing: the
+// API also checks that an answer names the website's own host, and the test secret's answers
+// name another. The forms the website protects stay closed until a real widget's secret
+// replaces this; the app proves itself with its device attestation and is not affected.
 putIfMissing('TURNSTILE_SECRET_KEY', () => '1x0000000000000000000000000000000AA');
 
 // The documents bucket is reached with an HMAC key of a storage-only identity. Its secret is

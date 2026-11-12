@@ -1,0 +1,11 @@
+# The website and the admin console on the backend machine (ADR-111), added to the Caddyfile
+# when the settings switch them on. Each gets its own name and certificate. Their pages set
+# their own security headers (the nonce policy, frame and sniffing rules); nothing is added or
+# compressed here.
+{$SUSKII_WEB_HOST} {
+	reverse_proxy web:3000
+}
+
+{$SUSKII_ADMIN_HOST} {
+	reverse_proxy admin:3001
+}
