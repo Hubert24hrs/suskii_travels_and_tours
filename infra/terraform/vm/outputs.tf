@@ -20,6 +20,11 @@ output "admin_url" {
   value = "https://${local.admin_host}"
 }
 
+output "mailbox_url" {
+  description = "A testing backend's mailbox (ADR-113), user suskii and the password in the secret MAILBOX_PASSWORD. Empty while it is off."
+  value       = var.mailbox ? "https://${local.mail_host}" : ""
+}
+
 output "turnstile_site_key" {
   description = "Public by design: it is in every page that shows the widget."
   value       = var.turnstile_site_key

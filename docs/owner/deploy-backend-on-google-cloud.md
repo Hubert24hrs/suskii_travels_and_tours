@@ -26,9 +26,16 @@ Both figures are estimates from Google's list prices, not quotes.
 - **A backup** of the database every night at about 02:15 UTC and before every deploy, kept 30
   days in a private bucket (`suskii-travels-staging-backups`).
 - **Every key** in Secret Manager, generated for you and never shown.
+- **A mailbox** at `https://mail.endpoints.suskii-travels-staging.cloud.goog` (ADR-113). Every
+  email the platform sends lands there and goes no further: confirmations of an address,
+  booking emails, password resets. The user name is `suskii`; the password is in
+  [Secret Manager](https://console.cloud.google.com/security/secret-manager/secret/MAILBOX_PASSWORD/versions?project=suskii-travels-staging)
+  (open the latest version's menu, **View secret value**). Keep it like a staff password:
+  whoever reads the mailbox can reset any account's password on this backend. Mail is kept a
+  week.
 
-It runs on the built-in stand-ins for airlines, hotels, payments, email and texts, so no real
-money moves. Each real provider is connected later with its key.
+It runs on the built-in stand-ins for airlines, hotels, payments and texts, so no real money
+moves and no email reaches a real inbox. Each real provider is connected later with its key.
 
 **What you can try on it.** Flights, hotels, combined trips, deals, Ask Suskii, and the
 sample catalogue the test server has always shown: sample packages, tours, add-ons, visa
@@ -61,15 +68,23 @@ without it, and the app is not affected: it proves itself another way.
 4. Run the deploy command below with `TURNSTILE_SITE_KEY=the-site-key` in front of it. The
    site key is public by design.
 
-**2. The first admin of the console.** Sign up in the app with the address that should be the
-admin. Then open the machine's **SSH** button (see "Look at it" below) and run, with that
-address:
+**2. The first admin of the console.** Only you can do this, because it is your account, your
+password and your authenticator. It takes about five minutes:
 
-```bash
-sudo /opt/suskii/ops scripts/staff-bootstrap.ts --email you@example.com --yes
-```
+1. Sign up in the test app (pointed at this backend as above) with the address that should be
+   the admin.
+2. Open the mailbox (above), find the email that confirms your address and open its link. The
+   website says the address is confirmed.
+3. Open the machine's **SSH** button (see "Look at it" below) and run, with that address:
 
-It prints what to do next. The console asks every admin to set up two step verification.
+   ```bash
+   sudo /opt/suskii/ops scripts/staff-bootstrap.ts --email you@example.com --yes
+   ```
+
+4. Sign in to the console with the same address and password. It asks you to set up two step
+   verification with an authenticator app before it opens.
+
+The bootstrap works once: after it, roles are given in the console, with the authenticator.
 
 ### What this shape does not give you
 
@@ -92,6 +107,13 @@ Ask Suskii runs in its own container, with its own keys and its own corner of th
 and it has a ceiling on the memory and processor time it may use. If it is slow, wrong or
 down, searching, booking and paying carry on. A chat then ends with a short "unavailable"
 note.
+
+This was tried on the live machine on 12 November 2026. The machine's permission to call
+Gemini was taken away for three minutes, as if Google's model were down. A message to Ask
+Suskii was taken in 0.2 seconds and ended 1.3 seconds later with the "unavailable" note; in
+the same minute a flight from Lagos to Abuja was searched in 0.2 seconds, booked, paid on the
+stand-in payment page and confirmed. With the permission back, Ask Suskii answered with Gemini
+again at the first try.
 
 **It answers with Google's Gemini, and nothing was needed from you** (ADR-112). The machine
 calls Gemini on Google's Vertex AI as its own Google identity, so there is no key to create,
@@ -157,6 +179,8 @@ address still cost a few dollars a month. To remove everything, delete the proje
   Budgets services were switched on; a role with one permission, to call a Gemini model, was
   made and given to the machine and to the identity that builds the images; and the budget
   alert above was created on the "Suskii Errands" billing account, for this project only.
+- For the mailbox (ADR-113): a fourth free name, `mail.endpoints.suskii-travels-staging.cloud.goog`,
+  and the secret `MAILBOX_PASSWORD`, generated and never shown.
 
 ## The managed shape, for later
 

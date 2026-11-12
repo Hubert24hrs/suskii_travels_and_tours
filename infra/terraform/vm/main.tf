@@ -24,10 +24,13 @@ locals {
   admin_host = var.admin_host != "" ? var.admin_host : (
     var.sites ? "admin.endpoints.${var.project_id}.cloud.goog" : "admin.suskii.example"
   )
+  # A testing backend's mailbox (ADR-113) has a name of its own, and only Google's free one.
+  mail_host = "mail.endpoints.${var.project_id}.cloud.goog"
   # Google's free names for the address, one for each name the owner has not given.
   free_names = merge(
     var.sites && var.web_host == "" ? { web = local.web_host } : {},
     var.sites && var.admin_host == "" ? { admin = local.admin_host } : {},
+    var.mailbox ? { mail = local.mail_host } : {},
   )
   registry = "${var.region}-docker.pkg.dev/${var.project_id}/suskii"
   labels   = merge({ app = "suskii", environment = var.environment, managed_by = "terraform" }, var.labels)
@@ -59,6 +62,7 @@ locals {
     "JWT_PRIVATE_KEY",
     "JWT_PUBLIC_KEY",
     "LLM_API_KEY",
+    "MAILBOX_PASSWORD",
     "OBJECT_STORAGE_ACCESS_KEY_ID",
     "OBJECT_STORAGE_SECRET_ACCESS_KEY",
     "POSTGRES_AGENT_PASSWORD",
@@ -419,15 +423,16 @@ resource "google_compute_instance" "backend" {
   # without replacing it. None holds a secret. `suskii-release` (the image tag to run) is set
   # by the deploy script.
   metadata = {
-    enable-oslogin          = "TRUE"
-    enable-guest-attributes = "TRUE"
-    block-project-ssh-keys  = "TRUE"
-    startup-script          = file("${path.module}/../../gcp/vm/startup.sh")
-    suskii-compose          = file("${path.module}/../../gcp/vm/compose.yml")
-    suskii-caddyfile        = file("${path.module}/../../gcp/vm/Caddyfile")
-    suskii-caddyfile-sites  = file("${path.module}/../../gcp/vm/Caddyfile.sites")
-    suskii-deploy           = file("${path.module}/../../gcp/vm/deploy.sh")
-    suskii-backup           = file("${path.module}/../../gcp/vm/backup.sh")
+    enable-oslogin           = "TRUE"
+    enable-guest-attributes  = "TRUE"
+    block-project-ssh-keys   = "TRUE"
+    startup-script           = file("${path.module}/../../gcp/vm/startup.sh")
+    suskii-compose           = file("${path.module}/../../gcp/vm/compose.yml")
+    suskii-caddyfile         = file("${path.module}/../../gcp/vm/Caddyfile")
+    suskii-caddyfile-sites   = file("${path.module}/../../gcp/vm/Caddyfile.sites")
+    suskii-caddyfile-mailbox = file("${path.module}/../../gcp/vm/Caddyfile.mailbox")
+    suskii-deploy            = file("${path.module}/../../gcp/vm/deploy.sh")
+    suskii-backup            = file("${path.module}/../../gcp/vm/backup.sh")
     suskii-settings = jsonencode({
       project_id         = var.project_id
       environment        = var.environment
@@ -442,6 +447,8 @@ resource "google_compute_instance" "backend" {
       assistant_model    = var.assistant_model
       assistant_location = var.assistant_location != "" ? var.assistant_location : var.region
       sample_catalogue   = var.sample_catalogue
+      mailbox            = var.mailbox
+      mail_host          = local.mail_host
     })
   }
 
@@ -449,6 +456,10 @@ resource "google_compute_instance" "backend" {
     precondition {
       condition     = !(var.sample_catalogue && var.environment == "production")
       error_message = "Sample inventory never goes into production: turn sample_catalogue off."
+    }
+    precondition {
+      condition     = !(var.mailbox && var.environment == "production")
+      error_message = "Production's email goes to travellers, never to a mailbox: turn mailbox off."
     }
     ignore_changes = [
       metadata["suskii-release"],

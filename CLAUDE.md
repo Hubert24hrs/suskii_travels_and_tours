@@ -153,7 +153,9 @@ the same machine (`web.` and `admin.endpoints.suskii-travels-staging.cloud.goog`
 the website protects with Turnstile stay closed until the owner's widget exists. With
 `sample_catalogue` on (as it is there) the release and a nightly timer seed the sample
 inventory and buses and car rental are on; rides, partner offers and price requests stay
-off. The owner's
+off. Its email lands in a mailbox on the machine and goes no further (ADR-113,
+`mail.endpoints.suskii-travels-staging.cloud.goog`, user `suskii`, the password in
+`MAILBOX_PASSWORD`), which is how its first admin confirms an address. The owner's
 guide is `docs/owner/deploy-backend-on-google-cloud.md`.
 
 Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
@@ -401,7 +403,8 @@ Tooling notes for agents:
   `ENCRYPTED_FIELDS`, which `keys:reencrypt` walks to rotate keys; a test fails when a column named
   `*Encrypted`/`*Ciphertext` is missing there (ADR-038).
 - Production refuses plaintext Postgres, Redis and worker-to-API hops unless the matching
-  `*_ALLOW_PLAINTEXT` flag declares a private, otherwise encrypted path (ADR-038). Social sign-in
+  `*_ALLOW_PLAINTEXT` flag declares a private, otherwise encrypted path (ADR-038); email too,
+  with `SMTP_ALLOW_PLAINTEXT` for a mail server on the same host (ADR-113). Social sign-in
   needs a nonce from `POST /v1/auth/social/nonce`.
 - "Remember me" (ADR-108): every route that can finish a sign-in takes an optional `remember`
   (true when left out) and passes it to `SessionService.start()`. Off, the session lasts
@@ -1767,6 +1770,13 @@ Tooling notes for agents:
   the default, with no key (Terraform grants the machine `suskiiModelCaller` only then);
   `gemini` or `anthropic` with a key in `LLM_API_KEY`; or `mock`. Its daily caps there are the
   compose file's `AGENT_*_DAILY_MICROUSD`; production's come from the API's defaults.
+- A testing backend's mailbox (ADR-113, `mailbox`, refused in production) catches every email:
+  the API sends to it on the private network (`SMTP_ALLOW_PLAINTEXT`) and it relays nothing.
+  Its page answers only through Caddy's basic authentication, whose bcrypt hash the release
+  makes from `MAILBOX_PASSWORD` on standard input; the Caddyfile is root-only for it. Each
+  release asks the page without the password and stops the mailbox if it answers. Switched
+  off, it goes with its mail. It holds raw links that sign in or reset: treat its password
+  like a staff one, and never point a production API at it.
 - Before a Terraform root is applied for the first time, plan it against the real project
   (`terraform plan` with a local backend override): `validate` cannot see a variable's
   validation that only a real value trips, and that is how the managed shape's ingress bug was
@@ -1924,6 +1934,7 @@ Tooling notes for agents:
 - [ADR-110: The backend on Google Cloud before the domain and the edge exist](docs/decisions/ADR-110-backend-on-google-cloud-before-the-edge.md)
 - [ADR-111: The backend on one Compute Engine machine, the budget shape](docs/decisions/ADR-111-the-backend-on-one-machine.md)
 - [ADR-112: Ask Suskii on Gemini through Vertex AI, as the machine's own identity](docs/decisions/ADR-112-ask-suskii-on-vertex-ai.md)
+- [ADR-113: A mailbox on the testing backend, so its first admin can confirm an address](docs/decisions/ADR-113-a-mailbox-on-the-testing-backend.md)
 
 ## Open questions for the owner
 
@@ -2150,11 +2161,16 @@ whether `fast-delivery-d8d5c`, unlinked from billing
 to make room, should get billing back (a freed place or a higher limit from Google); the
 owner's own domain for the API in place of Google's free name; a Turnstile widget for the
 website's name (its site key and secret), without which sign-up and guest checkout on the
-website stay closed; the first admin of the console; and when to move to the managed shape. Added with Ask Suskii
+website stay closed; the first admin of the console (the owner's own sign-up and
+authenticator, with the mailbox of ADR-113 for the confirming email); and when to move to the
+managed shape. Added with Ask Suskii
 on Vertex AI (ADR-112): counsel's reading of Google's terms for Gemini on Vertex AI (where
 requests are processed and whether prompts are kept), a higher Vertex AI quota when the
 assistant gets busy (a new project's is small), and whether the staging caps (2 US dollars a
 day) and the budget alert (50 US dollars a month, which warns and stops nothing) are right.
+Added with the mailbox (ADR-113): the email provider production will send through (an account
+and terms only the owner can take out), and who besides the owner may read the testing
+backend's mailbox.
 Every
 owner action is listed, step by step, in
 `docs/owner/launch-checklist.md`.

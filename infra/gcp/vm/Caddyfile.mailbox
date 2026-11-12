@@ -1,0 +1,15 @@
+# A testing backend's mailbox (ADR-113), added to the Caddyfile when the settings switch it on.
+# Nothing reaches the mailbox without the password in the secret MAILBOX_PASSWORD (user name
+# suskii): deploy.sh puts its bcrypt hash where the placeholder is, in a file only root reads.
+# A link in a message opens elsewhere, and its address never travels as a referrer.
+{$SUSKII_MAIL_HOST} {
+	basic_auth {
+		suskii @MAILBOX_PASSWORD_HASH@
+	}
+	header {
+		Referrer-Policy no-referrer
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+	reverse_proxy mailbox:8025
+}

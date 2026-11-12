@@ -3,6 +3,41 @@ import { createTransport, type Transporter } from 'nodemailer';
 
 import { APP_CONFIG, type AppConfig } from '../config/config';
 
+type SmtpSettings = Pick<
+  AppConfig,
+  | 'NODE_ENV'
+  | 'SMTP_HOST'
+  | 'SMTP_PORT'
+  | 'SMTP_SECURE'
+  | 'SMTP_ALLOW_PLAINTEXT'
+  | 'SMTP_USER'
+  | 'SMTP_PASSWORD'
+>;
+
+/**
+ * What the SMTP client is given. Production never sends mail in plaintext: without implicit
+ * TLS, STARTTLS is mandatory, unless `SMTP_ALLOW_PLAINTEXT` declares a mail server that never
+ * leaves the host or its private network (ADR-038, ADR-113).
+ */
+export function smtpTransportOptions(config: SmtpSettings): {
+  host: string;
+  port: number;
+  secure: boolean;
+  requireTLS: boolean;
+  auth?: { user: string; pass: string };
+} {
+  return {
+    host: config.SMTP_HOST,
+    port: config.SMTP_PORT,
+    secure: config.SMTP_SECURE,
+    requireTLS:
+      config.NODE_ENV === 'production' && !config.SMTP_SECURE && !config.SMTP_ALLOW_PLAINTEXT,
+    ...(config.SMTP_USER && config.SMTP_PASSWORD
+      ? { auth: { user: config.SMTP_USER, pass: config.SMTP_PASSWORD } }
+      : {}),
+  };
+}
+
 export interface EmailAttachment {
   filename: string;
   content: Uint8Array;
@@ -37,16 +72,7 @@ export class SmtpEmailProvider extends EmailProvider {
 
   constructor(@Inject(APP_CONFIG) private readonly config: AppConfig) {
     super();
-    this.transport = createTransport({
-      host: config.SMTP_HOST,
-      port: config.SMTP_PORT,
-      secure: config.SMTP_SECURE,
-      // Production never sends mail in plaintext: without implicit TLS, STARTTLS is mandatory.
-      requireTLS: config.NODE_ENV === 'production' && !config.SMTP_SECURE,
-      ...(config.SMTP_USER && config.SMTP_PASSWORD
-        ? { auth: { user: config.SMTP_USER, pass: config.SMTP_PASSWORD } }
-        : {}),
-    });
+    this.transport = createTransport(smtpTransportOptions(config));
   }
 
   async send(message: EmailMessage): Promise<void> {

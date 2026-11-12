@@ -138,13 +138,15 @@ if (hasId && hasSecret) {
   put('OBJECT_STORAGE_SECRET_ACCESS_KEY', created.secret);
 }
 
-// The backend on one VM runs its own PostgreSQL and Redis: their passwords are generated too.
+// The backend on one VM runs its own PostgreSQL and Redis, and a testing backend's mailbox
+// (ADR-113): their passwords are generated too.
 if (values.passwords) {
   for (const name of [
     'POSTGRES_OWNER_PASSWORD',
     'POSTGRES_APP_PASSWORD',
     'POSTGRES_AGENT_PASSWORD',
     'REDIS_PASSWORD',
+    'MAILBOX_PASSWORD',
   ]) {
     putIfMissing(name, password);
   }

@@ -8,7 +8,8 @@
 # /run/suskii (memory only). Nothing but Caddy has a published port.
 #
 # The website and the admin console (profile `sites`) run here too when the settings say so:
-# built for this environment's addresses, with no key of their own.
+# built for this environment's addresses, with no key of their own. So does a testing backend's
+# mailbox (profile `mailbox`, ADR-113), where the API's email lands and stops.
 name: suskii
 
 x-hardened: &hardened
@@ -103,7 +104,13 @@ services:
       HOTEL_SUPPLIERS: mock
       PAYMENT_PROVIDERS: mock
       TAX_SELLER_COUNTRY: NG
-      EMAIL_PROVIDER: mock
+      # Email (ADR-113): with the mailbox, every message goes to it over the private network and
+      # stops there, for the owner to read; without it, nothing is sent at all.
+      EMAIL_PROVIDER: ${SUSKII_EMAIL_PROVIDER:?}
+      EMAIL_FROM: 'SUSKII T&T <no-reply@${SUSKII_WEB_HOST:?}>'
+      SMTP_HOST: mailbox
+      SMTP_PORT: '1025'
+      SMTP_ALLOW_PLAINTEXT: 'true'
       PUSH_PROVIDER: mock
       ANTIVIRUS_PROVIDER: mock
       DEVICE_ATTESTATION: mock
@@ -215,6 +222,28 @@ services:
       - '/app/apps/admin/.next/cache:uid=1000,gid=1000'
     mem_limit: 384m
 
+  # A testing backend's mailbox (ADR-113): the API's email lands here and goes no further, a week
+  # at most and 500 messages. It relays nothing on; its page is reached only through Caddy,
+  # behind the password in the secret MAILBOX_PASSWORD. Terraform refuses it in production.
+  mailbox:
+    <<: *hardened
+    image: axllent/mailpit:v1.31.6
+    profiles: [mailbox]
+    user: '1000:1000'
+    command:
+      - --database=/data/mailpit.db
+      - --max=500
+      - --max-age=7d
+      - --disable-version-check
+      - --block-remote-css-and-fonts
+    volumes: ['/mnt/data/mailbox:/data']
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    mem_limit: 128m
+
   # HTTPS: a certificate from Let's Encrypt for each name, kept on the data disk.
   caddy:
     image: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
@@ -223,6 +252,7 @@ services:
       SUSKII_API_HOST: ${SUSKII_API_HOST:?}
       SUSKII_WEB_HOST: ${SUSKII_WEB_HOST:?}
       SUSKII_ADMIN_HOST: ${SUSKII_ADMIN_HOST:?}
+      SUSKII_MAIL_HOST: ${SUSKII_MAIL_HOST:?}
     ports: ['80:80', '443:443', '443:443/udp']
     volumes:
       - /opt/suskii/Caddyfile:/etc/caddy/Caddyfile:ro
