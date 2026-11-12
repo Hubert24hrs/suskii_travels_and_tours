@@ -6,6 +6,39 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### The backend on Google Cloud, in one command (2026-11-12, ADR-110)
+
+The owner asked for the backend, and the assistant's backend beside it, to be deployed on
+Google's services.
+
+#### Added
+
+- **`scripts/gcp/deploy-backend.sh <project>`**, run by the owner in Google Cloud Shell: it
+  creates the network, Cloud SQL, Memorystore, the documents bucket, the image repository, one
+  identity per service and every secret (generated values go straight into Secret Manager and
+  are never shown), builds the images with Cloud Build, runs the migration job and rolls out
+  the API, the worker and the agent service. It can be stopped and run again.
+- **`infra/terraform/backend/`**, a root for the backend alone, and `edge = "none"` in the
+  platform module: no load balancer, no Cloudflare, no website or console. The API answers on
+  its own `run.app` address; the worker and the agent service are reachable from the VPC only.
+- **The owner's guide**, `docs/owner/deploy-backend-on-google-cloud.md`: what is needed (a
+  project with billing), the three lines to paste, what it creates and roughly what it costs.
+
+#### How the assistant is kept from hurting the platform
+
+Its own Cloud Run service and identity, its own schema in the database and nothing of the
+platform's tables, one way in (the API's tool gateway), limits on every run, daily spend caps,
+a pause switch, and one setting that removes it. No search, booking or payment route waits
+for it.
+
+#### Not done, and why
+
+- Nothing is deployed yet. This session holds no Google credential, and the first apply needs
+  the owner's project with billing. The script and the Terraform are checked for syntax and
+  format, and validated in CI; they have not been run against a project.
+- The website and the console are not part of this shape: they need the domain, so that the
+  API and the website are one site for the browser's cookies.
+
 ### Ask Suskii and plain copy (2026-11-12, ADR-109)
 
 The second part of the owner's changes: one assistant for the whole platform, and a rule for

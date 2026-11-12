@@ -130,6 +130,15 @@ reads a hyphen or a dash. Built and tested on recorded answers; no eval has run 
 (it needs the owner's key as `GEMINI_API_KEY`), and Google serves the 2.5 models only to
 projects that have used them.
 
+The backend on Google Cloud (outside the numbered phases, ADR-110): the owner asked for the
+backend and the assistant's backend to be deployed on Google's services. Built:
+`scripts/gcp/deploy-backend.sh <project>`, run by the owner in Cloud Shell, and
+`infra/terraform/backend/` with `edge = "none"` in the platform module (the API on its own
+`run.app` address, the worker and the agent service private, no load balancer, no website or
+console until the domain exists). Not run yet: it needs the owner's project with billing, and
+this session holds no Google credential. The owner's guide is
+`docs/owner/deploy-backend-on-google-cloud.md`.
+
 Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
 hotel merging, affiliate partner offers with click and conversion tracking. Built; each partner
 needs the owner's account, then one run of `partner-sandbox.yml` (`docs/phases/partner-supply.md`). Own rides and the own fleet stay off
@@ -268,6 +277,7 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `pnpm release:rehearse`                            | Compose deploy with the agent service, broken release, rollback (`:local` images) |
 | `node scripts/helm-rehearsal.mjs`                  | Same on kind with the Helm chart (needs kind and Helm; runs in CI)                |
 | `pnpm smoke --api URL [--web URL] [--admin URL]`   | Post-deploy smoke tests (public routes only, safe on production)                  |
+| `bash scripts/gcp/deploy-backend.sh PROJECT`       | The backend on Google Cloud, from Cloud Shell, as the owner (ADR-110)             |
 | `pnpm check:migrations` / `pnpm test:scripts`      | Expand/contract guard on new migrations / node:test script suites                 |
 | `pnpm check:workflows`                             | Fail on a job condition GitHub cannot read (it would refuse the workflow file)    |
 | `docker compose --profile s3 up -d s3`             | S3-compatible store for `OBJECT_STORAGE=s3` locally (ADR-057)                     |
@@ -1685,6 +1695,17 @@ Tooling notes for agents:
 - A manual workflow that needs a key should have a way to run without one that calls nothing
   (the Agent evals' "Replay the recorded answers"): it proves the workflow before the owner
   spends anything, and it is how a workflow nobody can run yet is kept from rotting.
+- The platform module has two shapes (ADR-110): `edge = "cloudflare"` (`live/`, an environment
+  behind the load balancer and Cloudflare) and `edge = "none"` (`backend/`, the backend alone on
+  the API's `run.app` address). A resource of the load balancer or of the website and console
+  is created only when `local.edged`; a change to the module must hold in both shapes, and
+  `infra.yml` validates both roots. Without the edge the API trusts one hop of
+  `X-Forwarded-For` (`TRUST_PROXY_HOPS`), never Cloudflare's headers.
+- `scripts/gcp/deploy-backend.sh` is the only way the `backend/` root is applied. It never
+  prints or stores a secret (`seed-secrets.mjs` pipes generated values into Secret Manager;
+  keep it in step with `apps/api/scripts/generate-secrets.ts`), every step looks at what
+  exists first, and what it decided lives in one file in the state bucket that holds no
+  secret. A new secret the backend reads gets a value there in the same change.
 - Terraform changes: `terraform fmt`, then `validate` and TFLint run in `infra.yml`; operators
   apply them (`infra/terraform/README.md`). Store and privacy changes update `docs/release/` in
   the same change.
@@ -1835,6 +1856,7 @@ Tooling notes for agents:
 - [ADR-107: What an agent may do: tool tiers, confirmations, approvals and autonomy](docs/decisions/ADR-107-agent-authority.md)
 - [ADR-108: The sign-in card, "Remember me", search bars over known places and stable city ids](docs/decisions/ADR-108-sign-in-card-and-remember-me.md)
 - [ADR-109: Ask Suskii: Gemini, one button that moves, bookings prepared for the traveller, and plain copy](docs/decisions/ADR-109-ask-suskii.md)
+- [ADR-110: The backend on Google Cloud before the domain and the edge exist](docs/decisions/ADR-110-backend-on-google-cloud-before-the-edge.md)
 
 ## Open questions for the owner
 
@@ -2055,6 +2077,9 @@ Manager), Google's terms for the API read with counsel (whether prompts may be u
 its models on the owner's tier), one run of the Agent evals against Gemini, the model to name
 if `gemini-2.5-flash` is refused for a new project, whether the app's typed dates should become
 date and time pickers (12 fields; today they are typed as `2026-12-01`), and whether the page
-addresses that hold a hyphen (`/travel-add-ons`) should change, which needs redirects. Every
+addresses that hold a hyphen (`/travel-add-ons`) should change, which needs redirects. Added with the backend on Google Cloud (ADR-110): a Google Cloud project with
+billing and its id, one run of `scripts/gcp/deploy-backend.sh` in Cloud Shell, the four lines
+it prints, a budget alert on the project, and the domain with its Cloudflare zone when the
+website and the console should follow. Every
 owner action is listed, step by step, in
 `docs/owner/launch-checklist.md`.
