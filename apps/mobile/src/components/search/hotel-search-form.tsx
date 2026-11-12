@@ -120,6 +120,7 @@ export function HotelSearchForm() {
     <View className="gap-4" testID="hotel-search-form">
       <RecentSearches />
       <CityField
+        testID="hotel-destination"
         label={t('search.hotels.destination')}
         value={city}
         onChange={(value) => {

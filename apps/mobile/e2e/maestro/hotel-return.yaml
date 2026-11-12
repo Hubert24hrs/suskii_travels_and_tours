@@ -1,0 +1,96 @@
+# The hotel form on Home after a search and a visit elsewhere. Reported from a phone: after a
+# hotel search, another section and the way back, "Continue your search", the destination field
+# and Search did nothing. The flow makes a search, leaves by the bottom tabs and by the search
+# card's own tabs, and uses each of the three again.
+appId: com.suskii.travels.e2e
+name: Hotel form after returning
+tags:
+  - hotels
+---
+- launchApp:
+    clearState: true
+- runFlow: subflows/dismiss-system-dialogs.yaml
+- extendedWaitUntil:
+    visible:
+      id: flight-search-form
+    timeout: 60000
+- tapOn:
+    id: search-tab-hotels
+- extendedWaitUntil:
+    visible:
+      id: hotel-search-form
+    timeout: 10000
+
+# 1. A first search: Lagos, on the form's own dates and guests.
+- tapOn:
+    id: hotel-destination
+- inputText: Lagos
+- hideKeyboard
+- tapOn: 'Lagos, Nigeria'
+- scrollUntilVisible:
+    element:
+      id: hotel-submit
+- tapOn:
+    id: hotel-submit
+- extendedWaitUntil:
+    visible:
+      id: hotel-result
+    timeout: 60000
+- back
+- extendedWaitUntil:
+    visible:
+      id: hotel-search-form
+    timeout: 10000
+
+# 2. Another section and back, by the bottom tabs.
+- tapOn:
+    id: tab-deals
+- tapOn:
+    id: tab-home
+- extendedWaitUntil:
+    visible:
+      id: hotel-search-form
+    timeout: 10000
+
+# 3. Another tab of the search card and back: the form is new and offers the search just made.
+- scrollUntilVisible:
+    element:
+      id: search-tab-cars
+    direction: UP
+- tapOn:
+    id: search-tab-cars
+- tapOn:
+    id: search-tab-hotels
+- scrollUntilVisible:
+    element:
+      id: recent-hotel-search
+- tapOn:
+    id: recent-hotel-search
+- extendedWaitUntil:
+    visible:
+      id: hotel-result
+    timeout: 60000
+- back
+- extendedWaitUntil:
+    visible:
+      id: hotel-search-form
+    timeout: 10000
+
+# 4. The destination takes typing again, and Search searches.
+- scrollUntilVisible:
+    element:
+      id: hotel-destination
+- tapOn:
+    id: hotel-destination
+- inputText: Abuja
+- hideKeyboard
+- tapOn: 'Abuja, Nigeria'
+- scrollUntilVisible:
+    element:
+      id: hotel-submit
+- tapOn:
+    id: hotel-submit
+- extendedWaitUntil:
+    visible:
+      id: hotel-result
+    timeout: 60000
