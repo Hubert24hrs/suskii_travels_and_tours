@@ -11,6 +11,11 @@ export const AGENT_CARD_NOTES = [
   'passport_reminder',
   // Visa rules are guidance from Suskii's own notes: never a guarantee of a visa or of entry.
   'visa_guidance',
+  // A booking the assistant prepared (ADR-109): nothing is booked or paid until the traveller
+  // enters the details and pays on the booking page.
+  'booking_handoff',
+  // After a flight was prepared: the assistant can find a stay, a car or a transfer for it.
+  'other_services',
 ] as const;
 export type AgentCardNote = (typeof AGENT_CARD_NOTES)[number];
 

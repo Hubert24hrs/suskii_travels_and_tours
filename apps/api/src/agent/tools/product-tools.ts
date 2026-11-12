@@ -68,7 +68,7 @@ export class ProductTools implements OnModuleInit {
       agentTool({
         name: 'cars.rentals',
         description:
-          'Find rental cars that are free in a city for a pick-up and a return time, with the price of the period and the refundable deposit. Times are local to the branch. Cars marked sample are demo inventory.',
+          'Find rental cars that are free in a city for a pick-up and a return time, with the price of the period and the refundable deposit. Times are local to the branch. Cars marked sample are demo inventory. When the traveller chooses a car, hand its carId and the same times to cars.prepare_booking; never show a carId to the traveller.',
         tier: 'read',
         scope: 'search',
         agents: ['cars', 'trip_builder'],
@@ -96,6 +96,8 @@ export class ProductTools implements OnModuleInit {
           cars: z.array(
             z.object({
               option: z.number().int(),
+              /** Handed to cars.prepare_booking when the traveller chooses this car. */
+              carId: z.string(),
               car: z.string(),
               sample: z.boolean(),
               category: z.enum(RENTAL_CATEGORIES),
@@ -142,6 +144,7 @@ export class ProductTools implements OnModuleInit {
               days: result.days,
               cars: shown.map((vehicle, index) => ({
                 option: index + 1,
+                carId: vehicle.id,
                 car: `${vehicle.make} ${vehicle.model} ${vehicle.year}`,
                 sample: vehicle.sample,
                 category: vehicle.category,

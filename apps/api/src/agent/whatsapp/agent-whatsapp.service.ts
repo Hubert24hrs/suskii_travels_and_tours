@@ -81,6 +81,10 @@ export const AGENT_WHATSAPP_NOTES: Record<AgentCardNote, string> = {
     'Please note: many countries ask for a passport valid for at least six months after you arrive. This is a general reminder, not a decision about entry: check the rule of the country you are going to.',
   visa_guidance:
     'Please note: visa rules change, and the embassy or the immigration officer decides. This is guidance from our own notes, not a guarantee of a visa or of entry.',
+  booking_handoff:
+    'Please note: nothing is booked or paid yet. Open the link to enter the travellers’ details and pay on the secure payment page. The price is checked again before you pay.',
+  other_services:
+    'Need a place to stay, a car or an airport transfer for this trip? Ask, and we will look for the same dates.',
 };
 
 /** One card as lines of plain text: what it is, its facts, its price and where to open it. */

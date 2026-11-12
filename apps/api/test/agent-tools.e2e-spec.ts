@@ -190,7 +190,7 @@ describe('customer agent tools (e2e)', () => {
     }
   };
 
-  it('ships the tools with their tiers: six prepare something, six ask for a tap, and the staff tools are staff only', async () => {
+  it('ships the tools with their tiers: nine prepare something, six ask for a tap, and the staff tools are staff only', async () => {
     const response = await ctx
       .http()
       .get('/v1/internal/agent-tools')
@@ -207,6 +207,7 @@ describe('customer agent tools (e2e)', () => {
       'bookings.get',
       'bookings.list',
       'cars.buses',
+      'cars.prepare_booking',
       'cars.rentals',
       'catalog.places',
       'changes.accept',
@@ -218,8 +219,10 @@ describe('customer agent tools (e2e)', () => {
       'finance.booking_payments',
       'finance.draft_refund_request',
       'finance.overview',
+      'flights.prepare_booking',
       'flights.search',
       'flights.status',
+      'hotels.prepare_booking',
       'hotels.search',
       'knowledge.search',
       'marketing.draft_promo',
@@ -229,6 +232,7 @@ describe('customer agent tools (e2e)', () => {
       'ops.queues',
       'packages.search',
       'payments.options',
+      'platform.guide',
       'platform.status',
       'prices.indicative',
       'quotes.list',
@@ -246,7 +250,10 @@ describe('customer agent tools (e2e)', () => {
       'visa.requirements',
     ]);
     expect(tools.filter((tool) => tool.tier === 'propose').map((tool) => tool.name)).toEqual([
+      'cars.prepare_booking',
       'finance.draft_refund_request',
+      'flights.prepare_booking',
+      'hotels.prepare_booking',
       'marketing.draft_promo',
       'quotes.request',
       'sources.propose_recipe',
@@ -447,6 +454,219 @@ describe('customer agent tools (e2e)', () => {
     );
     expect(backwards.result?.problems).toContain('check_out_not_after_check_in');
     expect(backwards.result).toMatchObject({ found: 0, hotels: [] });
+  });
+
+  it('prepares the booking of a chosen flight: a quote and a card to the booking page, nothing booked', async () => {
+    const grant = await guestGrant();
+    const depart = inDays(30);
+    const back = inDays(33);
+    const search = await call<{ offers: { offerId: string; total: Wire }[] }>(
+      'flights.search',
+      'flights',
+      { origin: 'LOS', destination: 'ABV', departDate: depart, returnDate: back, limit: 2 },
+      grant,
+    );
+    const chosen = search.result?.offers[0];
+    expect(chosen?.offerId).toMatch(/^[A-Za-z0-9_.:-]{8,}$/);
+
+    const answer = await call<{
+      bookingStatus: string;
+      prepared: boolean;
+      what: string;
+      totalToPay: Wire;
+      priceChangedSinceSearch: boolean;
+      offerValidUntil: string;
+      alsoOffer: string[];
+      stay: { city: string | null; country: string; arrive: string; leave: string | null };
+    }>('flights.prepare_booking', 'flights', { offerId: chosen?.offerId }, grant);
+    expect(answer.status).toBe('ok');
+    expect(answer.result).toMatchObject({
+      problems: [],
+      // Never anything else: a prepared booking is an offer waiting on the booking page.
+      bookingStatus: 'not_booked',
+      prepared: true,
+      totalToPay: chosen?.total,
+      priceChangedSinceSearch: false,
+      // After a flight: what else the trip may need, where, and for which dates.
+      alsoOffer: ['hotel', 'car', 'airport_transfer', 'travel_insurance'],
+      stay: { city: 'Abuja', country: 'NG', arrive: depart, leave: back },
+    });
+    expect(answer.result?.what).toMatch(/^Lagos \(LOS\) \u2192 Abuja \(ABV\), /);
+    expect(answer.result?.offerValidUntil).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC$/);
+
+    // One card opens the booking page for exactly this quote; two notes say what it is not.
+    const cards = answer.result?.cards ?? [];
+    expect(cards.map((card) => [card.kind, card.title])).toEqual([
+      ['flight', answer.result?.what],
+      ['note', 'booking_handoff'],
+      ['note', 'other_services'],
+    ]);
+    expect(cards[0]?.price).toEqual(chosen?.total);
+    const quoteId = /^\/checkout\/([0-9a-f-]{36})$/.exec(cards[0]?.href ?? '')?.[1] ?? '';
+    expect(quoteId).not.toBe('');
+    expectInternal(cards);
+    // The quote is the ordinary one: the booking page reads it as it reads any other.
+    const quote = await ctx.http().get(`/v1/quotes/${quoteId}`).expect(200);
+    expect(quote.body).toMatchObject({ quoteId, vertical: 'flights' });
+    // And that is all that happened: no booking, no payment.
+    expect(await ctx.prisma.booking.count()).toBe(0);
+    expect(await ctx.prisma.payment.count()).toBe(0);
+
+    // An option that is gone says so in a code, and prepares nothing.
+    const gone = await call(
+      'flights.prepare_booking',
+      'flights',
+      { offerId: 'fs_0000000000000000.o0' },
+      grant,
+    );
+    expect(gone.status).toBe('ok');
+    expect(gone.result).toMatchObject({ bookingStatus: 'not_booked', prepared: false, cards: [] });
+    expect(gone.result?.problems?.length).toBeGreaterThan(0);
+    // Only the agents that sell flights may prepare one.
+    expect(
+      await call('flights.prepare_booking', 'payments', { offerId: chosen?.offerId }, grant),
+    ).toMatchObject({ status: 'denied', reason: 'agent' });
+  });
+
+  it('prepares the booking of a chosen stay and of a rental car, which needs an account', async () => {
+    const cityId =
+      (await ctx.prisma.airport.findUniqueOrThrow({ where: { iataCode: 'ABV' } })).cityId ?? '';
+    const guest = await guestGrant();
+    const stays = await call<{ hotels: { rateId: string; name: string; total: Wire }[] }>(
+      'hotels.search',
+      'hotels',
+      { cityId, checkIn: inDays(30), checkOut: inDays(33), rooms: [{ adults: 2 }], limit: 2 },
+      guest,
+    );
+    const stay = stays.result?.hotels[0];
+    const hotel = await call<{ prepared: boolean; what: string; totalToPay: Wire; stay: null }>(
+      'hotels.prepare_booking',
+      'hotels',
+      { rateId: stay?.rateId },
+      guest,
+    );
+    expect(hotel.result).toMatchObject({
+      problems: [],
+      bookingStatus: 'not_booked',
+      prepared: true,
+      totalToPay: stay?.total,
+      alsoOffer: [],
+      stay: null,
+    });
+    expect(hotel.result?.what).toContain(stay?.name ?? 'no stay');
+    expect(hotel.result?.cards?.map((card) => card.kind)).toEqual(['hotel', 'note']);
+    expect(hotel.result?.cards?.[0]?.href).toMatch(/^\/checkout\/[0-9a-f-]{36}$/);
+    expect(hotel.result?.cards?.[1]?.title).toBe('booking_handoff');
+    expectInternal(hotel.result?.cards);
+
+    // A rental: the renter's account carries the licence check and the deposit, so a guest is
+    // told to sign in and nothing is prepared.
+    await rentalVehicle(ctx, staff);
+    const pickupAt = localIn(72).slice(0, 16);
+    const returnAt = localIn(120).slice(0, 16);
+    const cars = await call<{ cars: { carId: string; rentalForThePeriod: Wire }[] }>(
+      'cars.rentals',
+      'cars',
+      { city: 'Lagos', pickupAt, returnAt },
+      guest,
+    );
+    const car = cars.result?.cars[0];
+    expect(car?.carId).toMatch(/^[0-9a-f-]{36}$/);
+    const asGuest = await call(
+      'cars.prepare_booking',
+      'cars',
+      { carId: car?.carId, pickupAt, returnAt },
+      guest,
+    );
+    expect(asGuest.result).toMatchObject({
+      problems: ['authentication-required'],
+      prepared: false,
+      cards: [],
+    });
+
+    const signedIn = await call<{ prepared: boolean; totalToPay: Wire }>(
+      'cars.prepare_booking',
+      'cars',
+      { carId: car?.carId, pickupAt, returnAt },
+      await grantFor(),
+    );
+    expect(signedIn.result).toMatchObject({
+      problems: [],
+      bookingStatus: 'not_booked',
+      prepared: true,
+    });
+    expect(signedIn.result?.totalToPay.amountMinor).toBeGreaterThanOrEqual(
+      car?.rentalForThePeriod.amountMinor ?? Infinity,
+    );
+    expect(signedIn.result?.cards?.map((card) => card.kind)).toEqual(['car', 'note']);
+    expect(signedIn.result?.cards?.[0]?.href).toMatch(/^\/checkout\/[0-9a-f-]{36}$/);
+    // A return before the pick-up is refused in a code, as the car's own page refuses it.
+    const backwards = await call(
+      'cars.prepare_booking',
+      'cars',
+      { carId: car?.carId, pickupAt: returnAt, returnAt: pickupAt },
+      await grantFor(),
+    );
+    expect(backwards.result).toMatchObject({ prepared: false, cards: [] });
+    expect(backwards.result?.problems?.length).toBeGreaterThan(0);
+    expect(await ctx.prisma.booking.count()).toBe(0);
+  });
+
+  it('explains how the platform works, topic by topic, with what is switched on now', async () => {
+    const grant = await guestGrant();
+    const cars = await call<{
+      topic: string;
+      guide: string[];
+      offeredNow: Record<string, boolean>;
+      currencies: string[];
+    }>('platform.guide', 'concierge', { topic: 'cars' }, grant);
+    expect(cars.status).toBe('ok');
+    expect(cars.result).toMatchObject({
+      topic: 'cars',
+      offeredNow: { buses: true, rides: true, rentals: true },
+      currencies: [],
+    });
+    expect(cars.result?.guide.length).toBeGreaterThan(3);
+    expect(cars.result?.cards?.map((card) => [card.kind, card.href])).toEqual([
+      ['link', '/buses'],
+      ['link', '/rides'],
+      ['link', '/rentals'],
+    ]);
+    expectInternal(cars.result?.cards);
+
+    const overview = await call<{ guide: string[]; currencies: string[] }>(
+      'platform.guide',
+      'bookings',
+      { topic: 'overview' },
+      grant,
+    );
+    expect(overview.result?.currencies).toContain('NGN');
+    // What the assistant says of itself: it prepares, the traveller pays; nothing in the
+    // guide is a price, a percentage or an opening hour.
+    const self = await call<{ guide: string[] }>(
+      'platform.guide',
+      'concierge',
+      { topic: 'ask_suskii' },
+      grant,
+    );
+    const text = self.result?.guide.join(' ') ?? '';
+    expect(text).toMatch(/never takes payment/);
+    expect(text).toMatch(/prepares the booking/);
+    for (const topic of ['flights', 'hotels', 'payments', 'changes_and_refunds', 'prime']) {
+      const page = await call<{ guide: string[] }>('platform.guide', 'concierge', { topic }, grant);
+      expect([topic, /[₦$€£%]|\b\d{1,2}:\d{2}\b/.test(page.result?.guide.join(' ') ?? '')]).toEqual(
+        [topic, false],
+      );
+    }
+    // A topic that does not exist is refused, and staff agents have their own tools.
+    expect(await call('platform.guide', 'concierge', { topic: 'secrets' }, grant)).toMatchObject({
+      status: 'denied',
+      reason: 'invalid',
+    });
+    expect(await call('platform.guide', 'executive', { topic: 'overview' }, grant)).toMatchObject({
+      status: 'denied',
+      reason: 'agent',
+    });
   });
 
   it('lists rental cars that are free and bus departures, and the cities buses run between', async () => {
