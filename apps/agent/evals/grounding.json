@@ -178,6 +178,26 @@
       "locale": "en-NG",
       "signedIn": true,
       "results": {
+        "bookings.list": {
+          "shown": 1,
+          "thereAreMore": false,
+          "bookings": [
+            {
+              "bookingId": "0193a111-0000-7000-8000-000000000001",
+              "kind": "flights",
+              "what": "Lagos (LOS) to Abuja (ABV), Air Peace",
+              "startsOn": "2026-12-10",
+              "endsOn": null,
+              "bookingStatus": "confirmed",
+              "cancellationStatus": "none",
+              "total": {
+                "amountMinor": 9650000,
+                "currency": "NGN"
+              }
+            }
+          ],
+          "cards": []
+        },
         "bookings.get": {
           "bookingId": "0193a111-0000-7000-8000-000000000001",
           "kind": "flights",
@@ -715,6 +735,26 @@
       "locale": "en-NG",
       "signedIn": true,
       "results": {
+        "bookings.list": {
+          "shown": 1,
+          "thereAreMore": false,
+          "bookings": [
+            {
+              "bookingId": "0193a111-0000-7000-8000-000000000001",
+              "kind": "flights",
+              "what": "Lagos (LOS) to Abuja (ABV), Air Peace",
+              "startsOn": "2026-12-10",
+              "endsOn": null,
+              "bookingStatus": "refunded",
+              "cancellationStatus": "succeeded",
+              "total": {
+                "amountMinor": 9650000,
+                "currency": "NGN"
+              }
+            }
+          ],
+          "cards": []
+        },
         "bookings.get": {
           "bookingId": "0193a111-0000-7000-8000-000000000001",
           "kind": "flights",
@@ -771,7 +811,7 @@
     {
       "id": "g15",
       "agent": "flights",
-      "message": "Flights from Lagos to Abuja on 1 November",
+      "message": "Flights from Lagos to Abuja on 1 November 2026",
       "locale": "en-NG",
       "signedIn": true,
       "results": {
@@ -1176,6 +1216,26 @@
       "locale": "en-NG",
       "signedIn": true,
       "results": {
+        "bookings.list": {
+          "shown": 1,
+          "thereAreMore": false,
+          "bookings": [
+            {
+              "bookingId": "0193a111-0000-7000-8000-000000000001",
+              "kind": "flights",
+              "what": "Lagos (LOS) to Abuja (ABV), Air Peace",
+              "startsOn": "2026-12-10",
+              "endsOn": null,
+              "bookingStatus": "awaiting_payment",
+              "cancellationStatus": "none",
+              "total": {
+                "amountMinor": 9650000,
+                "currency": "NGN"
+              }
+            }
+          ],
+          "cards": []
+        },
         "bookings.get": {
           "bookingId": "0193a111-0000-7000-8000-000000000001",
           "kind": "flights",
@@ -1232,6 +1292,26 @@
       "locale": "en-NG",
       "signedIn": true,
       "results": {
+        "bookings.list": {
+          "shown": 1,
+          "thereAreMore": false,
+          "bookings": [
+            {
+              "bookingId": "0193a111-0000-7000-8000-000000000001",
+              "kind": "flights",
+              "what": "Lagos (LOS) to Abuja (ABV), Air Peace",
+              "startsOn": "2026-12-10",
+              "endsOn": null,
+              "bookingStatus": "refund_pending",
+              "cancellationStatus": "succeeded",
+              "total": {
+                "amountMinor": 9650000,
+                "currency": "NGN"
+              }
+            }
+          ],
+          "cards": []
+        },
         "bookings.get": {
           "bookingId": "0193a111-0000-7000-8000-000000000001",
           "kind": "flights",
@@ -1292,6 +1372,26 @@
       "locale": "en-NG",
       "signedIn": true,
       "results": {
+        "bookings.list": {
+          "shown": 1,
+          "thereAreMore": false,
+          "bookings": [
+            {
+              "bookingId": "0193a111-0000-7000-8000-000000000001",
+              "kind": "flights",
+              "what": "Lagos (LOS) to Abuja (ABV), Air Peace",
+              "startsOn": "2026-12-10",
+              "endsOn": null,
+              "bookingStatus": "confirmed",
+              "cancellationStatus": "none",
+              "total": {
+                "amountMinor": 9650000,
+                "currency": "NGN"
+              }
+            }
+          ],
+          "cards": []
+        },
         "bookings.get": {
           "bookingId": "0193a111-0000-7000-8000-000000000001",
           "kind": "flights",
@@ -1460,6 +1560,26 @@
       "locale": "fr",
       "signedIn": true,
       "results": {
+        "bookings.list": {
+          "shown": 1,
+          "thereAreMore": false,
+          "bookings": [
+            {
+              "bookingId": "0193a111-0000-7000-8000-000000000001",
+              "kind": "flights",
+              "what": "Lagos (LOS) to Abuja (ABV), Air Peace",
+              "startsOn": "2026-12-10",
+              "endsOn": null,
+              "bookingStatus": "priced",
+              "cancellationStatus": "none",
+              "total": {
+                "amountMinor": 9650000,
+                "currency": "NGN"
+              }
+            }
+          ],
+          "cards": []
+        },
         "bookings.get": {
           "bookingId": "0193a111-0000-7000-8000-000000000001",
           "kind": "flights",
@@ -1564,6 +1684,26 @@
       "locale": "ar",
       "signedIn": true,
       "results": {
+        "bookings.list": {
+          "shown": 1,
+          "thereAreMore": false,
+          "bookings": [
+            {
+              "bookingId": "0193a111-0000-7000-8000-000000000001",
+              "kind": "flights",
+              "what": "Lagos (LOS) to Abuja (ABV), Air Peace",
+              "startsOn": "2026-12-10",
+              "endsOn": null,
+              "bookingStatus": "priced",
+              "cancellationStatus": "none",
+              "total": {
+                "amountMinor": 9650000,
+                "currency": "NGN"
+              }
+            }
+          ],
+          "cards": []
+        },
         "bookings.get": {
           "bookingId": "0193a111-0000-7000-8000-000000000001",
           "kind": "flights",
@@ -1757,6 +1897,26 @@
       "locale": "sw",
       "signedIn": true,
       "results": {
+        "bookings.list": {
+          "shown": 1,
+          "thereAreMore": false,
+          "bookings": [
+            {
+              "bookingId": "0193a111-0000-7000-8000-000000000001",
+              "kind": "flights",
+              "what": "Lagos (LOS) to Abuja (ABV), Air Peace",
+              "startsOn": "2026-12-10",
+              "endsOn": null,
+              "bookingStatus": "awaiting_payment",
+              "cancellationStatus": "none",
+              "total": {
+                "amountMinor": 9650000,
+                "currency": "NGN"
+              }
+            }
+          ],
+          "cards": []
+        },
         "bookings.get": {
           "bookingId": "0193a111-0000-7000-8000-000000000001",
           "kind": "flights",
