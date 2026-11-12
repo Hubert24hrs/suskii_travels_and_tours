@@ -31,6 +31,8 @@ export interface ApifyOptions {
   token: string;
   costs: ScrapeCosts['apify'];
   fetch?: HttpFetch;
+  /** The clock the attempt's deadline is kept by; tests fix it, production reads the system's. */
+  now?: () => number;
 }
 
 /**
@@ -58,10 +60,12 @@ export class ApifyScrapeProvider extends ScrapeProvider {
     structured: true,
   };
   private readonly fetchImpl: HttpFetch;
+  private readonly now: () => number;
 
   constructor(private readonly options: ApifyOptions) {
     super();
     this.fetchImpl = options.fetch ?? globalThis.fetch;
+    this.now = options.now ?? Date.now;
   }
 
   async run(request: ScrapeRequest, signal: AbortSignal): Promise<ScrapePage> {
@@ -94,9 +98,9 @@ export class ApifyScrapeProvider extends ScrapeProvider {
     assertVendorOk(this.name, started);
     let run = this.runOf(vendorJson(this.name, started.text));
     try {
-      const deadline = Date.now() + request.timeoutMs;
+      const deadline = this.now() + request.timeoutMs;
       while (!FINISHED.has(run.status)) {
-        const left = Math.floor((deadline - Date.now()) / 1000);
+        const left = Math.floor((deadline - this.now()) / 1000);
         if (left <= 0) throw new ScrapeError(this.name, 'timeout', { reason: 'run still going' });
         const polled = await vendorCall(
           this.fetchImpl,

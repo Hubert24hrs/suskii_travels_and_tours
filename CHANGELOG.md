@@ -73,6 +73,13 @@ It now calls Gemini on Vertex AI as the backend machine's own Google identity: n
   refused `gemini-2.5-flash` to the owner's new project, in London and globally. The API prices
   it at the catalogue's list price (1.50 US dollars a million input tokens, 9 output).
 
+### Fixed: Dependabot refused its settings file (2026-11-12)
+
+- Dependabot rejected `.github/dependabot.yml` because the github-actions entry set
+  `semver-major-days`, which it does not take for actions, so no update ran for any
+  ecosystem. The entry now waits 14 days for every release, the age the workflows' own rule
+  asks of a pinned action.
+
 ### Fixed: the Ask Suskii button under the status bar on a translated build (2026-11-12)
 
 - The phone check of the first test APK with the button failed at its first step: the cross
