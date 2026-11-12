@@ -418,10 +418,15 @@ resource "google_compute_instance" "backend" {
       backups_bucket    = google_storage_bucket.backups.name
       assistant_enabled = var.assistant_enabled
       assistant_model   = var.assistant_model
+      sample_catalogue  = var.sample_catalogue
     })
   }
 
   lifecycle {
+    precondition {
+      condition     = !(var.sample_catalogue && var.environment == "production")
+      error_message = "Sample inventory never goes into production: turn sample_catalogue off."
+    }
     ignore_changes = [
       metadata["suskii-release"],
       boot_disk[0].initialize_params[0].image,

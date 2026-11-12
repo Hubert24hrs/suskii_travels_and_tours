@@ -27,8 +27,18 @@ Both figures are estimates from Google's list prices, not quotes.
   days in a private bucket (`suskii-travels-staging-backups`).
 - **Every key** in Secret Manager, generated for you and never shown.
 
-It runs on the built-in stand-ins for airlines, hotels, payments, email and texts, so every
-journey works and no real money moves. Each real provider is connected later with its key.
+It runs on the built-in stand-ins for airlines, hotels, payments, email and texts, so no real
+money moves. Each real provider is connected later with its key.
+
+**What you can try on it.** Flights, hotels, combined trips, deals, Ask Suskii, and the
+sample catalogue the test server has always shown: sample packages, tours, add-ons, visa
+products, a Suskii Prime plan, buses and rental cars, each with a "Sample" badge. Rides are
+off: there are no drivers on this backend to answer a request. Offers from partners and price
+requests are off too, until there are partner accounts and staff to answer.
+
+The sample catalogue is a switch. To hide buses and rental cars and stop refreshing the
+samples, run the deploy command below with `SAMPLE_CATALOGUE=false` in front of it. The sample
+packages, tours and the Prime plan then stay, badged, until you unpublish them in the console.
 
 To point the test app at it: Account, Test server, and enter
 `https://api.endpoints.suskii-travels-staging.cloud.goog` as the API address and
@@ -73,7 +83,8 @@ it, move to the managed shape.
 
 The machine has 4 GB of memory and uses about 1.4 GB with everything running. A machine half
 the size (`e2-small`, 2 GB) would save about 15 US dollars a month and leave little room when
-traffic grows or a deploy runs. Say the word and it is a one minute change.
+traffic grows or a deploy runs. To change the size, run the deploy command below with
+`MACHINE_TYPE=e2-small` (or `e2-medium`) in front of it; the machine restarts once.
 
 ### Ask Suskii and the rest of the platform
 

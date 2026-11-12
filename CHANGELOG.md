@@ -42,6 +42,14 @@ month than the owner can spend now. Asked to choose, the owner took one small ma
   certificate, so the app can pay a booking on the stand-in payment page and staff have a
   console. Their images are built for the addresses they are served on.
 
+- **A sample catalogue for a testing backend** (`SAMPLE_CATALOGUE=true`): the machine runs
+  in production mode, which starts with an empty catalogue and Cars off, so the app showed
+  only flights and hotels against it. With the setting, a release and a nightly timer run the
+  sample seed (packages, tours, add-ons, visa products, a Prime plan, buses, rental cars,
+  every row badged as a sample) and buses and car rental are switched on. Rides stay off.
+  Terraform refuses the setting in an environment named production.
+- **`MACHINE_TYPE=e2-medium|e2-small`** on the deploy command, remembered like the others.
+
 #### How the assistant is kept from hurting the platform on one machine
 
 Its own container with its own tokens, model key and database role; a ceiling of 512 MB and

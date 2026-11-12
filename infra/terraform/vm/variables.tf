@@ -69,6 +69,12 @@ variable "turnstile_site_key" {
   default     = ""
 }
 
+variable "sample_catalogue" {
+  description = "A testing backend only: sample packages, tours, add-ons, visa products, a Prime plan, buses and rental cars, every row marked as a sample, with buses and car rental switched on. Refused in an environment named production."
+  type        = bool
+  default     = false
+}
+
 variable "assistant_enabled" {
   description = "AGENT_ENABLED on the API. False takes Ask Suskii out of the picture; nothing else changes."
   type        = bool

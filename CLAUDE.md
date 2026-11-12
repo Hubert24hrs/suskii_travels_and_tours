@@ -147,7 +147,10 @@ nightly dump in a bucket. The API answers on `api.endpoints.suskii-travels-stagi
 It runs on the stand-ins for every provider; the assistant answers with the stand-in model
 until the owner puts a Gemini key in `LLM_API_KEY`. The website and the admin console run on
 the same machine (`web.` and `admin.endpoints.suskii-travels-staging.cloud.goog`); the forms
-the website protects with Turnstile stay closed until the owner's widget exists. The owner's
+the website protects with Turnstile stay closed until the owner's widget exists. With
+`sample_catalogue` on (as it is there) the release and a nightly timer seed the sample
+inventory and buses and car rental are on; rides, partner offers and price requests stay
+off. The owner's
 guide is `docs/owner/deploy-backend-on-google-cloud.md`.
 
 Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
@@ -1733,6 +1736,10 @@ Tooling notes for agents:
   when it does not come up. `/v1/internal/*` stays closed at Caddy. The website's and the
   console's images are built for the addresses they are served on, so their tag carries a
   hash of those addresses: never reuse one for another address or Turnstile key.
+  `sample_catalogue` is for a testing backend: the sample seed runs in a one-off container
+  outside production mode, with the API's keys, and Terraform refuses the setting in an
+  environment named `production`. Never run the seed another way on a deployed database, and
+  never switch rides on there (no demo drivers in production mode, ADR-056).
 - Before a Terraform root is applied for the first time, plan it against the real project
   (`terraform plan` with a local backend override): `validate` cannot see a variable's
   validation that only a real value trips, and that is how the managed shape's ingress bug was

@@ -92,6 +92,39 @@ page is a page of the website, so the app could book against the machine and not
 - The console needs its first admin: `sudo /opt/suskii/ops scripts/staff-bootstrap.ts`, from a
   login on the machine, after that person has signed up.
 
+### A sample catalogue, on a testing backend only
+
+The machine runs in production mode, as the release stack does, and that mode starts with an
+empty catalogue and with buses, rides and car rental off: real inventory comes only from the
+console, and Cars products are switched on one by one (ADR-049, ADR-069). Checked from outside
+after the first releases, the backend therefore offered flights, hotels, combined trips of
+the two, deals and the assistant, and nothing under Packages, Tours, Visa, Add-ons, Prime or
+Cars. The test server the owner had used until then shows all of them, from the sample seed.
+
+`sample_catalogue` (off unless set; `SAMPLE_CATALOGUE=true` on the deploy command, remembered)
+gives a testing backend the same:
+
+- The release runs `db:seed:demo` after the API is up, with the API's own keys, and a timer
+  runs it again every night: the seed adds only what is missing, which keeps two weeks of
+  bus departures ahead of today. Every row is marked `sample` and the website and the app
+  badge it.
+- Buses, car rental, the fare breakdown, offline boarding passes, the departure planner and
+  trip suggestions are switched on. Rides stay off: the demo drivers are a development tool
+  that production mode refuses (ADR-056), so nobody would answer a request.
+- The seed itself refuses production mode, so the release runs it with `NODE_ENV=development`
+  in a one-off container. That is deliberate and narrow: the rule exists to keep sample
+  inventory out of production, and Terraform refuses `sample_catalogue` in an environment
+  named `production`. The API, the worker and the agent service stay in production mode.
+- A failed seed is reported in the release's outcome and never fails the release.
+
+Switching it off stops the nightly run and switches the Cars products off again. It does not
+delete the sample rows: packages, tours, add-ons, visa products and the Prime plan stay,
+badged, until someone unpublishes them in the console. Before real customers use a database,
+start it clean or unpublish them.
+
+Partner offers and assisted quotes stay off: the first would send testers to partners' sites
+through a stand-in network that earns nothing, the second needs staff to answer.
+
 ### The assistant cannot take the platform down
 
 On one machine the separation of ADR-101 is kept by other means than separate services:

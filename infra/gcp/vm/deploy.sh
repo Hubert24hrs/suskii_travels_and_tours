@@ -28,7 +28,7 @@ STEP=files
 install -d -m 0700 /run/suskii
 md instance/attributes/suskii-compose >/opt/suskii/compose.yml
 md instance/attributes/suskii-settings >/opt/suskii/settings.json
-setting() { python3 -c 'import json, sys; print(json.load(open("/opt/suskii/settings.json"))[sys.argv[1]])' "$1"; }
+setting() { python3 -c 'import json, sys; print(json.load(open("/opt/suskii/settings.json")).get(sys.argv[1], ""))' "$1"; }
 # The website and the console run here when the settings say so and their images are named.
 SITES=false
 if [ "$(setting sites)" = "True" ] && [ -n "${SITES_TAG:-}" ]; then SITES=true; fi
@@ -131,6 +131,7 @@ write(
         "SUSKII_ADMIN_HOST": settings["admin_host"],
         "SUSKII_DOCUMENTS_BUCKET": settings["documents_bucket"],
         "SUSKII_ASSISTANT_ENABLED": "true" if settings["assistant_enabled"] else "false",
+        "SUSKII_SAMPLE_CATALOGUE": "true" if settings.get("sample_catalogue") else "false",
     },
     mode=0o644,
 )
@@ -182,6 +183,55 @@ STEP=platform
 compose up -d --wait --wait-timeout 300 api worker
 compose exec -T api node -e \
   "fetch('http://127.0.0.1:8080/ready').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+
+# A testing backend's sample catalogue: packages, tours, add-ons, visa products, a Prime plan,
+# buses and rental cars, every row marked as a sample. It runs with the API's keys (the sample
+# drivers' fields are encrypted like real ones) and outside production mode, which the seed
+# refuses; Terraform refuses the setting in an environment named production. The seed adds only
+# what is missing, so the nightly run keeps two weeks of departures ahead. Reported, never a
+# reason to fail a release.
+STEP=sample-catalogue
+SAMPLE=""
+if [ "$(setting sample_catalogue)" = "True" ]; then
+  cat >/opt/suskii/sample-catalogue <<'SEED'
+#!/usr/bin/env bash
+exec docker compose --env-file /opt/suskii/compose.env -f /opt/suskii/compose.yml \
+  --profile ops run --rm -T -e NODE_ENV=development ops prisma/seed-demo.ts
+SEED
+  chmod 0755 /opt/suskii/sample-catalogue
+  cat >/etc/systemd/system/suskii-sample.service <<'UNIT'
+[Unit]
+Description=Suskii backend: keep the sample catalogue's departures ahead of today
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/suskii/sample-catalogue
+StandardOutput=journal+console
+StandardError=journal+console
+UNIT
+  cat >/etc/systemd/system/suskii-sample.timer <<'UNIT'
+[Unit]
+Description=Suskii backend: nightly refresh of the sample catalogue
+
+[Timer]
+OnCalendar=*-*-* 03:15:00 UTC
+RandomizedDelaySec=600
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+UNIT
+  systemctl daemon-reload
+  systemctl enable --now suskii-sample.timer >/dev/null 2>&1 || true
+  SAMPLE="; sample catalogue: ensured"
+  /opt/suskii/sample-catalogue || SAMPLE="; sample catalogue: failed"
+else
+  systemctl disable --now suskii-sample.timer >/dev/null 2>&1 || true
+  rm -f /opt/suskii/sample-catalogue /etc/systemd/system/suskii-sample.service \
+    /etc/systemd/system/suskii-sample.timer
+fi
+
 if [ "$SITES" = true ]; then
   STEP=sites
   compose --profile sites up -d --wait --wait-timeout 300 web admin
@@ -222,4 +272,4 @@ STEP=tidy
 docker image prune -af --filter until=48h >/dev/null 2>&1 || true
 echo "$RELEASE" >/run/suskii/deployed
 MEMORY="$(free -m | awk '/^Mem:/ { print $3 " of " $2 " MB in use" }')"
-status "ok $RELEASE; assistant: $ASSISTANT; https://$HOST: $DOOR$SITES_DOOR; memory: $MEMORY"
+status "ok $RELEASE; assistant: $ASSISTANT; https://$HOST: $DOOR$SITES_DOOR$SAMPLE; memory: $MEMORY"
