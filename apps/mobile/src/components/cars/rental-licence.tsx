@@ -7,8 +7,10 @@ import { Text } from 'react-native';
 
 import { ISO_DAY } from '../../lib/cars';
 import { problemSlug } from '../../lib/api';
+import { EXPIRY_YEARS, expiryDates } from '../../lib/dates';
 import { pickDocument } from '../../lib/visa-upload';
 import { useApp, useT } from '../../providers/app-provider';
+import { DateField } from '../date-field';
 
 type Reservation = Schemas['RentalReservation'];
 
@@ -170,14 +172,12 @@ export function RentalLicence({ reservationId }: { reservationId: string }) {
             autoComplete="off"
             maxLength={30}
           />
-          <Input
+          <DateField
             testID="licence-expiry"
             label={t('booking.cars.rental.licence.expiresOn')}
-            hint={t('mobile.cars.dateHint')}
             value={expiresOn}
-            onChangeText={setExpiresOn}
-            keyboardType="numbers-and-punctuation"
-            maxLength={10}
+            onChange={setExpiresOn}
+            {...expiryDates(EXPIRY_YEARS.licence)}
           />
           <Button testID="licence-save" loading={busy} onPress={() => void save()}>
             {t('booking.cars.rental.licence.save')}

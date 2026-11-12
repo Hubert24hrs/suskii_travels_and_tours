@@ -1,0 +1,28 @@
+# A day in a date field (ADR-114). The field opens a sheet on the years, the newest first for a
+# date of birth and the soonest first for an expiry date; a year opens its months, a month its
+# days, and Done keeps the day. Nothing is typed, so no keyboard is left to close.
+# Takes FIELD (the field's test id) and DATE (YYYY-MM-DD, quoted) with `env`.
+appId: com.suskii.travels.e2e
+---
+- scrollUntilVisible:
+    element:
+      id: ${FIELD}
+- tapOn:
+    id: ${FIELD}
+- extendedWaitUntil:
+    visible:
+      id: ${FIELD}-sheet
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: ${FIELD}-year-${DATE.slice(0, 4)}
+- tapOn:
+    id: ${FIELD}-year-${DATE.slice(0, 4)}
+- tapOn:
+    id: ${FIELD}-month-${DATE.slice(0, 7)}
+- tapOn:
+    id: ${FIELD}-day-${DATE}
+- tapOn:
+    id: ${FIELD}-done
+- assertNotVisible:
+    id: ${FIELD}-sheet

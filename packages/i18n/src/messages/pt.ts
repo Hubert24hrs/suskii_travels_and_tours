@@ -1174,10 +1174,17 @@ export const pt: Messages = {
       clearFilters: 'Limpar filtros',
       noResults: 'Nada corresponde a esta pesquisa. Experimente outras datas, locais ou filtros.',
     },
+    datePicker: {
+      chooseDate: 'Escolha uma data',
+      chooseDateTime: 'Escolha a data e a hora',
+      chooseYear: 'Escolha o ano',
+      chooseMonth: 'Escolha o mês',
+      time: 'Hora em formato de 24 horas',
+      hour: 'Hora',
+      minutes: 'Minutos',
+    },
     checkout: {
       title: 'Finalizar compra',
-      dateHint: 'Ano-mês-dia, por exemplo 1990-04-21',
-      dateTimeHint: 'Data e hora local em formato de 24 horas, por exemplo 2026-12-01T14:30',
       payOnProvider: 'Paga na página segura do prestador de pagamentos. Nunca vemos o seu cartão.',
       viewBooking: 'Ver reserva',
       deviceCheckFailed:
@@ -1348,8 +1355,6 @@ export const pt: Messages = {
     cars: {
       title: 'Autocarros e carros',
       busTripTitle: 'Escolher lugares',
-      dateHint: 'Ano-mês-dia, por exemplo 2026-12-01',
-      dateTimeHint: 'Data e hora em formato de 24 horas, por exemplo 2026-12-01T10:00',
       searchAgain: 'Alterar pesquisa',
       rider: 'Quem viaja',
       renter: 'Quem aluga (como na carta de condução)',

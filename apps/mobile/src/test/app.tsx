@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -99,4 +99,58 @@ export async function renderWithApp(
     </SafeAreaProvider>,
   );
   return queryClient;
+}
+
+/**
+ * Chooses a value in a date field (`DateField`, `DateTimeField`) as a traveller does: the years,
+ * a month and a day, then for a wall time (`YYYY-MM-DDTHH:mm`) the hour and the minutes, and
+ * Done. A day the field does not offer stays unchosen, so the value is what the screen keeps.
+ */
+export async function chooseDate(testID: string, value: string): Promise<void> {
+  await fireEvent.press(screen.getByTestId(testID));
+  // A field with a value, or a date and time, opens on a month: its title opens the years.
+  const years = screen.queryByTestId(`${testID}-years`);
+  if (years) await fireEvent.press(years);
+  await fireEvent.press(screen.getByTestId(`${testID}-year-${value.slice(0, 4)}`));
+  await fireEvent.press(screen.getByTestId(`${testID}-month-${value.slice(0, 7)}`));
+  await fireEvent.press(screen.getByTestId(`${testID}-day-${value.slice(0, 10)}`));
+  if (value.length > 10) {
+    await fireEvent.press(screen.getByTestId(`${testID}-hour-${value.slice(11, 13)}`));
+    await fireEvent.press(screen.getByTestId(`${testID}-minute-${value.slice(14, 16)}`));
+  }
+  await fireEvent.press(screen.getByTestId(`${testID}-done`));
+}
+
+/** The timer APIs Jest can fake. */
+type FakeableAPI =
+  NonNullable<Parameters<typeof jest.useFakeTimers>[0]> extends infer Config
+    ? Config extends { doNotFake?: (infer Name)[] }
+      ? Name
+      : never
+    : never;
+
+/** Every faked timer API but `Date`: queries, polling and waits keep real time. */
+const REAL_TIMERS: FakeableAPI[] = [
+  'hrtime',
+  'nextTick',
+  'performance',
+  'queueMicrotask',
+  'requestAnimationFrame',
+  'cancelAnimationFrame',
+  'requestIdleCallback',
+  'cancelIdleCallback',
+  'setImmediate',
+  'clearImmediate',
+  'setInterval',
+  'clearInterval',
+  'setTimeout',
+  'clearTimeout',
+];
+
+/**
+ * Pins the phone's date (date pickers offer no day before today) for a test that chooses fixed
+ * days; timers still run. Undo with `jest.useRealTimers()`.
+ */
+export function pinClock(now: string): void {
+  jest.useFakeTimers({ now: new Date(now), doNotFake: REAL_TIMERS });
 }

@@ -1,5 +1,5 @@
 import type { Schemas } from '@suskii/api-client';
-import { Button, Card, Input, SegmentedControl } from '@suskii/ui-native';
+import { Button, Card, SegmentedControl } from '@suskii/ui-native';
 import { useQuery } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useState } from 'react';
@@ -7,9 +7,11 @@ import { ScrollView, Text } from 'react-native';
 
 import { RequireAccount } from '../components/account/require-account';
 import { ChoiceChips, SearchableChips } from '../components/booking/form-controls';
+import { DateTimeField } from '../components/date-field';
 import { Loading, Notice } from '../components/states';
 import { problemSlug } from '../lib/api';
-import { LOCAL_DATE_TIME, deviceLocalTime, routeParam } from '../lib/cars';
+import { LOCAL_DATE_TIME, deviceLocalTime, rideDates, routeParam } from '../lib/cars';
+import { todayIso } from '../lib/dates';
 import { useApp, useT } from '../providers/app-provider';
 
 type Place = Schemas['RidePlaces']['places'][number];
@@ -178,14 +180,12 @@ function RideRequest() {
         onValueChange={setWhen}
       />
       {when === 'later' ? (
-        <Input
+        <DateTimeField
           testID="ride-at"
           label={t('cars.rides.scheduledFor')}
-          hint={t('mobile.cars.dateTimeHint')}
           value={at}
-          onChangeText={setAt}
-          keyboardType="numbers-and-punctuation"
-          maxLength={16}
+          onChange={setAt}
+          {...rideDates(todayIso())}
         />
       ) : null}
       {error ? (
