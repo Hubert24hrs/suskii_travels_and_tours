@@ -150,7 +150,7 @@ export class GeminiAgentModel extends AgentModel {
           }
         : {}),
       generationConfig: {
-        maxOutputTokens: request.maxOutputTokens,
+        maxOutputTokens: request.maxOutputTokens + thinkingRoom(model, this.thinkingLevel),
         ...thinkingOf(model, this.thinkingLevel),
       },
     };
@@ -235,6 +235,30 @@ function thinkingOf(
     return { thinkingConfig: { thinkingBudget: 0 } };
   }
   return {};
+}
+
+/**
+ * Room for thinking on top of the answer's own limit. A Gemini model that thinks counts its
+ * thoughts against `maxOutputTokens`, so a limit set for the answer alone runs out mid-thought:
+ * on the first live evals the router's 128 tokens ended in MAX_TOKENS after 110 to 122 tokens of
+ * thought, with no answer (ADR-112). Unused room costs nothing; thoughts are billed as made.
+ */
+const THINKING_ROOM: Readonly<Record<GeminiThinkingLevel, number>> = {
+  minimal: 512,
+  low: 1024,
+  medium: 4096,
+  high: 8192,
+};
+
+function thinkingRoom(model: string, level: GeminiThinkingLevel): number {
+  const version = versionOf(model);
+  if (!version) return 0;
+  if (version.major >= 3) return THINKING_ROOM[level];
+  // 2.5 Pro thinks and cannot be stopped; 2.5 Flash is told not to think at all.
+  if (version.major === 2 && version.minor === 5 && !model.includes('flash')) {
+    return THINKING_ROOM.medium;
+  }
+  return 0;
 }
 
 const failureOf = (status: number): ModelFailure =>

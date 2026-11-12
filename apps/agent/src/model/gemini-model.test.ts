@@ -252,7 +252,7 @@ describe('GeminiAgentModel', () => {
   });
 
   it('sets a thinking level only for Gemini 3 and later, and leaves unknown models alone', async () => {
-    const config = async (model: string, level?: 'minimal' | 'high') => {
+    const config = async (model: string, level?: 'minimal' | 'low' | 'high') => {
       const { fetch, body } = fakeFetch(text('ok'));
       await new GeminiAgentModel({
         apiKey: KEY,
@@ -262,20 +262,26 @@ describe('GeminiAgentModel', () => {
       }).complete(request(), model);
       return body().generationConfig;
     };
+    // A model that thinks counts its thoughts against the limit: room for them comes on top
+    // of the answer's own 800 tokens, more for a higher level (ADR-112).
     expect(await config('gemini-3.8-flash')).toEqual({
-      maxOutputTokens: 800,
+      maxOutputTokens: 800 + 1024,
       thinkingConfig: { thinkingLevel: 'low' },
     });
     expect(await config('gemini-3.5-flash-lite', 'minimal')).toEqual({
-      maxOutputTokens: 800,
+      maxOutputTokens: 800 + 512,
       thinkingConfig: { thinkingLevel: 'minimal' },
+    });
+    expect(await config('gemini-3.5-flash', 'high')).toEqual({
+      maxOutputTokens: 800 + 8192,
+      thinkingConfig: { thinkingLevel: 'high' },
     });
     expect(await config('gemini-2.5-flash-lite', 'high')).toEqual({
       maxOutputTokens: 800,
       thinkingConfig: { thinkingBudget: 0 },
     });
     // 2.5 Pro cannot switch thinking off, and older or unknown models take no such setting.
-    expect(await config('gemini-2.5-pro')).toEqual({ maxOutputTokens: 800 });
+    expect(await config('gemini-2.5-pro')).toEqual({ maxOutputTokens: 800 + 4096 });
     expect(await config('gemini-2.0-flash')).toEqual({ maxOutputTokens: 800 });
     expect(await config('some-other-model')).toEqual({ maxOutputTokens: 800 });
   });
