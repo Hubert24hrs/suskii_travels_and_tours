@@ -274,12 +274,14 @@ What is yours to do before it answers anyone:
    <https://github.com/Hubert24hrs/suskii_travels_and_tours/settings/secrets/actions>. Read the
    provider's data retention terms with counsel and choose zero data retention if your
    agreement offers it. Only you can accept those terms.
-2. **Measure it against the real model.** GitHub, Actions, **Agent eval**, Run workflow
+2. **Measure it against the real model.** GitHub, Actions, **Agent evals**, Run workflow
    (<https://github.com/Hubert24hrs/suskii_travels_and_tours/actions/workflows/agent-eval.yml>),
    suite `all`. It costs a few cents. It passes when routing reaches 95%, no invented figure,
    date, contact or outcome is shown and 90% of grounded answers are, and no red-team case
    breaks through. Until that run is green the assistant has only been checked with recorded
-   answers, and must not be switched on for travellers.
+   answers, and must not be switched on for travellers. To see the workflow work before you
+   have a key, tick **Replay the recorded answers**: it needs no key, calls no model and
+   costs nothing, and it measures the workflow, not the model.
 3. **Choose the models.** Defaults: a small one to route (`claude-haiku-5-5`) and a stronger
    one to answer (`claude-sonnet-5-5`). If you change one, run the eval again with it and set
    its price in `AGENT_MODEL_PRICES`; update that setting whenever the provider's price list
