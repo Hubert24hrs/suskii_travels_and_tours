@@ -643,6 +643,10 @@ Tooling notes for agents:
   online test server with nothing routed to the runner. A flow it runs must work on a server that
   keeps its data for hours: take anything unique (an account's address) from `-e`, never a fixed
   value. `mobile-test-apk.yml` publishes only after it passes; never publish the APK another way.
+- The phone check runs the arm64 build on an x86 emulator through a translator, where
+  `Math.random()` has answered outside 0 to 1 (pull request checks build x86 and never see
+  it). Bound whatever a random number picks (`randomBelow()` in `ask-suskii-button.tsx`), and
+  keep anything a traveller taps out from under the status bar, which takes the tap.
 - Wrap checkout, payment and document screens in `useSensitiveScreen()`.
 - Flight checkout offers the quote's first extra (a checked bag) per traveller with a seat, as the
   website does; bags send `extras` and switch reserving and installments off (ADR-063).

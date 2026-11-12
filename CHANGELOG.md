@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed: the Ask Suskii button under the status bar on a translated build (2026-11-12)
+
+- The phone check of the first test APK with the button failed at its first step: the cross
+  that puts the button away could not be tapped. The emulator runs the phone build's arm64
+  code through a translator, and there the button's first place read 932542240360127400,
+  which only an answer near 2.3e17 from `Math.random()` gives. No such place exists, so the
+  button fell back to the top left corner under the status bar, and the status bar took the
+  tap. The same flows pass on the x86 build that pull request checks use.
+- The button now takes a place only from a figure between 0 and 1 (anything else counts as
+  0), never trusts a place to be in range, and its fallback sits below the status bar. Tests
+  cover a random source that answers outside its range.
+
 ### The backend on one Google Cloud machine, the budget shape (2026-11-12, ADR-111)
 
 When the deployment was about to start, the managed shape below turned out to cost more each

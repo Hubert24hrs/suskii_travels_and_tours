@@ -12,6 +12,7 @@ import {
   ASK_SUSKII_REST_MS,
   AskSuskiiButton,
   nextPlace,
+  randomBelow,
   showsAskSuskii,
 } from './ask-suskii-button';
 
@@ -116,6 +117,37 @@ describe('AskSuskiiButton (ADR-109)', () => {
         expect(next).toBeGreaterThanOrEqual(0);
         expect(next).toBeLessThan(ASK_SUSKII_PLACES);
       }
+    }
+  });
+
+  // An emulator that translates the phone build's processor code answered Math.random() with
+  // a figure near 2.3e17: the button then named no place and sat under the status bar.
+  const BROKEN_ROLLS = [2.3e17, 1, -0.5, Number.NaN, Number.POSITIVE_INFINITY];
+
+  it('takes a place that exists from a random source that answers outside 0 to 1', () => {
+    expect(randomBelow(ASK_SUSKII_PLACES, () => 0)).toBe(0);
+    expect(randomBelow(ASK_SUSKII_PLACES, () => 0.999)).toBe(ASK_SUSKII_PLACES - 1);
+    for (const roll of BROKEN_ROLLS) {
+      expect([roll, randomBelow(ASK_SUSKII_PLACES, () => roll)]).toEqual([roll, 0]);
+      for (const current of [0, 1, 2, 3, 9.3e17, Number.NaN, -1, 1.5]) {
+        const next = nextPlace(current, () => roll);
+        expect(Number.isInteger(next)).toBe(true);
+        expect(next).toBeGreaterThanOrEqual(0);
+        expect(next).toBeLessThan(ASK_SUSKII_PLACES);
+        expect(next).not.toBe(current);
+      }
+    }
+  });
+
+  it('starts in a real place when the random source is broken', async () => {
+    for (const roll of BROKEN_ROLLS) {
+      const random = jest.spyOn(Math, 'random').mockReturnValue(roll);
+      mockApi({ 'GET /v1/agent/status': available });
+      const view = await renderWithApp(<AskSuskiiButton />);
+      await screen.findByTestId('ask-suskii');
+      expect([roll, placeNow()]).toEqual([roll, '0']);
+      view.unmount();
+      random.mockRestore();
     }
   });
 

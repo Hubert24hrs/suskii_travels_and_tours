@@ -46,9 +46,24 @@ export const showsAskSuskii = (pathname: string): boolean =>
 /** The places the button rests in: the two lower corners and half way up each side. */
 export const ASK_SUSKII_PLACES = 4;
 
+/**
+ * A whole number from 0 up to, not including, `count`. A source that answers outside 0 to 1
+ * counts as 0: an Android emulator that translates the phone build's processor code gave a
+ * figure in the hundreds of quadrillions, which named no place, left the button in the top
+ * corner under the status bar and its cross out of reach.
+ */
+export const randomBelow = (count: number, random: () => number = Math.random): number => {
+  const value = random();
+  return value >= 0 && value < 1 ? Math.floor(value * count) : 0;
+};
+
+/** A place that exists, whatever it was handed. */
+const placeIn = (place: number): number =>
+  Number.isInteger(place) && place >= 0 && place < ASK_SUSKII_PLACES ? place : 0;
+
 /** The next place: never the one it is in, so a move is always seen. */
 export const nextPlace = (current: number, random: () => number = Math.random): number =>
-  (current + 1 + Math.floor(random() * (ASK_SUSKII_PLACES - 1))) % ASK_SUSKII_PLACES;
+  (placeIn(current) + 1 + randomBelow(ASK_SUSKII_PLACES - 1, random)) % ASK_SUSKII_PLACES;
 
 /** How long the button rests before it moves on, and how long a move takes. */
 export const ASK_SUSKII_REST_MS = 15_000;
@@ -93,7 +108,7 @@ export function AskSuskiiButton() {
   });
 
   const [size, setSize] = useState<{ width: number; height: number }>(FIRST_GUESS);
-  const [place, setPlace] = useState(() => Math.floor(Math.random() * ASK_SUSKII_PLACES));
+  const [place, setPlace] = useState(() => randomBelow(ASK_SUSKII_PLACES));
   const [still, setStill] = useState(false);
   const [typing, setTyping] = useState(false);
   const putAway = useAskSuskiiAway();
@@ -122,7 +137,8 @@ export function AskSuskiiButton() {
     setPlace(nextPlace(place));
   }
 
-  const { x, y } = parked ?? places[place] ?? { x: EDGE, y: EDGE };
+  // Never under the status bar, which takes the taps meant for whatever lies beneath it.
+  const { x, y } = parked ?? places[placeIn(place)] ?? { x: EDGE, y: insets.top + EDGE };
   const [position] = useState(() => new Animated.ValueXY({ x, y }));
   const shown = status.data?.available === true && !putAway && !typing && showsAskSuskii(pathname);
 
@@ -162,7 +178,7 @@ export function AskSuskiiButton() {
   useEffect(() => {
     if (!shown || still || parked) return;
     const timer = setInterval(
-      () => setPlace((current) => (current + 1) % ASK_SUSKII_PLACES),
+      () => setPlace((current) => (placeIn(current) + 1) % ASK_SUSKII_PLACES),
       ASK_SUSKII_REST_MS,
     );
     return () => clearInterval(timer);
@@ -222,7 +238,7 @@ export function AskSuskiiButton() {
     // Laid out left to right whatever the language: the places are measured from the left.
     <View pointerEvents="box-none" className="absolute inset-0" style={{ direction: 'ltr' }}>
       <Animated.View
-        testID={`ask-suskii-at-${parked ? 'parked' : place}`}
+        testID={`ask-suskii-at-${parked ? 'parked' : placeIn(place)}`}
         onLayout={(event) => {
           const { width, height } = event.nativeEvent.layout;
           if (width !== size.width || height !== size.height) setSize({ width, height });
