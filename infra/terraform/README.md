@@ -68,6 +68,9 @@ bash scripts/gcp/deploy-vm.sh <project id> [region] [zone]
 - The website and the admin console run there too (`sites`, on by default), on
   `web.endpoints.<project>.cloud.goog` and `admin.endpoints.<project>.cloud.goog`. Their
   images are built for those addresses (`infra/gcp/cloudbuild.sites.yaml`).
+- `sample_catalogue` (`SAMPLE_CATALOGUE=true`, a testing backend only) seeds the sample
+  inventory at each release and every night, and switches buses and car rental on. Terraform
+  refuses it in an environment named `production`. `MACHINE_TYPE` changes the machine's size.
 - To look at the machine: `gcloud compute instances get-serial-port-output <instance> --zone
 <zone>`, or SSH from the console's button (Identity-Aware Proxy only).
 
