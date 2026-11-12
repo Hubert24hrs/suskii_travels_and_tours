@@ -1,6 +1,6 @@
 output "load_balancer_ip" {
-  description = "Origin address for the Cloudflare DNS records (proxied)."
-  value       = google_compute_global_address.lb.address
+  description = "Origin address for the Cloudflare DNS records (proxied); null without the edge."
+  value       = local.edged ? google_compute_global_address.lb[0].address : null
 }
 
 output "dns_authorizations" {
@@ -45,18 +45,20 @@ output "documents_service_account" {
 
 output "services" {
   description = "Cloud Run service names, once deploy_services is true."
-  value = var.deploy_services ? {
-    api     = module.api[0].name
-    worker  = module.worker[0].name
-    web     = module.web[0].name
-    admin   = module.admin[0].name
-    migrate = google_cloud_run_v2_job.migrate[0].name
-    ops     = google_cloud_run_v2_job.ops[0].name
-  } : {}
+  value = var.deploy_services ? merge(
+    {
+      api     = module.api[0].name
+      worker  = module.worker[0].name
+      migrate = google_cloud_run_v2_job.migrate[0].name
+      ops     = google_cloud_run_v2_job.ops[0].name
+    },
+    local.edged ? { web = module.web[0].name, admin = module.admin[0].name } : {},
+    var.deploy_agent ? { agent = module.agent[0].name } : {},
+  ) : {}
 }
 
 output "api_internal_url" {
-  description = "API run.app URL, reachable from the VPC only."
+  description = "API run.app URL: reachable from the VPC only behind the edge, public without it."
   value       = var.deploy_services ? module.api[0].uri : null
 }
 

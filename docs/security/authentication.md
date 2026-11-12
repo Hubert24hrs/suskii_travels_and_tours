@@ -74,6 +74,14 @@ and `apps/api/src/crypto/password-policy.spec.ts`.
 | Web transport       | `__Secure-` HttpOnly cookies; the refresh cookie only on `/v1/auth` | Same, on the console origin |
 | App transport       | Bearer token in memory, refresh token in Keychain or Keystore       | (No staff app)              |
 
+**"Remember me" (ADR-108).** Every sign-in form has the box, ticked to start with. Unticked,
+the session lasts 24 hours at most (`UNREMEMBERED_SESSION_HOURS`) instead of 90 days, the
+website's cookies carry no lifetime (the browser drops them when it closes) and the app keeps
+the tokens in memory only (they are gone when the app closes, and what the account kept on the
+phone is cleared at the next start). The choice is stored on the session
+(`sessions.remembered`), so a refresh keeps it. It never lengthens a session: staff keep their
+own, shorter limits.
+
 **Why traveller sessions are long.** NIST SP 800-63B AAL1 allows sessions of up to 30 days
 before re-authentication. We allow 30 days idle and 90 days absolute, like comparable travel
 and retail apps. This is safe enough because:

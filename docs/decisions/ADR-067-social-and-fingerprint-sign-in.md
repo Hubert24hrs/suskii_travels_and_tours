@@ -120,3 +120,10 @@ with `ALLOW_MOCK_PROVIDERS`, because it signs anyone in as any email.
   hardware. A copied secret alone could sign in until revoked, which is why it never leaves the
   device's secure store. The user can turn it off for a phone, and every "sign out everywhere"
   ends it.
+
+## Amendment (2026-11-12, ADR-108)
+
+Sign in is one card. Google and Apple sit side by side under "or continue with", with the
+provider's mark and name and the full wording as the accessible name; the fingerprint button
+sits under Sign in. Register keeps its two full-width buttons at the top. Every sign-in route
+takes "Remember me".

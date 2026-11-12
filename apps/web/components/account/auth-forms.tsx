@@ -1,6 +1,9 @@
 'use client';
 
+import { BRAND } from '@suskii/shared/lite';
 import { Button, Card, Input } from '@suskii/ui-web';
+import { Eye, EyeOff } from 'lucide-react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 
@@ -48,6 +51,68 @@ function useFragmentToken(): string | null | undefined {
   return token;
 }
 
+/** The card's own heading: the brand mark, "Welcome back" and where the visitor is going. */
+function SignInHeader() {
+  const { t } = useAccountT();
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Decorative: the heading below names the brand. */}
+      <Image
+        src="/brand/logo-mark.png"
+        alt=""
+        width={48}
+        height={48}
+        unoptimized
+        className="size-12 rounded-lg"
+      />
+      <div className="flex flex-col gap-1">
+        <h1 className="font-heading text-h2 font-extrabold text-heading">
+          {t('auth.signIn.welcome')}
+        </h1>
+        <p className="font-body text-body text-muted">
+          {t('auth.signIn.welcomeBody', { brand: BRAND.shortName })}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * "Remember me" (ADR-108). Ticked, the session lasts as it always did. Unticked, the API sets
+ * cookies that end with the browser and a session of a day at most; the line under the box says
+ * so while it is unticked.
+ */
+function RememberMe({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  const { t } = useAccountT();
+  return (
+    <div className="flex flex-col">
+      <label className="flex min-h-12 items-center gap-3 font-body text-body-sm text-foreground">
+        <input
+          type="checkbox"
+          name="remember"
+          checked={checked}
+          onChange={(event) => onChange(event.target.checked)}
+          aria-describedby={checked ? undefined : 'remember-off'}
+          data-testid="sign-in-remember"
+          className="size-5 shrink-0 accent-primary focus-visible:focus-ring"
+        />
+        {t('auth.signIn.remember')}
+      </label>
+      {checked ? null : (
+        <p id="remember-off" className="font-body text-caption text-muted">
+          {t('auth.signIn.rememberOff')}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function SignInForm({
   next,
   mfaToken: pendingMfa = null,
@@ -66,6 +131,9 @@ export function SignInForm({
   const [codeSent, setCodeSent] = useState(false);
   const [mfaToken, setMfaToken] = useState<string | null>(pendingMfa);
   const [useRecovery, setUseRecovery] = useState(false);
+  // "Remember me" (ADR-108): on unless the visitor unticks it, as on a shared computer.
+  const [remember, setRemember] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -108,7 +176,9 @@ export function SignInForm({
   const submitPassword = (event: FormEvent) => {
     event.preventDefault();
     void run(() =>
-      browserApi().POST('/v1/auth/login', { body: { email, password, transport: 'cookie' } }),
+      browserApi().POST('/v1/auth/login', {
+        body: { email, password, transport: 'cookie', remember },
+      }),
     );
   };
 
@@ -128,7 +198,9 @@ export function SignInForm({
       return;
     }
     void run(() =>
-      browserApi().POST('/v1/auth/otp/verify', { body: { phone, code, transport: 'cookie' } }),
+      browserApi().POST('/v1/auth/otp/verify', {
+        body: { phone, code, transport: 'cookie', remember },
+      }),
     );
   };
 
@@ -138,15 +210,16 @@ export function SignInForm({
     void run(() =>
       browserApi().POST('/v1/auth/mfa/verify', {
         body: useRecovery
-          ? { mfaToken, recoveryCode: code, transport: 'cookie' }
-          : { mfaToken, code, transport: 'cookie' },
+          ? { mfaToken, recoveryCode: code, transport: 'cookie', remember }
+          : { mfaToken, code, transport: 'cookie', remember },
       }),
     );
   };
 
   if (mfaToken) {
     return (
-      <Card className="flex flex-col gap-4 p-6">
+      <Card className="flex flex-col gap-4 p-6 md:p-8" data-testid="sign-in-card">
+        <SignInHeader />
         <h2 className="font-heading text-h4 font-bold text-heading">
           {t('auth.signIn.mfaHeading')}
         </h2>
@@ -174,29 +247,15 @@ export function SignInForm({
   }
 
   return (
-    <Card className="flex flex-col gap-4 p-6">
-      <div className="grid grid-cols-2 gap-2" role="group">
-        {(['email', 'phone'] as const).map((value) => (
-          <Button
-            key={value}
-            type="button"
-            variant={mode === value ? 'primary' : 'ghost'}
-            aria-pressed={mode === value}
-            onClick={() => {
-              setMode(value);
-              setError(null);
-            }}
-          >
-            {value === 'email' ? t('auth.signIn.emailTab') : t('auth.signIn.phoneTab')}
-          </Button>
-        ))}
-      </div>
+    <Card className="flex flex-col gap-6 p-6 md:p-8" data-testid="sign-in-card">
+      <SignInHeader />
       {mode === 'email' ? (
         <form method="post" className="flex flex-col gap-4" onSubmit={submitPassword}>
           <Input
             label={t('auth.signIn.email')}
             type="email"
             autoComplete="email"
+            placeholder={t('auth.signIn.emailPlaceholder')}
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             required
@@ -204,23 +263,44 @@ export function SignInForm({
           />
           <Input
             label={t('auth.signIn.password')}
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             autoComplete="current-password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             required
             data-testid="sign-in-password"
+            trailing={
+              <button
+                type="button"
+                aria-label={t(
+                  showPassword ? 'auth.signIn.hidePassword' : 'auth.signIn.showPassword',
+                )}
+                aria-pressed={showPassword}
+                onClick={() => setShowPassword((shown) => !shown)}
+                data-testid="sign-in-show-password"
+                className="inline-flex size-10 items-center justify-center rounded-md text-muted hover:text-foreground focus-visible:focus-ring"
+              >
+                {showPassword ? (
+                  <EyeOff aria-hidden="true" className="size-5" />
+                ) : (
+                  <Eye aria-hidden="true" className="size-5" />
+                )}
+              </button>
+            }
           />
+          <div className="flex flex-wrap items-center justify-between gap-x-4">
+            <RememberMe checked={remember} onChange={setRemember} />
+            <AppLink
+              href="/forgot-password"
+              className="inline-flex min-h-6 items-center font-body text-body-sm font-medium text-primary underline focus-visible:focus-ring"
+            >
+              {t('auth.signIn.forgot')}
+            </AppLink>
+          </div>
           <FormError message={error} />
-          <Button type="submit" loading={busy} data-testid="sign-in-submit">
+          <Button type="submit" fullWidth loading={busy} data-testid="sign-in-submit">
             {t('auth.signIn.submit')}
           </Button>
-          <AppLink
-            href="/forgot-password"
-            className="inline-flex min-h-6 items-center font-body text-body-sm text-primary underline focus-visible:focus-ring"
-          >
-            {t('auth.signIn.forgot')}
-          </AppLink>
         </form>
       ) : (
         <form method="post" className="flex flex-col gap-4" onSubmit={submitCode}>
@@ -251,8 +331,9 @@ export function SignInForm({
               />
             </>
           ) : null}
+          <RememberMe checked={remember} onChange={setRemember} />
           <FormError message={error} />
-          <Button type="submit" loading={busy}>
+          <Button type="submit" fullWidth loading={busy}>
             {codeSent ? t('auth.signIn.verifyCode') : t('auth.signIn.sendCode')}
           </Button>
           {codeSent ? (
@@ -264,17 +345,32 @@ export function SignInForm({
       )}
       <SocialSignIn
         next={next}
+        remember={remember}
         onMfa={(token) => {
           setMfaToken(token);
           setCode('');
         }}
       />
-      <AppLink
-        href={next ? `/register?next=${encodeURIComponent(next)}` : '/register'}
-        className="inline-flex min-h-6 items-center font-body text-body-sm text-primary underline focus-visible:focus-ring"
+      <p className="text-center font-body text-body-sm text-muted">
+        {t('auth.signIn.newHere', { brand: BRAND.shortName })}{' '}
+        <AppLink
+          href={next ? `/register?next=${encodeURIComponent(next)}` : '/register'}
+          className="inline-flex min-h-6 items-center font-bold text-primary underline focus-visible:focus-ring"
+        >
+          {t('auth.signIn.createAccount')}
+        </AppLink>
+      </p>
+      <Button
+        type="button"
+        variant="ghost"
+        data-testid="sign-in-switch"
+        onClick={() => {
+          setMode(mode === 'email' ? 'phone' : 'email');
+          setError(null);
+        }}
       >
-        {t('auth.signIn.toRegister')}
-      </AppLink>
+        {mode === 'email' ? t('auth.signIn.usePhone') : t('auth.signIn.useEmail')}
+      </Button>
     </Card>
   );
 }

@@ -7,6 +7,9 @@
 locals {
   name   = "suskii-${var.environment}"
   labels = merge(var.labels, { app = "suskii", environment = var.environment, managed-by = "terraform" })
+  # Behind Cloudflare and the load balancer (ADR-059), or the API alone on its own address
+  # (ADR-110). The website and the console exist only behind the edge.
+  edged = var.edge == "cloudflare"
 }
 
 resource "google_project_service" "apis" {

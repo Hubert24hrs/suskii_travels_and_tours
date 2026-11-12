@@ -3,6 +3,8 @@ import { resolve } from 'node:path';
 
 import { z } from 'zod';
 
+import { GEMINI_THINKING_LEVELS, VERTEX_LOCATION } from './model/gemini-model.js';
+
 /** Prefix of the local development tokens in .env.example; refused in production (ADR-101). */
 const LOCAL_TOKEN_PREFIX = 'local-dev-only-';
 
@@ -12,6 +14,37 @@ const booleanish = z
   .transform((value) => value === 'true' || value === '1');
 
 const modelId = z.string().regex(/^[a-z0-9][a-z0-9.-]{2,63}$/);
+
+/**
+ * The models each provider starts with when none is named (ADR-106, ADR-109). Anthropic: a
+ * small model routes and a stronger one answers. Gemini: the owner asked for Gemini 2.5 Flash,
+ * which is cheap enough to do both; Google serves 2.5 only to projects that used it before, so
+ * a new project names its current Flash model in the three settings instead. Vertex AI
+ * (ADR-112) starts on that current Flash model, the one a new project is given: on 2026-11-12
+ * Google refused Gemini 2.5 Flash to the owner's new project and served Gemini 3.5 Flash.
+ */
+export const MODEL_DEFAULTS = {
+  mock: {
+    router: 'claude-haiku-5-5',
+    specialist: 'claude-sonnet-5-5',
+    fallback: 'claude-haiku-5-5',
+  },
+  anthropic: {
+    router: 'claude-haiku-5-5',
+    specialist: 'claude-sonnet-5-5',
+    fallback: 'claude-haiku-5-5',
+  },
+  gemini: {
+    router: 'gemini-2.5-flash',
+    specialist: 'gemini-2.5-flash',
+    fallback: 'gemini-2.5-flash',
+  },
+  vertex: {
+    router: 'gemini-3.5-flash',
+    specialist: 'gemini-3.5-flash',
+    fallback: 'gemini-3.5-flash',
+  },
+} as const;
 const token = z.string().min(32);
 
 /** Hosted tracing would send conversation text to a third party (ADR-106): never on. */
@@ -50,13 +83,28 @@ const envSchema = z
     /** Production requires TLS to PostgreSQL unless the path is private (ADR-038). */
     AGENT_DATABASE_ALLOW_PLAINTEXT: booleanish,
 
-    /** `mock` replays recorded turns and calls no vendor. */
-    AGENT_MODEL_PROVIDER: z.enum(['mock', 'anthropic']).default('mock'),
+    /**
+     * `mock` replays recorded turns and calls no vendor; `anthropic` and `gemini` need a key;
+     * `vertex` is Gemini through Vertex AI as the machine's own identity, with no key (ADR-112).
+     */
+    AGENT_MODEL_PROVIDER: z.enum(['mock', 'anthropic', 'gemini', 'vertex']).default('mock'),
     LLM_API_KEY: z.string().min(1).optional(),
-    /** A small model for routing, a stronger one for specialists, one to fall back on. */
-    AGENT_MODEL_ROUTER: modelId.default('claude-haiku-5-5'),
-    AGENT_MODEL_SPECIALIST: modelId.default('claude-sonnet-5-5'),
-    AGENT_MODEL_FALLBACK: modelId.default('claude-haiku-5-5'),
+    /** Vertex AI only: the Google Cloud project billed for the calls, which the identity is in. */
+    AGENT_VERTEX_PROJECT: z
+      .string()
+      .regex(/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/)
+      .optional(),
+    /** Vertex AI only: where requests are processed, a region such as `europe-west2`, or `global`. */
+    AGENT_VERTEX_LOCATION: z.string().regex(VERTEX_LOCATION).default('europe-west2'),
+    /**
+     * A model for routing, one for specialists, one to fall back on. Left out, each is the
+     * provider's own default (`MODEL_DEFAULTS`).
+     */
+    AGENT_MODEL_ROUTER: modelId.optional(),
+    AGENT_MODEL_SPECIALIST: modelId.optional(),
+    AGENT_MODEL_FALLBACK: modelId.optional(),
+    /** Gemini 3 and later only: how much the model may think. Ignored by every other model. */
+    AGENT_MODEL_THINKING_LEVEL: z.enum(GEMINI_THINKING_LEVELS).optional(),
     AGENT_MODEL_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(30_000),
     ALLOW_MOCK_PROVIDERS: booleanish,
 
@@ -69,8 +117,14 @@ const envSchema = z
     const require = (path: string, message: string): void => {
       ctx.addIssue({ code: 'custom', path: [path], message });
     };
-    if (env.AGENT_MODEL_PROVIDER === 'anthropic' && !env.LLM_API_KEY) {
-      require('LLM_API_KEY', 'is required when AGENT_MODEL_PROVIDER is anthropic');
+    if (
+      (env.AGENT_MODEL_PROVIDER === 'anthropic' || env.AGENT_MODEL_PROVIDER === 'gemini') &&
+      !env.LLM_API_KEY
+    ) {
+      require('LLM_API_KEY', `is required when AGENT_MODEL_PROVIDER is ${env.AGENT_MODEL_PROVIDER}`);
+    }
+    if (env.AGENT_MODEL_PROVIDER === 'vertex' && !env.AGENT_VERTEX_PROJECT) {
+      require('AGENT_VERTEX_PROJECT', 'is required when AGENT_MODEL_PROVIDER is vertex');
     }
     if (env.NODE_ENV !== 'production') return;
     if (env.AGENT_MODEL_PROVIDER === 'mock' && !env.ALLOW_MOCK_PROVIDERS) {
@@ -97,6 +151,15 @@ const envSchema = z
     ) {
       require('AGENT_DATABASE_URL', 'must set sslmode=require (or stricter) in production unless AGENT_DATABASE_ALLOW_PLAINTEXT=true');
     }
+  })
+  .transform((env) => {
+    const defaults = MODEL_DEFAULTS[env.AGENT_MODEL_PROVIDER];
+    return {
+      ...env,
+      AGENT_MODEL_ROUTER: env.AGENT_MODEL_ROUTER ?? defaults.router,
+      AGENT_MODEL_SPECIALIST: env.AGENT_MODEL_SPECIALIST ?? defaults.specialist,
+      AGENT_MODEL_FALLBACK: env.AGENT_MODEL_FALLBACK ?? defaults.fallback,
+    };
   });
 
 export type AgentConfig = z.infer<typeof envSchema>;

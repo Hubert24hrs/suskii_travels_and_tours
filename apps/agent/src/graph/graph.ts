@@ -15,6 +15,7 @@ import {
   keepAgentCards,
   leaksInstructions,
   namedTools,
+  plainAnswerText,
   unsupportedOutcomes,
   type AgentAnswer,
   type AgentCard,
@@ -409,10 +410,12 @@ export function buildAgentGraph(deps: RunDeps, checkpointer: BaseCheckpointSaver
         },
       };
     }
-    if (answer.text.trim() === '') {
+    // The clients draw plain text: Markdown is taken out before the guard reads the words.
+    const draft = plainAnswerText(answer.text);
+    if (draft === '') {
       return { turn: { ...next, result: ended('model_error', 'unavailable') } };
     }
-    return { turn: { ...next, draft: answer.text.trim() } };
+    return { turn: { ...next, draft } };
   };
 
   // --- act: run the tools the model asked for, through the gateway ------------------------------

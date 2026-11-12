@@ -409,7 +409,9 @@ describe('Apify adapter', () => {
       },
     },
   };
-  const make = (answers: Parameters<typeof fakeFetch>[0]) => {
+  // A clock that stands still unless a test moves it: how long a poll may wait is read from it,
+  // and two readings of the system clock a millisecond apart once turned 20 seconds into 19.
+  const make = (answers: Parameters<typeof fakeFetch>[0], now: () => number = () => 1_000_000) => {
     const fake = fakeFetch(answers);
     return {
       ...fake,
@@ -417,6 +419,7 @@ describe('Apify adapter', () => {
         token: KEY,
         costs: { datacenter: 2000, residential: 8000 },
         fetch: fake.fetchImpl,
+        now,
       }),
     };
   };
@@ -458,6 +461,20 @@ describe('Apify adapter', () => {
       rendered: true,
       costMicroUsd: 4200,
     });
+  });
+
+  it('asks a running actor to wait no longer than the attempt has left', async () => {
+    // The deadline is set at 1,000,000; each later reading is 1.5 seconds on.
+    const readings = [1_000_000, 1_001_500, 1_003_000];
+    const { provider, calls } = make(
+      [run('RUNNING'), run('RUNNING'), run('SUCCEEDED'), { text: '[{"title":"A","price":98000}]' }],
+      () => readings.shift() ?? 1_003_000,
+    );
+    await provider.run(request({ settings }), signal());
+    expect(calls.slice(1, 3).map((call) => call.url)).toEqual([
+      'https://api.apify.com/v2/actor-runs/RUNid12345?waitForFinish=18',
+      'https://api.apify.com/v2/actor-runs/RUNid12345?waitForFinish=17',
+    ]);
   });
 
   it('takes the page from an item field when the actor returns pages', async () => {

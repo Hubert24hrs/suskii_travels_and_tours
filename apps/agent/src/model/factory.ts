@@ -1,6 +1,8 @@
 import { type AgentConfig } from '../config.js';
 
 import { AnthropicAgentModel } from './anthropic-model.js';
+import { GeminiAgentModel } from './gemini-model.js';
+import { metadataTokenSource } from './google-identity.js';
 import { MockAgentModel } from './mock-model.js';
 import {
   ModelError,
@@ -55,6 +57,9 @@ export function createModelFactory(
     | 'AGENT_MODEL_SPECIALIST'
     | 'AGENT_MODEL_FALLBACK'
     | 'AGENT_MODEL_TIMEOUT_MS'
+    | 'AGENT_MODEL_THINKING_LEVEL'
+    | 'AGENT_VERTEX_PROJECT'
+    | 'AGENT_VERTEX_LOCATION'
   >,
 ): AgentModelFactory {
   const names: ModelNames = {
@@ -67,6 +72,30 @@ export function createModelFactory(
       new AnthropicAgentModel({
         apiKey: config.LLM_API_KEY,
         timeoutMs: config.AGENT_MODEL_TIMEOUT_MS,
+      }),
+      names,
+    );
+  }
+  if (config.AGENT_MODEL_PROVIDER === 'gemini' && config.LLM_API_KEY) {
+    return new AgentModelFactory(
+      new GeminiAgentModel({
+        apiKey: config.LLM_API_KEY,
+        timeoutMs: config.AGENT_MODEL_TIMEOUT_MS,
+        thinkingLevel: config.AGENT_MODEL_THINKING_LEVEL,
+      }),
+      names,
+    );
+  }
+  if (config.AGENT_MODEL_PROVIDER === 'vertex' && config.AGENT_VERTEX_PROJECT) {
+    return new AgentModelFactory(
+      new GeminiAgentModel({
+        vertex: {
+          project: config.AGENT_VERTEX_PROJECT,
+          location: config.AGENT_VERTEX_LOCATION,
+          accessToken: metadataTokenSource(),
+        },
+        timeoutMs: config.AGENT_MODEL_TIMEOUT_MS,
+        thinkingLevel: config.AGENT_MODEL_THINKING_LEVEL,
       }),
       names,
     );

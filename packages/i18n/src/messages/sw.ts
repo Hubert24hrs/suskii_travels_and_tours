@@ -228,7 +228,7 @@ export const sw: Messages = {
       to: 'Kwenda',
       placePlaceholder: 'Mji au uwanja wa ndege',
       swap: 'Badilisha mahali pa kuanzia na unakoenda',
-      dates: 'Kuondoka - Kurudi',
+      dates: 'Kuondoka na kurudi',
       depart: 'Kuondoka',
       datesPlaceholder: 'Chagua tarehe',
       datePlaceholder: 'Chagua tarehe',
@@ -241,36 +241,10 @@ export const sw: Messages = {
       groupLink: 'Wasafiri 10 au zaidi? Omba nauli ya kikundi',
       submit: 'Tafuta safari za ndege',
     },
-    describe: {
-      open: 'Eleza safari yako badala yake',
-      label: 'Eleza safari yako',
-      placeholder:
-        'Kwa mfano: Lagos hadi London Ijumaa ijayo, watu wazima 2, kurudi wiki moja baadaye',
-      submit: 'Jaza fomu',
-      working: 'Tunasoma safari yako',
-      privacy:
-        'Usiweke majina, namba au taarifa nyingine binafsi. Tunatuma maandishi kwa mtoa huduma wetu wa AI ili kujaza fomu na hatuyahifadhi.',
-      tooShort: 'Eleza safari yako kwa maneno machache',
-      filled: 'Tumejaza fomu kutokana na maelezo yako. Iangalie, kisha utafute.',
-      missing: 'Ongeza kile ambacho hatukuweza kujua: {fields}.',
-      month: 'Ulitaja {month}: chagua tarehe katika mwezi huo.',
-      fields: {
-        origin: 'unakoondokea',
-        destination: 'unakokwenda',
-        departureDate: 'tarehe ya kuondoka',
-        returnDate: 'tarehe ya kurudi',
-        legs: 'safari za ndege',
-      },
-      notUnderstood:
-        'Hatukuweza kugeuza hilo kuwa utafutaji wa safari ya ndege. Sema unaondokea wapi na unakwenda wapi, au tumia fomu iliyo hapa chini.',
-      overLimit: 'Umeeleza safari nyingi leo. Tumia fomu iliyo hapa chini badala yake.',
-      unavailable:
-        'Maelezo ya safari hayapatikani kwa sasa. Tumia fomu iliyo hapa chini badala yake.',
-    },
     hotels: {
       destination: 'Unakokwenda',
       destinationPlaceholder: 'Unakwenda wapi?',
-      dates: 'Kuingia - Kutoka',
+      dates: 'Kuingia na kutoka',
       datesPlaceholder: 'Chagua tarehe',
       rooms: 'Vyumba na wageni',
       room: 'Chumba {number}',
@@ -863,6 +837,7 @@ export const sw: Messages = {
       none: 'Hakuna hoteli zilizopatikana kwa tarehe hizi. Jaribu tarehe nyingine au mji wa karibu.',
       loadMore: 'Onyesha hoteli zaidi',
       seeRooms: 'Angalia vyumba',
+      placeGone: 'Hatuwezi kupata mahali hapo tena. Patafute tena.',
       seeRoomsLabel: 'Angalia vyumba katika {hotel}',
       stars: { one: 'Hoteli ya nyota {count}', other: 'Hoteli ya nyota {count}' },
       review: { one: '{score}/10 kutoka maoni {count}', other: '{score}/10 kutoka maoni {count}' },
@@ -1329,6 +1304,8 @@ export const sw: Messages = {
         'Kama barua pepe hii tayari ina akaunti, ingia kwa nenosiri lake badala yake.',
       orSignIn: 'au ingia kwa barua pepe au simu yako',
       orRegister: 'au jisajili kwa barua pepe yako',
+      rememberOff:
+        'Utatolewa kwenye akaunti ukifunga programu, na baada ya siku moja kwa vyovyote vile.',
       fingerprint: {
         signIn: 'Ingia kwa alama ya kidole',
         prompt: 'Ingia kwenye SUSKII T&T',
@@ -1686,6 +1663,8 @@ export const sw: Messages = {
       date: 'Tarehe',
       seats: 'Viti',
       anyCity: 'Chagua mji',
+      typeCity: 'Andika mji',
+      noCityMatch: 'Hakuna mji unaolingana na ulichoandika. Angalia tahajia.',
       search: 'Tafuta mabasi',
       noCities: 'Bado hakuna njia za mabasi zilizo wazi. Rudi hivi karibuni.',
       results: { one: 'Safari {count}', other: 'Safari {count}' },
@@ -1761,6 +1740,8 @@ export const sw: Messages = {
       quote: 'Angalia nauli',
       quoting: 'Tunapata nauli yako',
       noPlaces: 'Safari za gari bado hazijafunguliwa katika mji huu.',
+      typePlace: 'Andika mahali',
+      noPlaceMatch: 'Hakuna mahali panapolingana na ulichoandika. Angalia tahajia.',
       errors: {
         samePlace: 'Mahali pa kuchukuliwa na kushushwa lazima pawe tofauti.',
         outsideArea: 'Safari hii iko nje ya eneo tunalohudumia.',
@@ -2538,6 +2519,18 @@ export const sw: Messages = {
       password: 'Nenosiri',
       submit: 'Ingia',
       forgot: 'Umesahau nenosiri lako?',
+      welcome: 'Karibu tena',
+      welcomeBody: 'Ingia ili kuendelea kwenye {brand}',
+      emailPlaceholder: 'wewe@mfano.com',
+      remember: 'Nikumbuke',
+      rememberOff:
+        'Utatolewa kwenye akaunti ukifunga kivinjari, na baada ya siku moja kwa vyovyote vile.',
+      showPassword: 'Onyesha nenosiri',
+      hidePassword: 'Ficha nenosiri',
+      newHere: 'Mgeni kwenye {brand}?',
+      createAccount: 'Fungua akaunti',
+      usePhone: 'Tumia namba yako ya simu badala yake',
+      useEmail: 'Tumia barua pepe yako badala yake',
       toRegister: 'Mgeni kwenye Suskii? Fungua akaunti',
       phone: 'Namba ya simu',
       phoneHint: 'Weka msimbo wa nchi, kwa mfano +234 801 234 5678.',
@@ -2588,6 +2581,9 @@ export const sw: Messages = {
       or: 'au',
       google: 'Endelea na Google',
       apple: 'Endelea na Apple',
+      orContinue: 'au endelea na',
+      googleShort: 'Google',
+      appleShort: 'Apple',
       failed: 'Kuingia huko hakukufanikiwa. Jaribu tena, au tumia barua pepe yako.',
       mockTitle: 'Chagua akaunti ya majaribio',
       mockIntro:
@@ -2663,6 +2659,7 @@ export const sw: Messages = {
     },
     profile: {
       heading: 'Wasifu',
+      notSet: 'Haijawekwa',
       displayName: 'Jina',
       email: 'Barua pepe',
       emailUnverified: 'Bado haijathibitishwa.',
@@ -3234,11 +3231,13 @@ export const sw: Messages = {
     },
   },
   assistant: {
-    open: 'Muulize msaidizi',
-    title: 'Msaidizi wa Suskii',
+    open: 'Ask Suskii',
+    title: 'Ask Suskii',
+    hide: 'Ficha kitufe cha Ask Suskii',
+    dragHint: 'Hufungua Ask Suskii. Shikilia na uburute ili kuhamisha kitufe.',
     close: 'Funga',
     intro:
-      'Uliza kuhusu ndege, hoteli, magari, nafasi ulizohifadhi au kanuni zetu. Ninaweza kutafuta, kueleza na kuandaa badiliko ili ulithibitishe. Sihifadhi nafasi, silipi wala sirejeshi pesa peke yangu.',
+      'Uliza kuhusu ndege, hoteli, magari, nafasi ulizohifadhi au jinsi Suskii inavyofanya kazi. Ninaweza kutafuta, kueleza na kukuandalia uhifadhi: unaongeza wasafiri na kulipa kwenye ukurasa wa kuhifadhi. Silipi, sirejeshi pesa wala sithibitishi chochote peke yangu.',
     disclosure: 'Huyu ni msaidizi wa kiotomatiki. Unaweza kuomba mtu wakati wowote.',
     privacy: 'Usiandike hapa namba za kadi, manenosiri wala namba za pasipoti.',
     messageLabel: 'Ujumbe wako',
@@ -3246,7 +3245,7 @@ export const sw: Messages = {
     send: 'Tuma',
     thinking: 'Ninashughulikia…',
     you: 'Wewe',
-    name: 'Msaidizi',
+    name: 'Ask Suskii',
     startAgain: 'Anza mazungumzo mapya',
     talkToPerson: 'Ongea na mtu',
     history: 'Mazungumzo ya awali',
@@ -3297,6 +3296,10 @@ export const sw: Messages = {
         'Nchi nyingi zinahitaji pasipoti iliyo halali kwa angalau miezi sita baada ya kuwasili. Hiki ni kikumbusho cha jumla, si uamuzi wa kuingia: angalia sharti la nchi unayokwenda.',
       visa_guidance:
         'Masharti ya viza hubadilika, na ubalozi au afisa wa uhamiaji ndiye anayeamua. Huu ni mwongozo kutoka kwenye kumbukumbu za Suskii, si hakikisho la viza wala la kuingia.',
+      booking_handoff:
+        'Hakuna kilichowekwa wala kulipwa bado. Fungua kadi ili kuweka taarifa za wasafiri na kulipa kwenye ukurasa salama wa malipo. Bei hukaguliwa tena kabla hujalipa.',
+      other_services:
+        'Unahitaji mahali pa kukaa, gari au usafiri wa uwanja wa ndege kwa safari hii? Uliza, na Ask Suskii itatafuta kwa tarehe zilezile.',
     },
     rating: {
       question: 'Msaidizi alikusaidia kwa kiasi gani?',

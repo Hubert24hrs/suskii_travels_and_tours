@@ -308,7 +308,7 @@ function validity(promo: Promo): string {
   if (!promo.validFrom && !promo.validTo) return t('common.none');
   return [promo.validFrom, promo.validTo]
     .map((value) => (value ? format.dateTime(value) : '…'))
-    .join(' – ');
+    .join(` ${t('common.rangeTo')} `);
 }
 
 export function PromosPage() {

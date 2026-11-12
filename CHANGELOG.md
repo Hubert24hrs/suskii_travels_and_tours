@@ -6,6 +6,301 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### A mailbox on the testing backend, for its first admin (2026-11-12, ADR-113)
+
+The console's first admin needs a confirmed email address, and the backend machine sent no
+email at all, so `staff:bootstrap` refused every account and the owner's guide led nowhere.
+
+#### Added
+
+- **A mailbox on the machine** (`MAILBOX=true`, Mailpit under the compose profile `mailbox`):
+  every email the API sends lands there and goes no further, a week and 500 messages at most.
+  Its page is `mail.endpoints.<project>.cloud.goog`, behind Caddy's basic authentication with
+  the password in the new secret `MAILBOX_PASSWORD`. Each release checks from outside that the
+  page refuses a visitor without the password, and stops the mailbox if it does not. Switched
+  off, it goes with its mail. Terraform refuses it in production.
+- **`SMTP_ALLOW_PLAINTEXT`** on the API: a mail server on the same host or a private network
+  without TLS, like the private-path flags of ADR-038. Without it, production still sends only
+  with STARTTLS or implicit TLS. The SMTP client's options are a pure function with tests.
+
+#### Changed
+
+- The owner's guide walks through the first admin: sign up, open the confirming email in the
+  mailbox, run the bootstrap from the machine's SSH button, then set up the authenticator.
+
+### Ask Suskii answers with Gemini on Vertex AI, with no key (2026-11-12, ADR-112)
+
+The deployed assistant answered with the stand-in model until the owner created a Gemini key.
+It now calls Gemini on Vertex AI as the backend machine's own Google identity: no key exists.
+
+#### Added
+
+- **`AGENT_MODEL_PROVIDER=vertex`**: the Gemini adapter calls Vertex AI's `generateContent`
+  for `AGENT_VERTEX_PROJECT` in `AGENT_VERTEX_LOCATION` (London unless set), with a token of
+  the machine's identity from its metadata server (`metadataTokenSource()`: held in memory,
+  replaced five minutes before it ends, one request shared by concurrent calls).
+- **The machine**: `assistant_model` defaults to `vertex`; Terraform switches on Vertex AI and
+  gives the machine a role with one permission, calling a model
+  (`aiplatform.endpoints.predict`), only while that is the model. The deploy script no longer
+  asks for a Gemini key and retries its billing check.
+- **`infra/gcp/cloudbuild.agent-eval.yaml`**: the three agent evals against the model on Cloud
+  Build, as the build identity, with no key (about 2 US dollars a run at the list price).
+- **The staging machine's caps**: 2 US dollars a day in all, 1 per signed-in traveller and 20
+  cents per guest.
+- Vertex AI in the records of processing and the outbound hosts, with the metadata server.
+
+#### Fixed (found by the first runs against a real model)
+
+- **The evals tested a model that already knew the answer.** A real model resolves a place
+  before it searches and lists a traveller's bookings before it reads one; the cases answered
+  neither, so it apologised. The eval gateway now answers `catalog.places` from
+  `evals/places.json` (the catalog's own city ids), bookings cases answer `bookings.list`, the
+  past-date case names its year, and the two hand-off cases name the trip a model must find.
+- **Thinking ate the router's limit.** Gemini 3 counts its thoughts against `maxOutputTokens`:
+  the router's 128 tokens ran out before the answer on six cases in 98. The adapter adds room
+  for thinking above the limit the graph asks for.
+- **Markdown reached the traveller.** `plainAnswerText()` takes a draft to plain text before
+  the guard reads it, because the website, the app and WhatsApp draw text.
+- **The offer after a booking was held as the prompt read back.** The flights prompt listed the
+  rest of the trip in the words a traveller is asked them, so the guard (twelve words of the
+  instructions in a row) held Gemini's natural question and the traveller got a notice instead
+  of their prepared booking. The offers point at the tool's list now; flights, trip_builder and
+  bookings move to version 4.
+
+#### Changed
+
+- The Gemini defaults are `gemini-3.5-flash` for routing, answering and the fallback: Google
+  refused `gemini-2.5-flash` to the owner's new project, in London and globally. The API prices
+  it at the catalogue's list price (1.50 US dollars a million input tokens, 9 output).
+
+### Fixed: Dependabot refused its settings file (2026-11-12)
+
+- Dependabot rejected `.github/dependabot.yml` because the github-actions entry set
+  `semver-major-days`, which it does not take for actions, so no update ran for any
+  ecosystem. The entry now waits 14 days for every release, the age the workflows' own rule
+  asks of a pinned action.
+
+### Fixed: the Ask Suskii button under the status bar on a translated build (2026-11-12)
+
+- The phone check of the first test APK with the button failed at its first step: the cross
+  that puts the button away could not be tapped. The emulator runs the phone build's arm64
+  code through a translator, and there the button's first place read 932542240360127400,
+  which only an answer near 2.3e17 from `Math.random()` gives. No such place exists, so the
+  button fell back to the top left corner under the status bar, and the status bar took the
+  tap. The same flows pass on the x86 build that pull request checks use.
+- The button now takes a place only from a figure between 0 and 1 (anything else counts as
+  0), never trusts a place to be in range, and its fallback sits below the status bar. Tests
+  cover a random source that answers outside its range.
+
+### The backend on one Google Cloud machine, the budget shape (2026-11-12, ADR-111)
+
+When the deployment was about to start, the managed shape below turned out to cost more each
+month than the owner can spend now. Asked to choose, the owner took one small machine.
+
+#### Added
+
+- **`scripts/gcp/deploy-vm.sh <project>`**: one Compute Engine machine in London that runs the
+  release images of the API, the worker and the agent service in containers beside PostgreSQL,
+  Redis and Caddy. HTTPS with a certificate Caddy gets by itself, on Google's free name for
+  the project (`api.endpoints.<project>.cloud.goog`) until there is a domain.
+- **`infra/terraform/vm/`** and **`infra/gcp/vm/`**: the network, a fixed address, the machine
+  with a data disk of its own, the image repository, the documents and backups buckets, the
+  secrets' names; the compose stack, Caddy's settings and the machine's start-up, deploy and
+  backup scripts.
+- **A dump of the database** every night and before each release's database step, to a
+  private bucket that deletes it after 30 days. The machine may add a dump and cannot read,
+  replace or delete one.
+- **Releases without a login**: the release is named in the machine's metadata, a watcher on
+  the machine deploys it and reports to the serial console and a guest attribute.
+- **The website and the admin console on the same machine**, each on its own name and
+  certificate, so the app can pay a booking on the stand-in payment page and staff have a
+  console. Their images are built for the addresses they are served on.
+
+- **A sample catalogue for a testing backend** (`SAMPLE_CATALOGUE=true`): the machine runs
+  in production mode, which starts with an empty catalogue and Cars off, so the app showed
+  only flights and hotels against it. With the setting, a release and a nightly timer run the
+  sample seed (packages, tours, add-ons, visa products, a Prime plan, buses, rental cars,
+  every row badged as a sample) and buses and car rental are switched on. Rides stay off.
+  Terraform refuses the setting in an environment named production.
+- **`MACHINE_TYPE=e2-medium|e2-small`** on the deploy command, remembered like the others.
+
+#### How the assistant is kept from hurting the platform on one machine
+
+Its own container with its own tokens, model key and database role; a ceiling of 512 MB and
+three quarters of a processor; started last, so a release stands whether or not it comes up.
+With its container stopped, every platform route answered as before.
+
+#### Fixed
+
+- The managed shape's API could not be created: the run-service module refused public
+  ingress, which `edge = "none"` needs. A real plan against the project found it.
+- A test's pattern for a key file's header was read as a private key by the secret scan. The
+  test now parses the generated keys.
+
+#### What this shape gives up
+
+One machine, so a restart is an outage of a minute; a database that is ours to back up, with
+up to a day of loss; no WAF and no load balancer. It is a staging backend. ADR-111 lists it
+all, and the managed shape stays ready for when the budget allows.
+
+### The backend on Google Cloud, in one command (2026-11-12, ADR-110)
+
+The owner asked for the backend, and the assistant's backend beside it, to be deployed on
+Google's services.
+
+#### Added
+
+- **`scripts/gcp/deploy-backend.sh <project>`**, run by the owner in Google Cloud Shell: it
+  creates the network, Cloud SQL, Memorystore, the documents bucket, the image repository, one
+  identity per service and every secret (generated values go straight into Secret Manager and
+  are never shown), builds the images with Cloud Build, runs the migration job and rolls out
+  the API, the worker and the agent service. It can be stopped and run again.
+- **`infra/terraform/backend/`**, a root for the backend alone, and `edge = "none"` in the
+  platform module: no load balancer, no Cloudflare, no website or console. The API answers on
+  its own `run.app` address; the worker and the agent service are reachable from the VPC only.
+- **The owner's guide**, `docs/owner/deploy-backend-on-google-cloud.md`: what is needed (a
+  project with billing), the three lines to paste, what it creates and roughly what it costs.
+
+#### How the assistant is kept from hurting the platform
+
+Its own Cloud Run service and identity, its own schema in the database and nothing of the
+platform's tables, one way in (the API's tool gateway), limits on every run, daily spend caps,
+a pause switch, and one setting that removes it. No search, booking or payment route waits
+for it.
+
+#### Not done, and why
+
+- Nothing is deployed yet. This session holds no Google credential, and the first apply needs
+  the owner's project with billing. The script and the Terraform are checked for syntax and
+  format, and validated in CI; they have not been run against a project.
+- The website and the console are not part of this shape: they need the domain, so that the
+  API and the website are one site for the browser's cookies.
+
+### Ask Suskii and plain copy (2026-11-12, ADR-109)
+
+The second part of the owner's changes: one assistant for the whole platform, and a rule for
+every word a customer reads.
+
+#### Added
+
+- **The assistant is "Ask Suskii"**, on its button, its page and beside its answers, in every
+  language.
+- **Gemini answers it.** The agent service has a second model adapter for Google's Gemini API
+  beside the Anthropic one (`AGENT_MODEL_PROVIDER=gemini`, the default of a deployed agent
+  service; all three roles use `gemini-2.5-flash` unless a model is named). One HTTPS call, the
+  key in a header, no SDK. The eval command and the Agent evals workflow can measure either
+  provider (`GEMINI_API_KEY` or `LLM_API_KEY`).
+- **One button that moves.** On the website a server-rendered link rests in four places in
+  turn and glides between them by CSS alone: no script ships for it. In the app one floating
+  button takes a new place on each screen and every 15 seconds, can be dragged, and can be put
+  away. Neither shows on a payment page, a sign-in form or the assistant's own page, and both
+  hold still for "reduce motion".
+- **The assistant prepares a booking.** Three tools (`flights.prepare_booking`,
+  `hotels.prepare_booking`, `cars.prepare_booking`) check the price with the supplier and hand
+  the traveller a card that opens the checkout for it. Names, documents and payment stay on
+  the booking and payment pages; the assistant never says "booked".
+- **After a flight it offers the rest of the trip** once: a place to stay, a car, an airport
+  transfer, insurance, for the dates and place of the flight.
+- **It knows the platform.** `platform.guide` returns, per topic, what a traveller can do and
+  where, with what is switched on in this environment.
+
+#### Changed
+
+- **No hyphens or dashes in what a customer reads.** English copy joins no two words with a
+  hyphen ("sign in", "check in", "pickup", "top up", "WiFi", "not refundable"); "add-ons" are
+  "travel extras"; no language uses a dash as punctuation; a date range reads "10 Dec to 17
+  Dec". The same in the API's emails, texts and PDFs. Catalog tests keep it so.
+- The link to the assistant in the website's top bar is gone (the button replaced it), and the
+  app's Account screen offers the assistant only while the button is put away.
+
+#### Not changed, and why
+
+- Dates typed in the app still use the form `2026-12-01`: those 12 fields need a date and time
+  picker, a change of its own.
+- French and Portuguese words whose spelling has a hyphen, the addresses of pages, and what a
+  supplier or a traveller wrote.
+
+#### Still owed
+
+- One run of the Agent evals against Gemini with the owner's key: every result so far is from
+  recorded answers.
+- Google serves the 2.5 models only to projects that have used them: a key of a new project
+  names the current Flash model in the three model settings.
+
+### Owner's changes: sign-in, search bars, the flight form, the hotel form (2026-11-12, ADR-108)
+
+The owner tried the test app on a phone and sent reference pictures with a list of changes.
+This is the first part; Ask Suskii follows (ADR-109).
+
+#### Added
+
+- **Sign in is one card**, on the website and in the app: "Welcome back", the email, the
+  password with an eye that shows and hides it, "Remember me" beside "Forgot password?", a wide
+  Sign in button, then Google and Apple side by side under "or continue with", and "Create
+  account". In the app the fingerprint button sits under Sign in. A texted code is one line
+  under the card ("Use your mobile number instead").
+- **"Remember me" decides how long the sign-in lasts.** Ticked (as every sign-in was before),
+  nothing changes. Unticked, the session ends within 24 hours, the website's cookies end with
+  the browser and the app keeps the session in memory only; at its next start the app clears
+  what the account kept on the phone. The API's sign-in routes take an optional `remember`.
+- **A search bar over the chips** of the bus form's From and To and of a ride's pick-up and
+  drop-off, in the app: typing narrows the list, a name typed in full is chosen, and the
+  keyboard's search key takes the only place left.
+- **The same id for a city in every database** (`stableCityId`), so an id a phone or a browser
+  kept still names the city after a test server is rebuilt.
+
+#### Changed
+
+- **"Describe your trip" is gone from the flight forms** of the website and the app. The API
+  route stays for app builds already on phones.
+- **The hotel form keeps what was typed** when another tab of Home is opened and the traveller
+  comes back.
+
+#### Fixed
+
+- **"Continue your search" after the test server was rebuilt.** The shortcut named a city by
+  an id that only the earlier database knew; the results screen said it could not load and
+  offered a Retry that could never work. Besides the stable ids, the app now drops such a
+  shortcut and says the place was not found.
+
+#### Noted
+
+- The phone flow written for the owner's report passed on the emulator before any change. The
+  two defects above were found by reading and are fixed; a field that takes no typing was not
+  reproduced.
+- The Apple button shows the mark and "Apple". Apple names the titles its button may carry, so
+  this is checked before the App Store submission (an owner item).
+
+### Audit of the final code (2026-11-12)
+
+After `main` was brought up to date, every check CI runs was run again locally on the final
+commit, with the recorded evals, the load test and the release rehearsal on images built from
+it, and the code was read for siblings of the two defects just fixed.
+
+#### Fixed
+
+- **A company policy's days in advance** were counted from the UTC date. In the first hour of
+  a Lagos day a flight six days off counted as seven and passed a seven-day minimum. They are
+  counted from today where the trip starts (`todayIn`): a flight's first origin, an in-house
+  product's own place; a stay names no zone and is read in UTC, as before. Flights, hotels and
+  group requests already checked dates by the place's own calendar.
+
+#### Changed
+
+- **The Agent evals workflow can replay the recorded answers** ("Replay the recorded
+  answers"): no key, no model call. It ran on GitHub for the first time this way, for all three
+  suites and for one, and passed. This proves the workflow, not a model: the first run against
+  a model is still the owner's. The workflow is named "Agent evals", as the documents call it.
+
+#### Noted, not changed
+
+- The weekly scheduled security run failed on 2 and 9 November at its dependency audit, on the
+  commit that was the head then. The same step passes on the current code (in CI on `main` and
+  locally): nothing to fix, and the next scheduled run will say so.
+- Six manual workflows have never run, because each needs the owner's keys: the AI search
+  eval, the partner, messaging and web-data vendor checks, the mobile release and the release.
+  GitHub loads all of them (each shows under its own name in the Actions list).
+
 ### Fixed: the Agent eval workflow could not be started (2026-11-11)
 
 - `agent-eval.yml` named the matrix in its job's own `if`. GitHub reads a job's `if` before the

@@ -19,6 +19,11 @@ import { AccessTokenService } from './tokens/access-token.service';
 
 /** Absolute session lifetime; refresh tokens also expire after REFRESH_TOKEN_TTL_DAYS idle. */
 export const SESSION_MAX_AGE_DAYS = 90;
+/**
+ * A sign-in without "Remember me" (ADR-108) is for a browser or a phone the traveller may not
+ * come back to: its session ends within a day even when nobody signs out or closes anything.
+ */
+export const UNREMEMBERED_SESSION_HOURS = 24;
 const DAY_MS = 86_400_000;
 const MINUTE_MS = 60_000;
 const REFRESH_TOKEN_PREFIX = 'srt_';
@@ -44,6 +49,8 @@ export interface IssuedSession {
   refreshTokenExpiresAt: Date;
   csrfToken: string;
   user: UserWithRoles;
+  /** False for a sign-in without "Remember me": its cookies end with the browser (ADR-108). */
+  remembered: boolean;
 }
 
 export interface SessionSummary {
@@ -139,9 +146,16 @@ export class SessionService {
     authMethod: AuthMethod;
     mfaVerified: boolean;
     context: RequestContext;
+    /** "Remember me" as the sign-in form sent it; on when the form has none. */
+    remember?: boolean | undefined;
   }): Promise<IssuedSession> {
     const now = new Date();
     const policy = this.policyFor(params.user);
+    const remembered = params.remember !== false;
+    // Never longer than the account's own policy: a staff session is short either way.
+    const maxAgeMs = remembered
+      ? policy.maxAgeMs
+      : Math.min(policy.maxAgeMs, UNREMEMBERED_SESSION_HOURS * 60 * MINUTE_MS);
     const { session, refresh } = await this.prisma.$transaction(async (tx) => {
       const created = await tx.session.create({
         data: {
@@ -150,7 +164,8 @@ export class SessionService {
           userAgent: params.context.userAgent ?? null,
           ipHash: this.hmac.digest('ip', params.context.ip),
           mfaVerifiedAt: params.mfaVerified ? now : null,
-          expiresAt: new Date(now.getTime() + policy.maxAgeMs),
+          remembered,
+          expiresAt: new Date(now.getTime() + maxAgeMs),
         },
       });
       return { session: created, refresh: await this.createRefreshToken(tx, created, policy, now) };
@@ -222,7 +237,13 @@ export class SessionService {
 
   private async issue(
     user: UserWithRoles,
-    session: { id: string; authMethod: AuthMethod; mfaVerifiedAt: Date | null; expiresAt: Date },
+    session: {
+      id: string;
+      authMethod: AuthMethod;
+      mfaVerifiedAt: Date | null;
+      expiresAt: Date;
+      remembered: boolean;
+    },
     refresh: { raw: string; expiresAt: Date },
   ): Promise<IssuedSession> {
     const mfa = session.mfaVerifiedAt !== null;
@@ -253,6 +274,7 @@ export class SessionService {
       refreshTokenExpiresAt: refresh.expiresAt,
       csrfToken: this.csrf.issue(session.id),
       user,
+      remembered: session.remembered,
     };
   }
 

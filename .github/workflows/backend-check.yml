@@ -1,0 +1,62 @@
+name: Backend check
+
+# Checks a deployed backend from outside (ADR-111): the smoke tests against its public address
+# (public routes only, safe on any environment), that the assistant's switch can be read, and
+# that the routes meant for the worker and the agent service are closed from outside. Manual
+# only. It reads nothing private, needs no secret and changes nothing.
+on:
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: The API's address
+        required: true
+        type: string
+        default: https://api.endpoints.suskii-travels-staging.cloud.goog
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Smoke tests from outside
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      API_URL: ${{ inputs.api_url }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - name: The address is an https address
+        run: |
+          case "$API_URL" in
+            https://*) ;;
+            *) echo "::error::give an https address"; exit 1 ;;
+          esac
+      - name: Smoke tests
+        run: node scripts/smoke.mjs --api "$API_URL" --wait 180
+      - name: The assistant's switch can be read
+        run: |
+          body="$(curl -sS --fail --max-time 20 "$API_URL/v1/agent/status")"
+          echo "$body" | node -e '
+            const status = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
+            for (const key of ["enabled", "paused", "available"]) {
+              if (typeof status[key] !== "boolean") throw new Error(`${key} is missing`);
+            }
+            console.log(`assistant: enabled ${status.enabled}, paused ${status.paused}, available ${status.available}`);
+          '
+      - name: Internal routes are closed from outside
+        run: |
+          for path in /v1/internal/agent-tools/platform.status /v1/internal/deals/refresh; do
+            code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST "$API_URL$path")"
+            echo "$code  $path"
+            case "$code" in
+              401 | 403 | 404) ;;
+              *) echo "::error::$path answered $code from outside"; exit 1 ;;
+            esac
+          done

@@ -149,3 +149,9 @@ Two facts constrain the design:
 - **Hotels and other verticals are out of scope** (the spec names the flight search). The
   interface takes any schema, so another vertical needs its own prompt, schema and eval, not a
   new provider.
+
+## Amendment (2026-11-12, ADR-108)
+
+The website and the app no longer offer the box: the owner asked for one assistant for the
+whole platform in its place. The routes, the budget and the eval stay, because app builds
+already on phones still show the button while the API says the feature is on.

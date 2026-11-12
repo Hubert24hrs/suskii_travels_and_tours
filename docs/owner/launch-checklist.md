@@ -174,6 +174,11 @@ Check: `pnpm smoke --api https://<api host> --web https://<web host> --admin htt
 2. **Apple**: a Services ID and the App ID. Set `PUBLIC_APPLE_SERVICES_ID` and
    `APPLE_CLIENT_IDS`.
 
+Before the App Store submission, check the **Apple button** on the Sign in card against Apple's
+guidelines for Sign in with Apple. The card shows Apple's mark and the word "Apple" (ADR-108);
+Apple names the titles its button may carry, so review may ask for "Continue with Apple" or for
+the mark alone. Android and the website are not bound by that rule.
+
 ## 4. More hotels, tours and commission (optional at launch)
 
 | Partner       | What you need                                                                                        | Where it goes                                                          | Check                                 |
@@ -269,24 +274,31 @@ happen, and nothing happens unless the traveller taps to confirm. It is built an
 website and the app show it only once it is switched on (7.5 says what travellers then see).
 What is yours to do before it answers anyone:
 
-1. **The model key.** The same `LLM_API_KEY` as the after-hours assistant (an Anthropic API
-   key), as a repository secret:
-   <https://github.com/Hubert24hrs/suskii_travels_and_tours/settings/secrets/actions>. Read the
-   provider's data retention terms with counsel and choose zero data retention if your
-   agreement offers it. Only you can accept those terms.
-2. **Measure it against the real model.** GitHub, Actions, **Agent eval**, Run workflow
-   (<https://github.com/Hubert24hrs/suskii_travels_and_tours/actions/workflows/agent-eval.yml>),
-   suite `all`. It costs a few cents. It passes when routing reaches 95%, no invented figure,
-   date, contact or outcome is shown and 90% of grounded answers are, and no red-team case
-   breaks through. Until that run is green the assistant has only been checked with recorded
-   answers, and must not be switched on for travellers.
-3. **Choose the models.** Defaults: a small one to route (`claude-haiku-5-5`) and a stronger
-   one to answer (`claude-sonnet-5-5`). If you change one, run the eval again with it and set
-   its price in `AGENT_MODEL_PRICES`; update that setting whenever the provider's price list
-   changes, because the spend caps count in it.
+1. **The model.** Ask Suskii answers with Google's Gemini (ADR-109). On the Google Cloud
+   machine it calls **Gemini 3.5 Flash through Vertex AI as the machine's own identity, with
+   no key** (ADR-112): there is nothing to create or paste. Google refused Gemini 2.5 Flash to
+   the new project and served 3.5 Flash. Read Google's terms for Gemini on Vertex AI with
+   counsel, in particular where requests are processed and whether prompts are kept. Only you
+   can accept those terms. A key is needed only to run the evals from GitHub: create one in
+   Google AI Studio (<https://aistudio.google.com/apikey>) on a project with billing and add
+   it as the repository secret `GEMINI_API_KEY`.
+2. **Measure it against the real model.** Done on 2026-11-12 against Gemini 3.5 Flash on Vertex
+   AI, on Cloud Build, with no key (ADR-112 has the figures). It passes when routing reaches
+   95%, no invented figure, date, contact or outcome is shown and 90% of grounded answers are,
+   and no red-team case breaks through. Run it again after any change to the assistant's
+   prompts, tools or model, before it answers travellers: in Cloud Shell, from the repository,
+   `gcloud builds submit . --config=infra/gcp/cloudbuild.agent-eval.yaml --service-account=projects/suskii-travels-staging/serviceAccounts/suskii-build@suskii-travels-staging.iam.gserviceaccount.com`
+   (about 2 US dollars a run at the list price), or GitHub, Actions, **Agent evals**, with the
+   key. **Replay the recorded answers** there needs no key, calls no model and costs nothing:
+   it measures the workflow, not the model.
+3. **Choose the models.** Default: Gemini 3.5 Flash to route, to answer and as the fallback.
+   If you change one, run the evals again with it and set its price in `AGENT_MODEL_PRICES`;
+   update that setting whenever the provider's price list changes, because the spend caps
+   count in it.
 4. **Spend caps.** Defaults: 6 cents reserved per answer, 50 cents a day per signed-in
    traveller, 12 cents a day per guest address and $50 a day in total. Over a cap the assistant
-   says it has reached the day's limit and the ordinary screens still work.
+   says it has reached the day's limit and the ordinary screens still work. The staging machine
+   has its own, lower caps: $2 a day in total, $1 per traveller and 20 cents per guest.
 5. **Help articles.** The assistant answers questions about rules (refunds, changes, bags,
    documents) only from the help articles you publish in the console, and says it does not
    know when none fits. Three are seeded; write yours before it goes live.
@@ -410,8 +422,9 @@ these steps. Do them on staging first. The runbook for the people on call is
    answered). Add `LLM_API_KEY` as a repository secret, then Actions, Agent evals, Run
    workflow. Each suite leaves a small file as an artifact. A super admin records each file in
    the console (Assistant cost and quality, Evaluations, Record a run), so there is a dated
-   record of which model was measured, on which commit, and whether it passed. Nothing has
-   been measured against a real model yet: every result so far is from recorded answers.
+   record of which model was measured, on which commit, and whether it passed. The first runs
+   against a real model were made on 2026-11-12, on Cloud Build against Gemini on Vertex AI
+   (ADR-112).
 2. **Create the assistant's two tokens.** `pnpm --filter @suskii/api keys:generate` prints
    `AGENT_RUN_TOKEN` and `AGENT_TOOLS_TOKEN` with the other keys. Put each straight into
    Secret Manager, never into a file or a chat, together with `LLM_API_KEY`.

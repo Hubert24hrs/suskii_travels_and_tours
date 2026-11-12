@@ -10,39 +10,17 @@ import {
   type TripType,
   type CurrencyCode,
 } from '@suskii/shared/lite';
-import {
-  Button,
-  DateRangePicker,
-  PassengerPicker,
-  SegmentedControl,
-  Skeleton,
-} from '@suskii/ui-web';
-import {
-  ArrowLeftRight,
-  PlaneLanding,
-  PlaneTakeoff,
-  Plus,
-  Search,
-  Sparkles,
-  X,
-} from 'lucide-react';
+import { Button, DateRangePicker, PassengerPicker, SegmentedControl } from '@suskii/ui-web';
+import { ArrowLeftRight, PlaneLanding, PlaneTakeoff, Plus, Search, X } from 'lucide-react';
 import type { Route } from 'next';
-import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 
 import { dateToIso, isoToDate, localToday, weekStartsOn } from './dates';
-import type { NaturalSearchResult } from './describe-trip-request';
 import { focusFirstError, toFieldErrors, type FieldErrors } from './issues';
 import { CheckboxField, NativeSelect } from './native-select';
 import { PlaceField } from './place-field';
-import {
-  EMPTY_FLIGHT_STATE,
-  emptyLeg,
-  flightStateFromDraft,
-  type FlightFormState,
-  type Leg,
-} from './form-state';
+import { EMPTY_FLIGHT_STATE, emptyLeg, type FlightFormState, type Leg } from './form-state';
 import { loadShared, prefetchShared } from '../../lib/load-shared';
 import { startFlightSearch, warmSearch } from '../../lib/search-handoff';
 import type { PlaceOption } from './places';
@@ -71,20 +49,6 @@ function toDraft(state: FlightFormState): FlightFormDraft {
 
 const MAX_RECENT = 6;
 
-// The AI trip search box loads when the traveller opens it, so the homepage carries only the
-// button that opens it (ADR-043, ADR-061).
-const DescribeTrip = dynamic(
-  () => import('./describe-trip').then((module) => module.DescribeTrip),
-  {
-    loading: () => <Skeleton className="h-20" />,
-  },
-);
-
-/** The AI trip search box (ADR-061), present while the API has the feature on. */
-export interface DescribeSettings {
-  maxLength: number;
-}
-
 export interface FlightsFormProps {
   apiBaseUrl: string;
   locale: string;
@@ -93,7 +57,6 @@ export interface FlightsFormProps {
   pageSize: number;
   /** Pre-filled state (from a search URL); otherwise the last search on this device is restored. */
   initial?: FlightFormState | undefined;
-  describe?: DescribeSettings | undefined;
   /** Rendered on the server and shown under the form (the group request link, ADR-093). */
   footer?: ReactNode;
 }
@@ -104,7 +67,6 @@ export function FlightsForm({
   currency,
   pageSize,
   initial,
-  describe,
   footer,
 }: FlightsFormProps) {
   const { t } = useSearchT();
@@ -120,7 +82,6 @@ export function FlightsForm({
   const [recent, setRecent] = useState<PlaceOption[]>([]);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
-  const [describing, setDescribing] = useState(false);
   const today = useMemo(() => localToday(), []);
 
   // Restore the last search and recent places after hydration: reading storage during render
@@ -140,15 +101,6 @@ export function FlightsForm({
       ...current,
       legs: current.legs.map((leg, position) => (position === index ? { ...leg, ...patch } : leg)),
     }));
-
-  // A described trip replaces the form's values; the traveller checks them and searches.
-  const fill = (result: NaturalSearchResult) => {
-    const places = Object.fromEntries(result.places.map((option) => [option.code, option]));
-    const next = flightStateFromDraft(result.draft, places);
-    const padding = Math.max(MIN_MULTI_CITY_LEGS - next.legs.length, 0);
-    setErrors({});
-    setState({ ...next, legs: [...next.legs, ...Array.from({ length: padding }, emptyLeg)] });
-  };
 
   const formatRange = ({ from, to }: { from?: Date | undefined; to?: Date | undefined }) => {
     if (!from) return undefined;
@@ -435,19 +387,6 @@ export function FlightsForm({
 
   return (
     <div className="flex flex-col gap-4">
-      {!describe ? null : describing ? (
-        <DescribeTrip locale={locale} maxLength={describe.maxLength} onFill={fill} />
-      ) : (
-        <Button
-          type="button"
-          variant="ghost"
-          className="self-start px-3"
-          onClick={() => setDescribing(true)}
-        >
-          <Sparkles aria-hidden="true" className="size-5" />
-          {t('search.describe.open')}
-        </Button>
-      )}
       {form}
       {footer}
     </div>

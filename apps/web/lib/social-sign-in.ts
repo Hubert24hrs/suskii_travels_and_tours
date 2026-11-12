@@ -23,6 +23,8 @@ export interface PendingSocialSignIn {
   referralCode: string | null;
   /** Set when the app asked: the token goes back to it with the app's own state. */
   appState: string | null;
+  /** "Remember me" as the sign-in form had it when the visitor left for the provider. */
+  remember?: boolean;
 }
 
 export const isSocialProvider = (value: unknown): value is SocialProvider =>
@@ -88,6 +90,8 @@ export function takePending(): PendingSocialSignIn | null {
       next: typeof value.next === 'string' ? value.next : null,
       referralCode: typeof value.referralCode === 'string' ? value.referralCode : null,
       appState: isWellFormedToken(value.appState) ? value.appState : null,
+      // Anything but a plain `false` is the default: remembered.
+      ...(value.remember === false ? { remember: false } : {}),
     };
   } catch {
     return null;

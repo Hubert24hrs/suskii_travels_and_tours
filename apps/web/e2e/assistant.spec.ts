@@ -33,15 +33,74 @@ test.describe('with the assistant switched off', () => {
   });
 });
 
+test('Ask Suskii is one button that changes place, can be put away and keeps off some pages', async ({
+  page,
+}) => {
+  test.skip(OFF, WHY);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/flights');
+  // One button on the page, named as the owner asked, and a plain link (ADR-109).
+  const button = page.getByTestId('assistant-open');
+  await expect(button).toHaveCount(1);
+  await expect(button).toBeVisible();
+  await expect(button).toHaveText(t('assistant.open'));
+  await expect(button).toHaveAttribute('href', '/assistant');
+  expect(t('assistant.open')).toBe('Ask Suskii');
+  await expect(
+    page
+      .getByRole('navigation', { name: t('header.utilityNav') })
+      .getByRole('link', { name: t('assistant.open') }),
+  ).toHaveCount(0);
+
+  // It begins in one of its four places and does not stay there.
+  const holder = page.locator('[data-ask-suskii]');
+  expect(['0', '1', '2', '3']).toContain(await holder.getAttribute('data-start'));
+  const first = await holder.boundingBox();
+  await expect
+    .poll(
+      async () => {
+        const now = await holder.boundingBox();
+        return first && now ? Math.abs(now.x - first.x) + Math.abs(now.y - first.y) : 0;
+      },
+      { timeout: 25_000 },
+    )
+    .toBeGreaterThan(100);
+  // Wherever it is, all of it is on the page.
+  const box = await holder.boundingBox();
+  expect(box && box.x >= 0 && box.x + box.width <= 1280 && box.y >= 0).toBe(true);
+
+  // Someone who asked for less motion gets a button that stays where the visit began.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(holder).toHaveCSS('animation-name', 'none');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+
+  // While someone types it steps aside, and comes back when they are done.
+  const field = page.locator('main input[type="text"], main input[role="combobox"]').first();
+  await field.focus();
+  await expect(button).toBeHidden();
+  await field.blur();
+  await expect(button).toBeVisible();
+
+  // What moves can be put away (WCAG 2.2.2), without any script.
+  await page.locator('label[for="ask-suskii-hide"]').click();
+  await expect(button).toBeHidden();
+  await expect(page.getByTestId('ask-suskii-hide')).toBeChecked();
+
+  // A fresh page shows it again; the sign-in form and the assistant's own page never do.
+  await page.goto('/hotels');
+  await expect(page.getByTestId('assistant-open')).toBeVisible();
+  for (const path of ['/sign-in', '/assistant']) {
+    await page.goto(path);
+    await expect(page.getByTestId('assistant-open'), path).toBeHidden();
+  }
+});
+
 test('a visitor asks the assistant and keeps the conversation in the tab', async ({ page }) => {
   test.skip(OFF, WHY);
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/flights');
   // The entry is a link: no page but the assistant's own carries any of its code.
-  await page
-    .getByRole('navigation', { name: t('header.utilityNav') })
-    .getByRole('link', { name: t('assistant.open') })
-    .click();
+  await page.getByTestId('assistant-open').click();
   await page.waitForURL(/\/assistant$/);
   await expect(page.getByRole('heading', { level: 1, name: t('assistant.title') })).toBeVisible();
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);

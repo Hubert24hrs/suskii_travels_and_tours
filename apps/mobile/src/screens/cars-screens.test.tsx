@@ -218,6 +218,44 @@ describe('Cars on mobile', () => {
       expect(router.push).toHaveBeenCalledWith(`/buses/trips/${BUS_TRIP_ID}?seats=2`);
     });
 
+    it('finds a city by typing: the chips narrow, and a name typed in full is chosen', async () => {
+      const { calls } = mockApi({
+        'GET /v1/buses/cities': () => json(busCities),
+        'GET /v1/buses/search': () => json({ trips: [busTripCard] }),
+      });
+      await renderWithApp(<BusSearchScreen />);
+
+      // Typing narrows the list to what matches, whatever the case or the accents.
+      await fireEvent.changeText(await screen.findByTestId('bus-from-search'), 'lag');
+      expect(screen.getByTestId('bus-from-Lagos')).toBeOnTheScreen();
+      expect(screen.queryByTestId('bus-from-Ibadan')).toBeNull();
+      // The keyboard's search key takes the only city left; the bar then shows its name.
+      await fireEvent(screen.getByTestId('bus-from-search'), 'submitEditing');
+      expect(screen.getByTestId('bus-from-search').props.value).toBe('Lagos');
+      expect(screen.getByTestId('bus-from-Lagos').props.accessibilityState).toMatchObject({
+        checked: true,
+      });
+
+      // A name typed in full needs no tap; the city already chosen is not offered again.
+      expect(screen.queryByTestId('bus-to-Lagos')).toBeNull();
+      await fireEvent.changeText(screen.getByTestId('bus-to-search'), ' ibadan ');
+      // Nothing we serve matches: the list says so instead of standing empty.
+      await fireEvent.changeText(screen.getByTestId('bus-from-search'), 'Lagoss');
+      expect(screen.getByTestId('bus-from-empty')).toHaveTextContent(m.cars.buses.noCityMatch);
+      await fireEvent.press(screen.getByTestId('bus-search-submit'));
+      expect(screen.getByText(m.cars.buses.anyCity)).toBeOnTheScreen();
+      expect(calls.some((request) => request.url.includes('/v1/buses/search'))).toBe(false);
+
+      await fireEvent.changeText(screen.getByTestId('bus-from-search'), 'Lagos');
+      await fireEvent.press(screen.getByTestId('bus-search-submit'));
+      await screen.findByTestId(`bus-trip-${BUS_TRIP_ID}`);
+      const search = new URL(calls.find((request) => request.url.includes('/search'))?.url ?? '');
+      expect(Object.fromEntries(search.searchParams)).toMatchObject({
+        from: 'Lagos',
+        to: 'Ibadan',
+      });
+    });
+
     it('holds two seats, quotes the hold and opens checkout', async () => {
       jest.mocked(useLocalSearchParams).mockReturnValue({ tripId: BUS_TRIP_ID });
       const { calls } = mockApi({
@@ -353,6 +391,28 @@ describe('Cars on mobile', () => {
         dropoff: { label: 'Victoria Island', lat: 6.4281, lng: 3.4219 },
         scheduledFor: null,
         currency: 'NGN',
+      });
+    });
+
+    it('finds the pick-up and the drop-off by typing them', async () => {
+      const { calls } = mockApi({
+        'GET /v1/rides/places': () => json(ridePlaces),
+        'POST /v1/inhouse-quotes': () => json(quoteCreated, 201),
+      });
+      await renderWithApp(<RideRequestScreen />, await signedInSession());
+
+      await fireEvent.changeText(await screen.findByTestId('ride-pickup-search'), 'yab');
+      expect(screen.queryByTestId(`ride-pickup-${VI?.id ?? ''}`)).toBeNull();
+      await fireEvent.press(screen.getByTestId(`ride-pickup-${YABA?.id ?? ''}`));
+      expect(screen.getByTestId('ride-pickup-search').props.value).toBe('Yaba');
+      await fireEvent.changeText(screen.getByTestId('ride-dropoff-search'), 'victoria island');
+      await fireEvent.press(screen.getByTestId('ride-quote'));
+
+      await waitFor(() => expect(router.push).toHaveBeenCalledWith(`/checkout/${QUOTE_ID}`));
+      const quote = calls.find((request) => request.url.endsWith('/v1/inhouse-quotes'));
+      expect(await quote?.json()).toMatchObject({
+        pickup: { label: 'Yaba' },
+        dropoff: { label: 'Victoria Island' },
       });
     });
 

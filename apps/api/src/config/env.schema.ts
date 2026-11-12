@@ -102,6 +102,23 @@ export const DEFAULT_AGENT_MODEL_PRICES: AgentModelPrices = {
     cacheRead: 100_000,
     cacheWrite: 2_500_000,
   },
+  // Google's list price for the paid tier, read on 2026-11-12: check it before relying on a
+  // cost figure. Gemini charges nothing extra to write its cache, so a write costs an input.
+  'gemini-2.5-flash': {
+    input: 300_000,
+    output: 2_500_000,
+    cacheRead: 30_000,
+    cacheWrite: 300_000,
+  },
+  // The current Flash model, the one Google gives a new project (ADR-112). Standard text rates
+  // from Google's Cloud Billing catalogue (Vertex AI), read on 2026-11-12: check them before
+  // relying on a cost figure. Thinking is billed as output.
+  'gemini-3.5-flash': {
+    input: 1_500_000,
+    output: 9_000_000,
+    cacheRead: 150_000,
+    cacheWrite: 1_500_000,
+  },
   'mock-router': { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
   'mock-specialist': { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
   'mock-fallback': { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
@@ -210,6 +227,12 @@ export const envSchema = z
     SMTP_HOST: z.string().min(1).default('localhost'),
     SMTP_PORT: z.coerce.number().int().min(1).max(65_535).default(1025),
     SMTP_SECURE: booleanish.default(false),
+    /**
+     * Declares a mail server on the same host or a private network that offers no TLS, such as a
+     * testing backend's mailbox (ADR-113). Production otherwise sends only with STARTTLS or
+     * implicit TLS (ADR-038); never set this for a relay across the internet.
+     */
+    SMTP_ALLOW_PLAINTEXT: booleanish.default(false),
     SMTP_USER: z.string().min(1).optional(),
     SMTP_PASSWORD: z.string().min(1).optional(),
     /**

@@ -1,0 +1,65 @@
+# Builds the backend's four images from the repository root and pushes them to the project's
+# Artifact Registry (ADR-110): the API, its migration job, the worker and the agent service. The
+# same Dockerfiles and targets as the release pipeline. Started by scripts/gcp/deploy-backend.sh:
+#   gcloud builds submit --config infra/gcp/cloudbuild.backend.yaml \
+#     --substitutions=_REGISTRY=<region>-docker.pkg.dev/<project>/suskii,_TAG=<commit> .
+steps:
+  - id: api
+    name: gcr.io/cloud-builders/docker
+    waitFor: ['-']
+    env: ['DOCKER_BUILDKIT=1']
+    args:
+      - build
+      - --file=apps/api/Dockerfile
+      - --target=runtime
+      - --build-arg=VERSION=${_TAG}
+      - --build-arg=REVISION=${_TAG}
+      - --tag=${_REGISTRY}/suskii-api:${_TAG}
+      - .
+  # After the API: the two share every layer up to the build stage.
+  - id: migrate
+    name: gcr.io/cloud-builders/docker
+    waitFor: ['api']
+    env: ['DOCKER_BUILDKIT=1']
+    args:
+      - build
+      - --file=apps/api/Dockerfile
+      - --target=migrate
+      - --build-arg=VERSION=${_TAG}
+      - --build-arg=REVISION=${_TAG}
+      - --tag=${_REGISTRY}/suskii-api-migrate:${_TAG}
+      - .
+  - id: worker
+    name: gcr.io/cloud-builders/docker
+    waitFor: ['-']
+    env: ['DOCKER_BUILDKIT=1']
+    args:
+      - build
+      - --file=apps/worker/Dockerfile
+      - --build-arg=VERSION=${_TAG}
+      - --build-arg=REVISION=${_TAG}
+      - --tag=${_REGISTRY}/suskii-worker:${_TAG}
+      - .
+  - id: agent
+    name: gcr.io/cloud-builders/docker
+    waitFor: ['-']
+    env: ['DOCKER_BUILDKIT=1']
+    args:
+      - build
+      - --file=apps/agent/Dockerfile
+      - --build-arg=VERSION=${_TAG}
+      - --build-arg=REVISION=${_TAG}
+      - --tag=${_REGISTRY}/suskii-agent:${_TAG}
+      - .
+images:
+  - ${_REGISTRY}/suskii-api:${_TAG}
+  - ${_REGISTRY}/suskii-api-migrate:${_TAG}
+  - ${_REGISTRY}/suskii-worker:${_TAG}
+  - ${_REGISTRY}/suskii-agent:${_TAG}
+substitutions:
+  _REGISTRY: ''
+  _TAG: ''
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+timeout: 3600s

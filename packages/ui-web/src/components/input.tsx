@@ -15,6 +15,11 @@ export interface InputProps extends Omit<ComponentProps<'input'>, 'size'> {
   error?: string | undefined;
   /** Decorative icon shown inside the field on the left. */
   icon?: ReactNode;
+  /**
+   * A control inside the field at its end (show or hide a password). It is the caller's own
+   * element, with its own accessible name; the text never runs under it.
+   */
+  trailing?: ReactNode;
 }
 
 export const inputClasses = cn(
@@ -29,6 +34,7 @@ export function Input({
   hint,
   error,
   icon,
+  trailing,
   id,
   className,
   ...props
@@ -60,9 +66,17 @@ export function Input({
           id={inputId}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy}
-          className={cn(inputClasses, icon ? 'ps-12' : undefined, className)}
+          className={cn(
+            inputClasses,
+            icon ? 'ps-12' : undefined,
+            trailing ? 'pe-12' : undefined,
+            className,
+          )}
           {...props}
         />
+        {trailing ? (
+          <span className="absolute inset-y-0 inset-e-0 flex items-center pe-1">{trailing}</span>
+        ) : null}
       </div>
       {hint ? (
         <p id={hintId} className="font-body text-caption text-muted">

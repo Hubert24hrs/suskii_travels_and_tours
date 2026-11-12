@@ -104,10 +104,59 @@ rehearsal, Terraform, the Helm chart and the release pipeline, a chat scenario i
 test, the security review, the guides and a cost estimate) are done
 (`docs/phases/ai-agent.md`). The website and the app offer the assistant only while
 `GET /v1/agent/status` says it is available. Nothing is deployed and Terraform is not applied.
-The vendor adapters wait for one run of `scrapers-sandbox.yml` with the owner's keys, and the
-agents for one run of `agent-eval.yml` with `LLM_API_KEY`: no eval has run against a model.
-Nothing of it runs in production until the owner sets `AGENT_ENABLED` and
+The vendor adapters wait for one run of `scrapers-sandbox.yml` with the owner's keys. The
+agents' three evals pass against Gemini 3.5 Flash on Vertex AI, run on Cloud Build with no key
+(ADR-112); a run from GitHub (`agent-eval.yml`) still needs `LLM_API_KEY`. Nothing of it runs
+in production until the owner sets `AGENT_ENABLED` and
 `PRICE_INTEL_ENABLED` and approves each web source.
+
+Owner's changes of 2026-11-12 (outside the numbered phases, ADR-108, `docs/phases/owner-changes-2026-11.md`):
+sign-in as one card on the website and in the app ("Welcome back", show password, a real
+"Remember me", Google and Apple side by side, fingerprint under Sign in); a search bar over the
+chips of the bus form's From and To and a ride's pick-up and drop-off; "Describe your trip"
+gone from both flight forms (the API route stays for older app builds); and two fixes behind
+the report that the hotel form stopped working after a search: seeded cities have the same id
+in every database, and the hotel form keeps what was typed when its tab is left. Built and
+tested; the emulator did not reproduce a form that ignores taps, so the owner's steps and
+phone model are needed if it happens again.
+
+Ask Suskii and plain copy (outside the numbered phases, ADR-109, the second part of the owner's
+changes of 2026-11-12): the assistant is named "Ask Suskii"; the agent service answers with
+Google's Gemini beside the Anthropic adapter, through Vertex AI as the machine's own identity
+(`AGENT_MODEL_PROVIDER=vertex`, ADR-112) or with a key (`gemini`), and `gemini-3.5-flash`
+unless a model is named, because Google refused 2.5 Flash to the owner's new project; one button leads to it and does not stay put (CSS only on the
+website, a floating button in the app); three `propose` tools prepare a flight, a stay or a
+rental car as a quote and hand the traveller its checkout, and after a flight the assistant
+offers the rest of the trip once; `platform.guide` tells it how the platform works. No customer
+reads a hyphen or a dash. Built and tested; the three evals pass against Gemini 3.5 Flash on
+Vertex AI (ADR-112), whose first runs fixed the eval cases, the thinking limit, Markdown in
+answers and the wording of the offer after a booking.
+
+The backend on Google Cloud (outside the numbered phases, ADR-110): the owner asked for the
+backend and the assistant's backend to be deployed on Google's services. Built:
+`scripts/gcp/deploy-backend.sh <project>`, run by the owner in Cloud Shell, and
+`infra/terraform/backend/` with `edge = "none"` in the platform module (the API on its own
+`run.app` address, the worker and the agent service private, no load balancer, no website or
+console until the domain exists). That managed shape is planned against the owner's project
+and not applied: it costs more a month than the owner can spend now.
+
+The backend on one machine (outside the numbered phases, ADR-111): the shape the owner chose
+and the one that is live. `scripts/gcp/deploy-vm.sh <project>` and `infra/terraform/vm/` put
+one Compute Engine machine in London (project `suskii-travels-staging`) that runs the release
+images of the API, the worker and the agent service in containers beside PostgreSQL, Redis
+and Caddy (`infra/gcp/vm/`), with keys in Secret Manager, data on a disk of its own and a
+nightly dump in a bucket. The API answers on `api.endpoints.suskii-travels-staging.cloud.goog`.
+It runs on the stand-ins for every provider but the assistant's model: Ask Suskii answers
+with Gemini 3.5 Flash on Vertex AI as the machine's own identity, with no key (ADR-112), under
+caps of 2 US dollars a day. The website and the admin console run on
+the same machine (`web.` and `admin.endpoints.suskii-travels-staging.cloud.goog`); the forms
+the website protects with Turnstile stay closed until the owner's widget exists. With
+`sample_catalogue` on (as it is there) the release and a nightly timer seed the sample
+inventory and buses and car rental are on; rides, partner offers and price requests stay
+off. Its email lands in a mailbox on the machine and goes no further (ADR-113,
+`mail.endpoints.suskii-travels-staging.cloud.goog`, user `suskii`, the password in
+`MAILBOX_PASSWORD`), which is how its first admin confirms an address. The owner's
+guide is `docs/owner/deploy-backend-on-google-cloud.md`.
 
 Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
 hotel merging, affiliate partner offers with click and conversion tracking. Built; each partner
@@ -247,6 +296,8 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `pnpm release:rehearse`                            | Compose deploy with the agent service, broken release, rollback (`:local` images) |
 | `node scripts/helm-rehearsal.mjs`                  | Same on kind with the Helm chart (needs kind and Helm; runs in CI)                |
 | `pnpm smoke --api URL [--web URL] [--admin URL]`   | Post-deploy smoke tests (public routes only, safe on production)                  |
+| `bash scripts/gcp/deploy-backend.sh PROJECT`       | The backend on Google Cloud, from Cloud Shell, as the owner (ADR-110)             |
+| `bash scripts/gcp/deploy-vm.sh PROJECT`            | The backend on one Compute Engine machine, the budget shape (ADR-111)             |
 | `pnpm check:migrations` / `pnpm test:scripts`      | Expand/contract guard on new migrations / node:test script suites                 |
 | `pnpm check:workflows`                             | Fail on a job condition GitHub cannot read (it would refuse the workflow file)    |
 | `docker compose --profile s3 up -d s3`             | S3-compatible store for `OBJECT_STORAGE=s3` locally (ADR-057)                     |
@@ -352,8 +403,18 @@ Tooling notes for agents:
   `ENCRYPTED_FIELDS`, which `keys:reencrypt` walks to rotate keys; a test fails when a column named
   `*Encrypted`/`*Ciphertext` is missing there (ADR-038).
 - Production refuses plaintext Postgres, Redis and worker-to-API hops unless the matching
-  `*_ALLOW_PLAINTEXT` flag declares a private, otherwise encrypted path (ADR-038). Social sign-in
+  `*_ALLOW_PLAINTEXT` flag declares a private, otherwise encrypted path (ADR-038); email too,
+  with `SMTP_ALLOW_PLAINTEXT` for a mail server on the same host (ADR-113). Social sign-in
   needs a nonce from `POST /v1/auth/social/nonce`.
+- "Remember me" (ADR-108): every route that can finish a sign-in takes an optional `remember`
+  (true when left out) and passes it to `SessionService.start()`. Off, the session lasts
+  `UNREMEMBERED_SESSION_HOURS` at most and `setSessionCookies` sets cookies without a lifetime;
+  the choice lives on the session row (`remembered`), so a refresh keeps it. A new sign-in route
+  takes `remember` too, and nothing but `start()` decides a session's lifetime.
+- Seeded cities get their id from `stableCityId(countryCode, name)` (`catalog/reference-ids.ts`),
+  the same in every database: phones and browsers keep city ids. Never seed reference data that
+  a client keeps an id of with a random id, and never change that rule (ids already kept would
+  name nothing).
 - External providers sit behind abstract classes (`EmailProvider`, `SmsProvider`,
   `BreachedPasswordChecker`, `FxProvider`, `FlightSupplier`, `HotelSupplier`, `PaymentProvider`) with mock adapters for
   tests and local development. Production refuses mock adapters unless `ALLOW_MOCK_PROVIDERS=true`.
@@ -485,6 +546,12 @@ Tooling notes for agents:
   after `useHydrated()`. `e2e/hydration.spec.ts` alters the browser's `Intl`: add new pages there.
 - Copy comes from `@suskii/i18n`: server components use `getI18n()`; client components get a
   message subset through `I18nProvider` or labels as props. E2E tests use the catalog too.
+- Copy is plain (ADR-109): English joins no two words with a hyphen ("sign in", "check in",
+  "pickup", "top up", "travel extras"), no language uses a dash as punctuation, and a range is
+  written with a word ("10 Dec to 17 Dec", through `format.dateRange`). The catalog tests fail
+  otherwise. The same holds for what the API writes to a traveller (emails, texts, PDFs, the
+  assistant's guide). A format a field needs (`2026-12-01`) and the hyphens French and
+  Portuguese spelling requires are the only exceptions.
 - Languages (ADR-076): `en-NG`, `en-GB`, `en-US`, `fr`, `sw`, `ar`, `pt`. A new string goes in
   every catalog (the type check fails otherwise; `catalogs.test.ts` checks placeholders, plural
   forms and English left behind). The language is the footer cookie, else `Accept-Language`
@@ -508,6 +575,11 @@ Tooling notes for agents:
 - Forms the API protects with Turnstile (sign-up, guest checkout, newsletter) render the widget
   on first focus (`useTurnstile`); without a site key they send a development token the API's mock
   accepts. The app sends a device attestation instead.
+- Sign in is one card (ADR-108, `SignInForm`): its own `h1`, the password's show and hide
+  button (`Input`'s `trailing`), "Remember me" beside "Forgot password?", then Google and Apple
+  side by side (`SocialSignIn`: the provider's mark from `/brand/providers`, a short visible
+  name, the full name as `aria-label`). Every call that can finish the sign-in sends the box as
+  `remember`, the provider redirect included (`PendingSocialSignIn.remember`).
 - Client components call the API with `browserApi()` (typed openapi-fetch, `lib/browser-api.ts`);
   documented headers such as `Idempotency-Key` go in `params.header`. Guest booking tokens live in
   session storage through `lib/booking-token.ts`.
@@ -548,6 +620,15 @@ Tooling notes for agents:
   give up after `READ_TIMEOUT_MS` (20 s) as a `NetworkError`, so screens fall back to saved
   copies; writes and uploads have no timeout (their Idempotency-Key covers a retry). The refresh is
   single flight (`SessionStore`) because the API revokes a session on refresh-token reuse.
+- "Remember me" (ADR-108): only a sign-in passes `remember` to `SessionStore.save()`; a refresh
+  never does and keeps what the sign-in chose. Unticked, nothing of the session is written to the
+  phone (tokens and profile stay in memory), and `takeEndedWithApp()` at the next start has
+  `AppProvider` clear the account's data as a sign-out would. `useAuth()`'s sign-in calls take
+  `remember` last and default to true; pass the screen's box to every one of them.
+- A choice among places we serve (bus cities, ride places) is `SearchableChips`: a search bar
+  (`{testID}-search`) that narrows the chips (`{testID}-{value}`); nothing typed is sent
+  anywhere (ADR-053). A Home search form keeps its values in memory when its tab is left (the
+  hotel form's `kept`), because Home shows one form at a time and takes the others down.
 - Secrets (tokens, guest booking tokens, cache key, App Attest key id) go in `secureStorage`
   (Keychain / Keystore, this device only). Personal data kept offline goes in `secureCache()`
   (AES-256 MMKV); `preferences` holds settings only. Never use AsyncStorage for either.
@@ -571,6 +652,10 @@ Tooling notes for agents:
   online test server with nothing routed to the runner. A flow it runs must work on a server that
   keeps its data for hours: take anything unique (an account's address) from `-e`, never a fixed
   value. `mobile-test-apk.yml` publishes only after it passes; never publish the APK another way.
+- The phone check runs the arm64 build on an x86 emulator through a translator, where
+  `Math.random()` has answered outside 0 to 1 (pull request checks build x86 and never see
+  it). Bound whatever a random number picks (`randomBelow()` in `ask-suskii-button.tsx`), and
+  keep anything a traveller taps out from under the status bar, which takes the tap.
 - Wrap checkout, payment and document screens in `useSensitiveScreen()`.
 - Flight checkout offers the quote's first extra (a checked bag) per traveller with a seat, as the
   website does; bags send `extras` and switch reserving and installments off (ADR-063).
@@ -593,11 +678,12 @@ Tooling notes for agents:
 - Sheets are React Native modals (`Sheet` in ui-native); give pickers a `testID` (the field,
   `{testID}-sheet`, `{testID}-done`, days `{testID}-day-YYYY-MM-DD`, steppers
   `{testID}-{type}-add`).
-- Sign-in (ADR-067): registration signs straight in through `useAuth().register()`;
-  `SocialButtons` offers Google and Apple at the top of Sign in and Register (the mock on test
-  stacks, the system Apple sheet on iPhone, otherwise the website relay with a bound nonce). Only
-  the API's answer hides them; unknown shows both and a press asks again. Sign in always shows
-  the fingerprint button (a hint until it is set up); fingerprint sign-in keeps its device
+- Sign-in (ADR-067, ADR-108): registration signs straight in through `useAuth().register()`;
+  `SocialButtons` offers Google and Apple at the top of Register and, side by side under "or
+  continue with" (`layout="row"`), on the Sign in card (the mock on test stacks, the system
+  Apple sheet on iPhone, otherwise the website relay with a bound nonce). Only the API's answer
+  hides them; unknown shows both and a press asks again. Sign in always shows the fingerprint
+  button under Sign in (a hint until it is set up); fingerprint sign-in keeps its device
   credential only in `biometrics` (secure store behind the biometric prompt). Signing out keeps
   it; `forgetAccount()` (deletion) clears it.
 - Give interactive elements used by Maestro a stable `testID` (fields: the form path, such as
@@ -892,6 +978,9 @@ Tooling notes for agents:
 - "Continue your search" keeps the last hotel searches on the device only
   (`lib/recent-hotel-searches.ts` on both clients: checked again when read, dropped after
   check-in, cleared with the account's data in the app). Never send them to the API.
+- A search the API refuses with `unknown_city` (an id kept from another database, a retired
+  city) is not retried: the app drops that city's shortcuts (`recentHotelSearches.forgetCity`)
+  and says the place was not found, with the way back (ADR-108).
 - "Things to do" on a hotel page is `PartnerOffers` with the hotel's country and city (ADR-069);
   "Tonight in {city}" on the website's hotels page takes its instant from the browser's clock, so
   it renders there and sits under the destinations, where it moves nothing (ADR-075).
@@ -979,14 +1068,32 @@ Tooling notes for agents:
   counts and codes, never what was said. A new agent table joins `DATA_REGISTRY`, the export,
   account deletion, retention and the records of processing in the same change, and
   `resetState` in the e2e helpers.
+- Preparing a booking (ADR-109, `src/agent/tools/checkout-tools.ts`): a `propose` tool that
+  quotes one result of a search tool as the grant's caller and returns `preparedOut`, whose
+  `bookingStatus` is always `not_booked`, with a card to `/checkout/{quoteId}` and the note
+  `booking_handoff`. It never creates a booking, holds a seat or takes a name, a document or
+  money: those stay on the booking and payment pages. The ids it takes (`offerId`, `rateId`,
+  `carId`) come from the search tools' results, are never shown to a traveller and expire with
+  the search; an option that is gone answers `problems`, never an error. A new product that the
+  assistant should prepare gets such a tool, an id on its search tool's result and a case in
+  `agent-tools.e2e-spec.ts`.
+- `platform.guide` answers from `src/agent/platform-guide.ts`: plain sentences about what a
+  traveller can do and where, with no price, fee, hour or promise. A change to a feature a
+  traveller sees changes its topic there in the same change.
 - Clients read `GET /v1/agent/status` and offer the assistant only while `available` is true;
   an answer they cannot read hides it. Search, booking and payment never depend on it: the
   website's off-mode suite (`E2E_AGENT=off`, a CI step) runs the assistant, search and
   booking specs on a stack without it. A page that offers or needs the assistant gets a case
   in `assistant.spec.ts`'s off-mode block.
 - The clients draw what the API stored (an answer the guard passed, cards a tool built, the
-  confirmation card) and compose nothing. The website's entry is the server-rendered link in
-  `site-header.tsx`, never a client button on every page (the homepage budget has no room);
+  confirmation card) and compose nothing. There is one way in, the "Ask Suskii" button
+  (ADR-109), and it does not stay put. On the website it is `AskSuskii` in the root layout: a
+  server-rendered link moved by CSS alone (`globals.css`), never a client component (the
+  homepage budget has no room); a page that must not show it renders `NoAskSuskii` (payment
+  pages, sign-in forms, the assistant's own pages). In the app it is `AskSuskiiButton`, mounted
+  once over the screens; add a screen that must not show it to `HIDDEN` there. Both hold still
+  for "reduce motion" and can be put away. A Maestro flow about something else runs
+  `subflows/put-away-ask-suskii.yaml` after launch;
   `/assistant` and `/assistant/preferences` answer 404 while the assistant is off, and the
   preferences page stays open while it is paused, so erasing is always possible. The app
   keeps the open conversation's id and a guest's token in `assistantSession`
@@ -1170,10 +1277,31 @@ Tooling notes for agents:
   statuses the tools returned, no instructions read back, no tool named, no request for a
   secret. The rules are in `@suskii/shared` (`agent-grounding.ts`). The model's drafts and the
   guard's notes live in `turn.messages` and are never sources. One rewrite, then a notice.
-- Model vendors stay in `src/model/<vendor>-model.ts` behind `AgentModel`; the SDK retries
-  nothing and hosted tracing is refused at start-up. `MockAgentModel` replays scripted turns
+- Model vendors stay in `src/model/<vendor>-model.ts` behind `AgentModel` (Gemini, the default
+  of a deployed service, over plain HTTPS; Anthropic through its SDK); nothing retries and
+  hosted tracing is refused at start-up. A provider's default models are `MODEL_DEFAULTS` in
+  `config.ts`; a new model gets a price in the API's `DEFAULT_AGENT_MODEL_PRICES`. `MockAgentModel` replays scripted turns
   (`scripted()`), and unscripted says one fixed sentence (asked about the "status" it calls
   `platform.status` once).
+- Gemini on Vertex AI (ADR-112) is the Gemini adapter with a `vertex` target: its credential
+  comes only from `metadataTokenSource()` (the machine's own identity, a token held in memory),
+  never from a key, a file or a setting, and that identity holds only `suskiiModelCaller`
+  (`aiplatform.endpoints.predict`). The adapter adds room for thinking above the
+  `maxOutputTokens` the graph asks for (`THINKING_ROOM`): a Gemini 3 model counts its thoughts
+  against that limit, and the router's answer alone is a few tokens.
+- Answers are plain text: `plainAnswerText()` (`@suskii/shared`) takes Markdown out of a draft
+  before the guard reads it, because the website, the app and WhatsApp draw text. Never make a
+  client render Markdown from the assistant.
+- Instructions never hold a sentence a model would say (ADR-112): the guard holds an answer that
+  repeats `INSTRUCTION_LEAK_WORDS` (12) words of them in a row, so an offer a prompt asks for
+  names its parts briefly or points at the tool's own list (`alsoOffer`). `prompts.test.ts`
+  holds the questions a model wrote against each prompt that asks for one. Never lengthen the
+  run to let a prompt through.
+- An eval case answers every lookup a model makes on the way to what the case tests:
+  `catalog.places` comes from `evals/places.json` (the catalog's city ids) unless the case
+  answers it, a bookings case answers `bookings.list` with `bookings.get`, and a case about an
+  earlier search names the trip instead (the harness runs one turn). A fixture written for a
+  model that already knew an id tests nothing against a real one.
 - A run is for travellers or for staff (`context.audience`), never both: staff runs keep only
   staff agents, are routed by `STAFF_ROUTER_PROMPT` (never by the travellers' keyword rules in
   `pre-router.ts`) and fall back to the executive assistant. Staff agents work under
@@ -1181,7 +1309,8 @@ Tooling notes for agents:
 - A prompt is a versioned record (`src/prompts/prompts.ts`): change its text and its version
   together. A change to a prompt, a tool or a model keeps the three evals passing on recorded
   answers (`src/evals/*.test.ts`, fixtures in `evals/`) and is re-run against the model
-  (`agent-eval.yml`) before it answers travellers. A recorded answer that is wrong on purpose
+  before it answers travellers: `infra/gcp/cloudbuild.agent-eval.yaml` on Vertex AI with no
+  key (about 2 US dollars a run), or `agent-eval.yml` with a key. A recorded answer that is wrong on purpose
   stays wrong: the tests name them.
 - `apps/api/test/agent-service.e2e-spec.ts` starts this service from source (tsx) beside the
   API and runs the whole chain; it needs no build of this workspace.
@@ -1303,6 +1432,9 @@ Tooling notes for agents:
 - Invitations: a random token emailed as `/company/join#invite=…`, stored only as an HMAC
   (`company-invitation`, with the address as `company-invitation-email`), single use, 7 days, and
   accepted only by an account whose verified email is the invited one.
+- A policy's days in advance are counted from today where the trip starts (`tripPolicyFacts`:
+  `todayIn` of a flight's first origin or an in-house product's place; UTC for a stay), never
+  from the server's or the booker's calendar.
 - Booking for the company: `createBooking` with `company: true` calls
   `CompanyPolicyEvaluator.forBooking()` (provided by `BookingsModule`, no module cycle) after
   pricing; findings come from the quote and the priced total, never from the client. Payment and
@@ -1472,9 +1604,10 @@ Tooling notes for agents:
 - Accuracy is measured by the 50-case eval, not assumed: a prompt, schema or model change must
   keep the e2e test at 50/50 (recorded answers) and be re-run against the model
   (`eval:natural-search`, `ai-eval.yml`) before it ships.
-- Both clients open the box from a button above the flight form; the website loads its code only
-  then (homepage budget). The button shows while `GET /v1/flights/natural-search` says the feature
-  is on, and hides when the API cannot say.
+- No client offers the box any more (ADR-108: the owner wants one assistant, Ask Suskii, in
+  its place). The routes stay for app builds already on phones, which show the button while
+  `GET /v1/flights/natural-search` says the feature is on; do not remove them or the eval
+  while such builds are in use.
 
 ### Accessibility (WCAG 2.2 AA, ADR-088)
 
@@ -1604,6 +1737,50 @@ Tooling notes for agents:
   Build the matrix from the input or put the condition on the steps. `pnpm check:workflows`
   (part of `pnpm test:scripts`, which CI runs) refuses such a file. After adding a manual
   workflow, look at the Actions list once: a run named after the file's path means it did not load.
+- A manual workflow that needs a key should have a way to run without one that calls nothing
+  (the Agent evals' "Replay the recorded answers"): it proves the workflow before the owner
+  spends anything, and it is how a workflow nobody can run yet is kept from rotting.
+- The platform module has two shapes (ADR-110): `edge = "cloudflare"` (`live/`, an environment
+  behind the load balancer and Cloudflare) and `edge = "none"` (`backend/`, the backend alone on
+  the API's `run.app` address). A resource of the load balancer or of the website and console
+  is created only when `local.edged`; a change to the module must hold in both shapes, and
+  `infra.yml` validates both roots. Without the edge the API trusts one hop of
+  `X-Forwarded-For` (`TRUST_PROXY_HOPS`), never Cloudflare's headers.
+- `scripts/gcp/deploy-backend.sh` is the only way the `backend/` root is applied. It never
+  prints or stores a secret (`seed-secrets.mjs` pipes generated values into Secret Manager;
+  keep it in step with `apps/api/scripts/generate-secrets.ts`), every step looks at what
+  exists first, and what it decided lives in one file in the state bucket that holds no
+  secret. A new secret the backend reads gets a value there in the same change.
+- The backend on one machine (ADR-111, `infra/terraform/vm`, `infra/gcp/vm`): the compose
+  file there is `docker-compose.release.yml` with real keys, so a setting or a hardening
+  change to one goes to the other. The stack's files reach the machine as instance metadata
+  (never `metadata_startup_script`, which would replace the machine), and a release is the
+  metadata key `suskii-release`: nothing in a deploy logs in to the machine. Each container
+  gets only its own keys, read from Secret Manager as the machine's identity; never put a
+  secret in metadata, in Terraform or in the compose file. The assistant's container keeps
+  its ceiling on memory and processor time and is started last, and a release must stand
+  when it does not come up. `/v1/internal/*` stays closed at Caddy. The website's and the
+  console's images are built for the addresses they are served on, so their tag carries a
+  hash of those addresses: never reuse one for another address or Turnstile key.
+  `sample_catalogue` is for a testing backend: the sample seed runs in a one-off container
+  outside production mode, with the API's keys, and Terraform refuses the setting in an
+  environment named `production`. Never run the seed another way on a deployed database, and
+  never switch rides on there (no demo drivers in production mode, ADR-056).
+- The assistant's model on the machine is the setting `assistant_model` (ADR-112): `vertex`,
+  the default, with no key (Terraform grants the machine `suskiiModelCaller` only then);
+  `gemini` or `anthropic` with a key in `LLM_API_KEY`; or `mock`. Its daily caps there are the
+  compose file's `AGENT_*_DAILY_MICROUSD`; production's come from the API's defaults.
+- A testing backend's mailbox (ADR-113, `mailbox`, refused in production) catches every email:
+  the API sends to it on the private network (`SMTP_ALLOW_PLAINTEXT`) and it relays nothing.
+  Its page answers only through Caddy's basic authentication, whose bcrypt hash the release
+  makes from `MAILBOX_PASSWORD` on standard input; the Caddyfile is root-only for it. Each
+  release asks the page without the password and stops the mailbox if it answers. Switched
+  off, it goes with its mail. It holds raw links that sign in or reset: treat its password
+  like a staff one, and never point a production API at it.
+- Before a Terraform root is applied for the first time, plan it against the real project
+  (`terraform plan` with a local backend override): `validate` cannot see a variable's
+  validation that only a real value trips, and that is how the managed shape's ingress bug was
+  found.
 - Terraform changes: `terraform fmt`, then `validate` and TFLint run in `infra.yml`; operators
   apply them (`infra/terraform/README.md`). Store and privacy changes update `docs/release/` in
   the same change.
@@ -1752,6 +1929,12 @@ Tooling notes for agents:
 - [ADR-105: The agent's data: conversations, memory, knowledge and retention](docs/decisions/ADR-105-agent-data-memory-and-knowledge.md)
 - [ADR-106: Agent models, prompts and evaluation](docs/decisions/ADR-106-agent-models-prompts-and-evaluation.md)
 - [ADR-107: What an agent may do: tool tiers, confirmations, approvals and autonomy](docs/decisions/ADR-107-agent-authority.md)
+- [ADR-108: The sign-in card, "Remember me", search bars over known places and stable city ids](docs/decisions/ADR-108-sign-in-card-and-remember-me.md)
+- [ADR-109: Ask Suskii: Gemini, one button that moves, bookings prepared for the traveller, and plain copy](docs/decisions/ADR-109-ask-suskii.md)
+- [ADR-110: The backend on Google Cloud before the domain and the edge exist](docs/decisions/ADR-110-backend-on-google-cloud-before-the-edge.md)
+- [ADR-111: The backend on one Compute Engine machine, the budget shape](docs/decisions/ADR-111-the-backend-on-one-machine.md)
+- [ADR-112: Ask Suskii on Gemini through Vertex AI, as the machine's own identity](docs/decisions/ADR-112-ask-suskii-on-vertex-ai.md)
+- [ADR-113: A mailbox on the testing backend, so its first admin can confirm an address](docs/decisions/ADR-113-a-mailbox-on-the-testing-backend.md)
 
 ## Open questions for the owner
 
@@ -1962,4 +2145,32 @@ people who may manage data sources, so a recipe proposal has an approver other t
 Google's current Cloud Run prices for London, which the cost estimate could not confirm
 (`docs/owner/assistant-cost-estimate.md`); each web-data vendor's plan and its monthly
 minimum; and the share of customers expected to use the assistant, which the estimate
-assumes. Every owner action is listed, step by step, in `docs/owner/launch-checklist.md`.
+assumes. Added with the sign-in card (ADR-108): the title of the Apple button before the App
+Store submission (Apple names the titles its button may carry; ours shows the mark and
+"Apple"); whether 24 hours is the right length for a sign-in that is not remembered; and, if
+the hotel form still ignores taps on the owner's phone with the new test app, the exact steps
+and the phone's model. Added with Ask Suskii (ADR-109): Google's terms for Gemini read with
+counsel (whether prompts may be used to improve its models), a Gemini API key only to run the
+Agent evals from GitHub (`GEMINI_API_KEY`), whether the app's typed dates should become
+date and time pickers (12 fields; today they are typed as `2026-12-01`), and whether the page
+addresses that hold a hyphen (`/travel-add-ons`) should change, which needs redirects. Added with the backend on Google Cloud (ADR-110): a Google Cloud project with
+billing and its id, one run of `scripts/gcp/deploy-backend.sh` in Cloud Shell, the four lines
+it prints, a budget alert on the project, and the domain with its Cloudflare zone when the
+website and the console should follow. Added with the backend on one machine (ADR-111):
+whether `fast-delivery-d8d5c`, unlinked from billing
+to make room, should get billing back (a freed place or a higher limit from Google); the
+owner's own domain for the API in place of Google's free name; a Turnstile widget for the
+website's name (its site key and secret), without which sign-up and guest checkout on the
+website stay closed; the first admin of the console (the owner's own sign-up and
+authenticator, with the mailbox of ADR-113 for the confirming email); and when to move to the
+managed shape. Added with Ask Suskii
+on Vertex AI (ADR-112): counsel's reading of Google's terms for Gemini on Vertex AI (where
+requests are processed and whether prompts are kept), a higher Vertex AI quota when the
+assistant gets busy (a new project's is small), and whether the staging caps (2 US dollars a
+day) and the budget alert (50 US dollars a month, which warns and stops nothing) are right.
+Added with the mailbox (ADR-113): the email provider production will send through (an account
+and terms only the owner can take out), and who besides the owner may read the testing
+backend's mailbox.
+Every
+owner action is listed, step by step, in
+`docs/owner/launch-checklist.md`.

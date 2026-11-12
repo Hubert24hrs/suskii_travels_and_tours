@@ -11,6 +11,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { FingerprintCard } from '../components/account/fingerprint-card';
 import { TestServerCard } from '../components/account/test-server-card';
 import { appConfig } from '../config';
+import { useAskSuskiiAway } from '../lib/ask-suskii';
 import { followAccount } from '../lib/push';
 import { useApp, useT } from '../providers/app-provider';
 import { useAuth } from '../providers/auth';
@@ -71,7 +72,9 @@ export function AccountScreen() {
   const balance =
     wallet.data?.balances.find((item) => item.currency === currency) ?? wallet.data?.balances[0];
   // The assistant is offered only while the API says it is available (ADR-101): an answer
-  // the app cannot read hides it.
+  // the app cannot read hides it. Its way in is the floating "Ask Suskii" button; this screen
+  // offers it only once the traveller has put that button away (ADR-109).
+  const buttonAway = useAskSuskiiAway();
   const assistant = useQuery({
     queryKey: ['agent', 'status'],
     queryFn: async () => (await api.GET('/v1/agent/status')).data ?? null,
@@ -178,7 +181,7 @@ export function AccountScreen() {
         >
           {t('support.link')}
         </Button>
-        {assistant.data?.available ? (
+        {assistant.data?.available && buttonAway ? (
           <Button
             testID="account-assistant"
             variant="secondary"

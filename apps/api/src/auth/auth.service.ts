@@ -143,7 +143,7 @@ export class AuthService {
   }
 
   async login(
-    input: { email: string; password: string },
+    input: { email: string; password: string; remember?: boolean | undefined },
     context: RequestContext,
   ): Promise<SignInOutcome> {
     await this.throttle.assertNotLocked('password', input.email);
@@ -172,7 +172,7 @@ export class AuthService {
         data: { passwordHash: await this.hasher.hash(input.password) },
       });
     }
-    return this.completeSignIn(user, 'password', context);
+    return this.completeSignIn(user, 'password', context, input.remember);
   }
 
   /** Second step of a sign-in for accounts with MFA. */
@@ -180,6 +180,7 @@ export class AuthService {
     mfaToken: string,
     proof: MfaProof,
     context: RequestContext,
+    remember?: boolean,
   ): Promise<SignInOutcome> {
     const challenge = await this.mfa.completeChallenge(mfaToken, proof, context);
     const user = await this.prisma.user.findUnique({
@@ -187,18 +188,19 @@ export class AuthService {
       include: userWithRoles,
     });
     if (user?.status !== 'active') throw invalidCredentials();
-    return this.startSession(user, challenge.authMethod, true, context);
+    return this.startSession(user, challenge.authMethod, true, context, remember);
   }
 
   private async completeSignIn(
     user: UserWithRoles,
     method: AuthMethod,
     context: RequestContext,
+    remember?: boolean,
   ): Promise<SignInOutcome> {
     if (await this.mfa.isEnabled(user.id)) {
       return { status: 'mfa_required', challenge: await this.mfa.createChallenge(user.id, method) };
     }
-    return this.startSession(user, method, false, context);
+    return this.startSession(user, method, false, context, remember);
   }
 
   private async startSession(
@@ -206,8 +208,15 @@ export class AuthService {
     method: AuthMethod,
     mfaVerified: boolean,
     context: RequestContext,
+    remember?: boolean,
   ): Promise<SignInOutcome> {
-    const session = await this.sessions.start({ user, authMethod: method, mfaVerified, context });
+    const session = await this.sessions.start({
+      user,
+      authMethod: method,
+      mfaVerified,
+      context,
+      remember,
+    });
     await this.audit.record({
       action: 'auth.login.succeeded',
       actorUserId: user.id,
@@ -251,6 +260,7 @@ export class AuthService {
     code: string,
     context: RequestContext,
     referralCode?: string,
+    remember?: boolean,
   ): Promise<SignInOutcome> {
     await this.otp.verify('sign-in', phone, code, context);
     const now = new Date();
@@ -277,7 +287,7 @@ export class AuthService {
       }
     }
     if (user.status !== 'active') throw invalidCredentials();
-    return this.completeSignIn(user, 'otp', context);
+    return this.completeSignIn(user, 'otp', context, remember);
   }
 
   // --- Google / Apple ---------------------------------------------------------------
@@ -290,6 +300,7 @@ export class AuthService {
       displayName?: string | undefined;
       referralCode?: string | undefined;
       bindingSecret?: string | undefined;
+      remember?: boolean | undefined;
     },
     context: RequestContext,
   ): Promise<SignInOutcome> {
@@ -333,7 +344,7 @@ export class AuthService {
       }
     }
     if (user.status !== 'active') throw invalidCredentials();
-    return this.completeSignIn(user, provider, context);
+    return this.completeSignIn(user, provider, context, input.remember);
   }
 
   /**

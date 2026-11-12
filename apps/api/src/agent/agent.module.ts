@@ -58,6 +58,7 @@ import { AdminAgentKnowledgeController } from './knowledge/admin-agent-knowledge
 import { KnowledgeService } from './knowledge/knowledge.service';
 import { AccountTools } from './tools/account-tools';
 import { CatalogTools } from './tools/catalog-tools';
+import { CheckoutTools } from './tools/checkout-tools';
 import { CommitTools } from './tools/commit-tools';
 import { DisruptionTools } from './tools/disruption-tools';
 import { KnowledgeTools } from './tools/knowledge-tools';
@@ -131,6 +132,7 @@ import { AgentWhatsApp } from './whatsapp/agent-whatsapp.service';
     PlanningTools,
     CatalogTools,
     SearchTools,
+    CheckoutTools,
     ProductTools,
     AccountTools,
     CommitTools,

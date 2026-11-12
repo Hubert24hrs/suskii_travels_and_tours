@@ -4,7 +4,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Linking } from 'react-native';
 
-import { HotelSearchForm } from '../components/search/hotel-search-form';
+import { HotelSearchForm, resetHotelSearchForm } from '../components/search/hotel-search-form';
 import { preferences } from '../lib/cache';
 import { mapsUrl } from '../lib/maps';
 import { recentHotelSearches } from '../lib/recent-hotel-searches';
@@ -150,7 +150,7 @@ describe('hotel results (ADR-096)', () => {
 
     expect(await screen.findAllByTestId('hotel-result')).toHaveLength(2);
     expect(screen.getAllByTestId('hotel-photo')).toHaveLength(2);
-    expect(screen.getAllByText(/4-star · Resort · Waterfront/)).toHaveLength(2);
+    expect(screen.getAllByText(/4 star · Resort · Waterfront/)).toHaveLength(2);
   });
 
   it('keeps cards to text under the data saver', async () => {
@@ -209,6 +209,7 @@ describe('hotel results (ADR-096)', () => {
 describe('hotel discovery (ADR-097)', () => {
   beforeEach(() => {
     preferences.clearAll();
+    resetHotelSearchForm();
     jest.mocked(router.push).mockClear();
     jest.mocked(useLocalSearchParams).mockReturnValue({
       dest: CITY,
@@ -297,6 +298,70 @@ describe('hotel discovery (ADR-097)', () => {
     expect(recentHotelSearches.list()).toEqual([]);
   });
 
+  it('drops a shortcut whose city the API no longer knows, and says so without a retry', async () => {
+    // A search kept on the phone names a city by an id from another database (a test server
+    // that was rebuilt), or one that was retired.
+    recentHotelSearches.remember({
+      cityId: CITY,
+      cityName: 'Jos',
+      checkIn: CHECK_IN,
+      checkOut: CHECK_OUT,
+      rooms: [{ adults: 2, childAges: [] }],
+    });
+    const { calls } = mockApi({
+      'POST /v1/hotels/searches': () =>
+        json(
+          {
+            type: 'urn:suskii:problem:validation-failed',
+            title: 'Validation failed',
+            status: 422,
+            errors: [
+              {
+                location: 'body',
+                path: 'destination.cityId',
+                code: 'unknown_city',
+                message: 'unknown_city',
+              },
+            ],
+          },
+          422,
+        ),
+    });
+    await renderWithApp(<HotelResultsScreen />);
+
+    expect(await screen.findByTestId('hotel-place-gone')).toBeOnTheScreen();
+    expect(screen.getByText(m.results.hotels.placeGone)).toBeOnTheScreen();
+    // Asked once: the same city would be refused again.
+    expect(calls.filter((request) => request.url.includes('/v1/hotels/searches'))).toHaveLength(1);
+    expect(recentHotelSearches.list()).toEqual([]);
+    await fireEvent.press(screen.getByText(m.results.searchAgain));
+    expect(router.back).toHaveBeenCalled();
+  });
+
+  it('keeps what the form held when its tab is left and opened again', async () => {
+    mockApi({
+      'GET /v1/catalog/places': () =>
+        json({
+          items: [
+            { type: 'city', id: CITY, name: 'Jos', countryCode: 'NG', countryName: 'Nigeria' },
+          ],
+        }),
+    });
+    await renderWithApp(<HotelSearchForm />);
+    await fireEvent.changeText(screen.getByTestId('hotel-destination'), 'Jos');
+    await fireEvent.press(await screen.findByTestId(`hotel-destination-option-${CITY}`));
+    expect(screen.getByTestId('hotel-destination').props.value).toBe('Jos, Nigeria');
+    // Another tab of Home takes the form down; coming back puts up a new one.
+    await screen.unmount();
+
+    await renderWithApp(<HotelSearchForm />);
+    expect(screen.getByTestId('hotel-destination').props.value).toBe('Jos, Nigeria');
+    await fireEvent.press(screen.getByTestId('hotel-submit'));
+    expect(router.push).toHaveBeenCalledWith(
+      expect.stringContaining(`/search/hotels?dest=${CITY}&`),
+    );
+  });
+
   it('ignores what it cannot trust in storage, and stays that have begun', () => {
     preferences.set(
       'search.hotels.recent',
@@ -353,7 +418,7 @@ describe('hotel page (ADR-096)', () => {
     await renderWithApp(<HotelRatesScreen />);
 
     expect(await screen.findByTestId('hotel-description')).toHaveTextContent(/4-star resort/);
-    expect(screen.getByText(/4-star · Resort · Waterfront, Lagos/)).toBeOnTheScreen();
+    expect(screen.getByText(/4 star · Resort · Waterfront, Lagos/)).toBeOnTheScreen();
     // Two pictures of ours; the third URL is neither ours nor https.
     expect(screen.getByTestId('hotel-photo-0')).toHaveAccessibleName(
       'The Palm Resort: photo 1 of 2. The building',

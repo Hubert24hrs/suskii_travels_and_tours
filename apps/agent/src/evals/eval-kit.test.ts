@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { EvalGateway, evalContext, fitsParameters, loadTools } from './eval-kit.js';
+import { EvalGateway, evalContext, fitsParameters, loadTools, sharedAnswer } from './eval-kit.js';
 
 describe('the eval gateway (ADR-106)', () => {
   const tools = loadTools();
@@ -44,6 +44,37 @@ describe('the eval gateway (ADR-106)', () => {
       'confirmation_required',
     ]);
     expect(gateway.ranOutsideGrant).toEqual([]);
+  });
+
+  it('answers a place lookup as the catalog does when the case gives none (ADR-112)', async () => {
+    // The tool asks a model to resolve every place before it searches: doing so is no fault.
+    const gateway = new EvalGateway(tools, ['catalog', 'search'], {
+      'flights.search': { found: 0 },
+    });
+    const lagos = await gateway.call('catalog.places', {
+      grant: 'eval',
+      agent: 'flights',
+      arguments: { query: 'Lagos' },
+    });
+    expect(lagos).toMatchObject({ status: 'ok' });
+    const found = (lagos.result as { places: { type: string; code?: string; name: string }[] })
+      .places;
+    expect(found.map((place) => [place.type, place.code ?? place.name])).toEqual([
+      ['city', 'Lagos'],
+      ['airport', 'LOS'],
+    ]);
+    // What ran is what the model was given, so its answer is checked against it.
+    expect(gateway.ran).toEqual([{ tool: 'catalog.places', result: lagos.result }]);
+
+    expect(sharedAnswer('catalog.places', { query: 'heathrow', types: ['airport'] })).toEqual({
+      places: [expect.objectContaining({ code: 'LHR', cityName: 'London', countryCode: 'GB' })],
+    });
+    expect(sharedAnswer('catalog.places', { query: 'Atlantis' })).toEqual({ places: [] });
+    // Only reference data is shared: a case's own answers stay the only ones for everything else.
+    expect(sharedAnswer('hotels.search', { cityId: 'x' })).toBeUndefined();
+    expect(
+      await gateway.call('hotels.search', { grant: 'eval', agent: 'hotels', arguments: {} }),
+    ).toMatchObject({ reason: 'invalid' });
   });
 
   it('runs a staff case as a super admin in the console, who reaches every staff agent', () => {

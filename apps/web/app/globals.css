@@ -12,3 +12,102 @@ html {
 body {
   @apply bg-background font-body text-foreground antialiased;
 }
+
+/* Focus that scrolls into view also stays clear of the corner where "Ask Suskii" waits. */
+html {
+  @apply scroll-pb-20;
+}
+
+/*
+ * "Ask Suskii" (ADR-109) does not stay put: it rests in four places in turn, bottom corner, half
+ * way up that side, half way up the other side, the other bottom corner, and glides between
+ * them. `data-start` (0 to 3, picked by the server for each visit) is where it begins. Only
+ * `translate` moves, so nothing else on the page is laid out again, and no script is involved.
+ */
+[data-ask-suskii] {
+  --ask-across: calc(-100vw + 100% + var(--spacing-16));
+  --ask-up: -40dvh;
+  animation: ask-suskii-places 60s ease-in-out infinite;
+}
+
+[dir='rtl'] [data-ask-suskii] {
+  --ask-across: calc(100vw - 100% - var(--spacing-16));
+}
+
+[data-ask-suskii][data-start='1'] {
+  animation-delay: -15s;
+}
+
+[data-ask-suskii][data-start='2'] {
+  animation-delay: -30s;
+}
+
+[data-ask-suskii][data-start='3'] {
+  animation-delay: -45s;
+}
+
+/* Under the pointer or holding the focus, it waits. */
+[data-ask-suskii]:hover,
+[data-ask-suskii]:focus-within {
+  animation-play-state: paused;
+}
+
+@keyframes ask-suskii-places {
+  0%,
+  23% {
+    translate: 0 0;
+  }
+
+  25%,
+  48% {
+    translate: 0 var(--ask-up);
+  }
+
+  50%,
+  73% {
+    translate: var(--ask-across) var(--ask-up);
+  }
+
+  75%,
+  98% {
+    translate: var(--ask-across) 0;
+  }
+
+  100% {
+    translate: 0 0;
+  }
+}
+
+/* Reduced motion: it stays where the visit began, a different place from one page load to the next. */
+@media (prefers-reduced-motion: reduce) {
+  [data-ask-suskii] {
+    animation: none;
+  }
+
+  [data-ask-suskii][data-start='1'] {
+    translate: 0 var(--ask-up);
+  }
+
+  [data-ask-suskii][data-start='2'] {
+    translate: var(--ask-across) var(--ask-up);
+  }
+
+  [data-ask-suskii][data-start='3'] {
+    translate: var(--ask-across) 0;
+  }
+}
+
+/*
+ * While someone moves through the page by keyboard it waits in its corner, which the scroll
+ * padding above keeps clear of what has the focus (WCAG 2.4.11). While they type in a field it
+ * steps aside altogether: on a phone the keyboard leaves no room for it.
+ */
+html:has(:focus-visible) [data-ask-suskii] {
+  animation: none;
+  translate: none;
+}
+
+html:has(:is(input:not([type='checkbox'], [type='radio']), textarea):focus) [data-ask-suskii],
+body:has([data-no-ask-suskii]) [data-ask-suskii] {
+  display: none;
+}

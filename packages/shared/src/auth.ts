@@ -82,10 +82,17 @@ export const registerRequestSchema = z.object({
 });
 export type RegisterRequest = z.input<typeof registerRequestSchema>;
 
+/**
+ * "Remember me" on a sign-in form. Left out it is on, as it always was. Off, the session ends
+ * with the browser or the app and in any case within a day (ADR-108).
+ */
+export const rememberSchema = z.boolean().default(true);
+
 export const loginRequestSchema = z.object({
   email: emailSchema,
   // No length rules on login: never reveal policy details for existing accounts.
   password: z.string().min(1).max(PASSWORD_MAX_LENGTH),
   transport: authTransportSchema.default('token'),
+  remember: rememberSchema,
 });
 export type LoginRequest = z.input<typeof loginRequestSchema>;

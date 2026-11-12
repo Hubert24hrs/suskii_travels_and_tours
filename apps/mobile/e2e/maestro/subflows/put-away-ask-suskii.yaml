@@ -1,0 +1,20 @@
+# The "Ask Suskii" button floats over the screens and changes place (ADR-109). A flow that is
+# about something else puts it away first, as a traveller can with its small cross, so that a
+# tap meant for a control never lands on the button passing over it. On a server with the
+# assistant switched off there is no button, and nothing to do.
+appId: com.suskii.travels.e2e
+---
+- extendedWaitUntil:
+    visible:
+      id: ask-suskii-hide
+    timeout: 15000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: ask-suskii-hide
+    commands:
+      - tapOn:
+          id: ask-suskii-hide
+      - assertNotVisible:
+          id: ask-suskii

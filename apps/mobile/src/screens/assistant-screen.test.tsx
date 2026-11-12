@@ -201,6 +201,50 @@ describe('AssistantScreen', () => {
     expect(router.push).toHaveBeenCalledTimes(2);
   });
 
+  it('opens a prepared booking in the checkout of the app, with the notes it is read with (ADR-109)', async () => {
+    const QUOTE = '0192D3A0-7C1E-7B2A-9F00-00000000A501';
+    await assistantSession.remember(ID);
+    mockApi({
+      'GET /v1/agent/status': available,
+      [`GET /v1/agent/conversations/${ID}`]: () =>
+        json(
+          conversation({
+            messages: [
+              message({ text: 'I will take the Air Peace one.' }),
+              answer({
+                agent: 'flights',
+                text: 'Your booking is prepared. Open the card to add the travellers and pay.',
+                cards: [
+                  {
+                    kind: 'flight',
+                    title: 'Lagos (LOS) → London (LHR), Air Peace',
+                    lines: ['LOS → LHR  2026-12-10 07:15'],
+                    price: { amountMinor: 98_500_000, currency: 'NGN' },
+                    href: `/checkout/${QUOTE}`,
+                  },
+                  { kind: 'note', title: 'booking_handoff', lines: [] },
+                  { kind: 'note', title: 'other_services', lines: [] },
+                ],
+              }),
+            ],
+          }),
+        ),
+    });
+    await renderWithApp(<AssistantScreen />);
+
+    expect(await screen.findByText('Lagos (LOS) → London (LHR), Air Peace')).toBeOnTheScreen();
+    // Nothing is booked yet, and the rest of the trip is on offer: both in the catalog's words.
+    expect(screen.getByTestId('assistant-note-booking_handoff')).toHaveTextContent(
+      m.assistant.notes.booking_handoff,
+    );
+    expect(screen.getByTestId('assistant-note-other_services')).toHaveTextContent(
+      m.assistant.notes.other_services,
+    );
+    // The card leads to the app's own checkout for that quote, never to a browser.
+    await fireEvent.press(screen.getByText(m.assistant.cards.view));
+    expect(router.push).toHaveBeenCalledWith(`/checkout/${QUOTE.toLowerCase()}`);
+  });
+
   it('changes nothing until the traveller confirms, and sends the tap with an idempotency key', async () => {
     await assistantSession.remember(ID);
     const pending: Schemas['AgentConfirmation'] = {

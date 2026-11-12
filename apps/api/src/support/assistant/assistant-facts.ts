@@ -42,11 +42,11 @@ const STATUS: Record<BookingDto['status'], string> = {
 };
 
 const DOCUMENTS: Record<BookingDto['documents'][number]['type'], string> = {
-  e_ticket: 'e-ticket',
+  e_ticket: 'ticket',
   hotel_voucher: 'hotel voucher',
   package_voucher: 'package voucher',
   tour_voucher: 'tour voucher',
-  addon_voucher: 'add-on voucher',
+  addon_voucher: 'travel extra voucher',
   visa_confirmation: 'visa assistance confirmation',
   bus_ticket: 'bus ticket',
 };
@@ -112,7 +112,7 @@ export function assistantBookingFacts(booking: BookingDto): AssistantFact[] {
     });
     add(
       'flight.baggage',
-      `Baggage per traveller: ${plural(flight.baggage.carryOn, 'carry-on bag', 'carry-on bags')} and ${plural(flight.baggage.checked, 'checked bag', 'checked bags')}.`,
+      `Baggage per traveller: ${plural(flight.baggage.carryOn, 'cabin bag', 'cabin bags')} and ${plural(flight.baggage.checked, 'checked bag', 'checked bags')}.`,
     );
     add(
       'flight.conditions',
@@ -143,7 +143,7 @@ export function assistantBookingFacts(booking: BookingDto): AssistantFact[] {
   if (hotel) {
     add(
       'hotel.stay',
-      `Hotel: ${hotel.name}, ${hotel.cityName}. Check-in ${hotel.checkIn}, check-out ${hotel.checkOut} (${plural(hotel.nights, 'night', 'nights')}), ` +
+      `Hotel: ${hotel.name}, ${hotel.cityName}. Check in ${hotel.checkIn}, check out ${hotel.checkOut} (${plural(hotel.nights, 'night', 'nights')}), ` +
         `${plural(hotel.rooms, 'room', 'rooms')}: ${hotel.roomName}, ${hotel.board.replaceAll('_', ' ')}.`,
     );
     add(
@@ -202,12 +202,12 @@ export function assistantBookingFacts(booking: BookingDto): AssistantFact[] {
     const item = booking.rental;
     add(
       'rental.car',
-      `Car rental: ${item.vehicle.make} ${item.vehicle.model} from ${item.branch.name}, ${item.cityName}; pick-up ${wall(item.pickupAtLocal)}, return ${wall(item.returnAtLocal)} (local times). Refundable deposit: ${amount(item.charge.deposit)}.`,
+      `Car rental: ${item.vehicle.make} ${item.vehicle.model} from ${item.branch.name}, ${item.cityName}; pickup ${wall(item.pickupAtLocal)}, return ${wall(item.returnAtLocal)} (local times). Refundable deposit: ${amount(item.charge.deposit)}.`,
     );
   }
   if (booking.addon) {
     const item = booking.addon;
-    add('addon.item', `Add-on: ${item.product.title}, ${item.startDate} to ${item.endDate}.`);
+    add('addon.item', `Travel extra: ${item.product.title}, ${item.startDate} to ${item.endDate}.`);
   }
   if (booking.membership) {
     const item = booking.membership;

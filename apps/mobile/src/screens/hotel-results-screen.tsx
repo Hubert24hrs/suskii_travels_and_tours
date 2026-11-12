@@ -52,6 +52,17 @@ function priceSteps(range: Facets['price']): number[] {
 }
 
 class ExpiredError extends Error {}
+/** The search was refused because the API does not know the city it names. */
+class UnknownPlaceError extends Error {}
+
+/** True for the API's refusal of a search whose city id it does not know. */
+function unknownPlace(problem: unknown): boolean {
+  const issues = (problem as { errors?: unknown } | undefined)?.errors;
+  return (
+    Array.isArray(issues) &&
+    issues.some((issue) => (issue as { code?: unknown } | null)?.code === 'unknown_city')
+  );
+}
 
 function HotelCard({
   hotel,
@@ -151,12 +162,22 @@ export function HotelResultsScreen() {
     queryKey: ['hotel-search', request, currency, pageSize],
     enabled: request !== null,
     staleTime: 5 * 60_000,
+    // A city the API does not know stays unknown: only other failures are tried once more.
+    retry: (failures, error) => !(error instanceof UnknownPlaceError) && failures < 1,
     queryFn: async () => {
-      const { data } = await api.POST('/v1/hotels/searches', {
+      const { data, error } = await api.POST('/v1/hotels/searches', {
         params: { query: { currency, limit: pageSize } },
         body: request ?? ({} as never),
       });
-      if (!data) throw new Error('hotel search');
+      if (!data) {
+        // The API does not know this city (an id kept from another database, or a city that was
+        // retired): trying again cannot help, and its shortcut must not be offered again.
+        if (unknownPlace(error) && request?.destination.type === 'city') {
+          recentHotelSearches.forgetCity(request.destination.cityId);
+          throw new UnknownPlaceError();
+        }
+        throw new Error('hotel search');
+      }
       // Offered again on the search form, from this device only (ADR-097).
       const city = data.hotels[0]?.cityName;
       if (city && request?.destination.type === 'city') {
@@ -233,6 +254,16 @@ export function HotelResultsScreen() {
         body={t('results.expired')}
         action={t('results.searchAgain')}
         onAction={() => void search.refetch()}
+      />
+    );
+  }
+  if (search.error instanceof UnknownPlaceError) {
+    return (
+      <Notice
+        testID="hotel-place-gone"
+        body={t('results.hotels.placeGone')}
+        action={t('results.searchAgain')}
+        onAction={() => router.back()}
       />
     );
   }

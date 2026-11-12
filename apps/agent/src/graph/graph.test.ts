@@ -64,7 +64,7 @@ describe('routing (ADR-106)', () => {
     const { end } = await h.send('Please track my booking');
     expect(end).toMatchObject({ agent: 'bookings', agents: ['bookings'], outcome: 'answered' });
     expect(h.model.requests.map((entry) => entry.request.role)).toEqual(['specialist']);
-    expect(end.prompts).toEqual(['bookings@2']);
+    expect(end.prompts).toEqual(['bookings@4']);
   });
 
   it('asks the router model for everything else, and offers it only the agents switched on', async () => {
@@ -76,7 +76,7 @@ describe('routing (ADR-106)', () => {
       }),
     });
     expect(end).toMatchObject({ agent: 'hotels', outcome: 'answered' });
-    expect(end.prompts).toEqual(['router@1', 'hotels@2']);
+    expect(end.prompts).toEqual(['router@1', 'hotels@3']);
     const router = h.model.requests[0]?.request;
     expect(router?.toolChoice).toEqual({ name: ROUTE_TOOL });
     expect(
@@ -230,6 +230,25 @@ describe('tools and the guard (ADR-107)', () => {
     tool('payments.status', ['payments']),
     tool('support.handover', ['support'], 'propose'),
   ];
+
+  it('shows plain text when the model writes Markdown, as the clients draw words as they are', async () => {
+    const h = harness(tools, { 'flights.search': () => ok(FLIGHTS) });
+    const { end } = await h.send('Flights from Lagos to Abuja on 1 December', {
+      script: scripted({
+        router: [route('flights')],
+        specialist: [
+          call('flights__search', { from: 'LOS', to: 'ABV', date: '2026-12-01' }),
+          {
+            text: '## Flights\n\n* **XY** leaves at 10:25 for NGN 250,000.00\n* **ZZ** at 16:40 for NGN 310,500',
+          },
+        ],
+      }),
+    });
+    expect(end.outcome).toBe('answered');
+    expect(end.answer?.text).toBe(
+      'Flights\n\n• XY leaves at 10:25 for NGN 250,000.00\n• ZZ at 16:40 for NGN 310,500',
+    );
+  });
 
   it('answers from what a tool returned: money as a person reads it, cards passed through', async () => {
     const h = harness(tools, { 'flights.search': () => ok(FLIGHTS) });
@@ -458,6 +477,74 @@ describe('tools and the guard (ADR-107)', () => {
       }),
     });
     expect(right.end.outcome).toBe('answered');
+  });
+
+  it('prepares a booking for the traveller to finish, and never calls it booked (ADR-109)', async () => {
+    const prepared = {
+      problems: [],
+      bookingStatus: 'not_booked',
+      prepared: true,
+      what: 'Lagos (LOS) → London (LHR), XY',
+      totalToPay: { amountMinor: 98_500_000, currency: 'NGN' },
+      priceChangedSinceSearch: false,
+      alsoOffer: ['hotel', 'car'],
+      stay: { city: 'London', country: 'GB', arrive: '2026-12-10', leave: '2026-12-17' },
+      cards: [
+        {
+          kind: 'flight',
+          title: 'Lagos (LOS) → London (LHR), XY',
+          lines: [],
+          price: { amountMinor: 98_500_000, currency: 'NGN' },
+          href: '/checkout/0193a000-0000-7000-8000-00000000c0de',
+        },
+        { kind: 'note', title: 'booking_handoff', lines: [] },
+        { kind: 'note', title: 'other_services', lines: [] },
+      ],
+    };
+    const handoff = [
+      tool('flights.search', ['flights']),
+      tool('flights.prepare_booking', ['flights'], 'propose'),
+    ];
+    const h = harness(handoff, { 'flights.prepare_booking': () => ok(prepared) });
+    const { end } = await h.send('I will take the XY flight, please book it', {
+      script: scripted({
+        router: [route('flights')],
+        specialist: [
+          call('flights__prepare_booking', { offerId: 'srch_1.offer_2' }),
+          {
+            text: 'Your booking is prepared: Lagos to London with XY for NGN 985,000.00. Open the card to add the travellers and pay. Would you also like a hotel or a car in London from 2026-12-10 to 2026-12-17?',
+          },
+        ],
+      }),
+    });
+    expect(end.outcome).toBe('answered');
+    // The card that opens the booking page and both notes reach the traveller.
+    expect(end.answer?.cards.map((item) => [item.kind, item.title, item.href ?? null])).toEqual([
+      [
+        'flight',
+        'Lagos (LOS) → London (LHR), XY',
+        '/checkout/0193a000-0000-7000-8000-00000000c0de',
+      ],
+      ['note', 'booking_handoff', null],
+      ['note', 'other_services', null],
+    ]);
+    // The id that names the option went to the gateway and is nowhere in the answer.
+    expect(h.gateway.calls[0]?.call.arguments).toEqual({ offerId: 'srch_1.offer_2' });
+    expect(end.answer?.text).not.toContain('srch_1');
+
+    // "Booked" is a claim the records must support, and a prepared booking does not.
+    const h2 = harness(handoff, { 'flights.prepare_booking': () => ok(prepared) });
+    const wrong = await h2.send('I will take the XY flight, please book it', {
+      script: scripted({
+        router: [route('flights')],
+        specialist: [
+          call('flights__prepare_booking', { offerId: 'srch_1.offer_2' }),
+          { text: 'Done! Your flight is booked for NGN 985,000.00.' },
+          { text: 'I have booked your flight to London.' },
+        ],
+      }),
+    });
+    expect(wrong.end).toMatchObject({ outcome: 'guard_blocked', notice: 'cannot_answer' });
   });
 
   it("treats text inside a tool result as data: a tool that is not the agent's is never called", async () => {

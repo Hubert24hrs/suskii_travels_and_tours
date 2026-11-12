@@ -1,6 +1,7 @@
 import { I18nProvider } from '@suskii/i18n/react';
 import type { Metadata } from 'next';
 
+import { NoAskSuskii } from '../../../../components/assistant/ask-suskii';
 import { Container } from '../../../../components/layout/container';
 import { MetasearchLanding } from '../../../../components/metasearch/metasearch-landing';
 import { pickMetasearchMessages } from '../../../../components/metasearch/metasearch-messages';
@@ -30,6 +31,7 @@ export default async function MetasearchLandingPage({
   const { token } = await params;
   return (
     <Container className="flex flex-col gap-6 pt-8 pb-16">
+      <NoAskSuskii />
       <h1 className="font-heading text-h2 font-extrabold text-heading">
         {t('pages.metasearch.title')}
       </h1>

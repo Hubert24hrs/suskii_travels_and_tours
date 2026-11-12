@@ -69,6 +69,87 @@ describe('agent service configuration', () => {
     ).toBe('accepted');
   });
 
+  it("names each provider's own models when none is set, and takes any that are", () => {
+    // Gemini: the owner asked for 2.5 Flash; one model routes, answers and stands in.
+    expect(loadConfig({ AGENT_MODEL_PROVIDER: 'gemini', LLM_API_KEY: 'key' })).toMatchObject({
+      AGENT_MODEL_PROVIDER: 'gemini',
+      AGENT_MODEL_ROUTER: 'gemini-2.5-flash',
+      AGENT_MODEL_SPECIALIST: 'gemini-2.5-flash',
+      AGENT_MODEL_FALLBACK: 'gemini-2.5-flash',
+    });
+    expect(loadConfig({ AGENT_MODEL_PROVIDER: 'anthropic', LLM_API_KEY: 'key' })).toMatchObject({
+      AGENT_MODEL_ROUTER: 'claude-haiku-5-5',
+      AGENT_MODEL_SPECIALIST: 'claude-sonnet-5-5',
+      AGENT_MODEL_FALLBACK: 'claude-haiku-5-5',
+    });
+    // A project Google no longer serves 2.5 to names its current Flash model instead.
+    expect(
+      loadConfig({
+        AGENT_MODEL_PROVIDER: 'gemini',
+        LLM_API_KEY: 'key',
+        AGENT_MODEL_ROUTER: 'gemini-3.5-flash-lite',
+        AGENT_MODEL_SPECIALIST: 'gemini-3.8-flash',
+        AGENT_MODEL_THINKING_LEVEL: 'minimal',
+      }),
+    ).toMatchObject({
+      AGENT_MODEL_ROUTER: 'gemini-3.5-flash-lite',
+      AGENT_MODEL_SPECIALIST: 'gemini-3.8-flash',
+      AGENT_MODEL_FALLBACK: 'gemini-2.5-flash',
+      AGENT_MODEL_THINKING_LEVEL: 'minimal',
+    });
+    expect(() => loadConfig({ AGENT_MODEL_PROVIDER: 'gemini' })).toThrow(
+      'LLM_API_KEY: is required when AGENT_MODEL_PROVIDER is gemini',
+    );
+    expect(() =>
+      loadConfig({
+        AGENT_MODEL_PROVIDER: 'gemini',
+        LLM_API_KEY: 'key',
+        AGENT_MODEL_THINKING_LEVEL: 'max',
+      }),
+    ).toThrow('AGENT_MODEL_THINKING_LEVEL');
+  });
+
+  it('takes Gemini through Vertex AI with a project and a region, and never a key (ADR-112)', () => {
+    expect(
+      loadConfig({
+        ...production,
+        LLM_API_KEY: undefined,
+        AGENT_MODEL_PROVIDER: 'vertex',
+        AGENT_VERTEX_PROJECT: 'suskii-travels-staging',
+      }),
+    ).toMatchObject({
+      AGENT_MODEL_PROVIDER: 'vertex',
+      AGENT_VERTEX_PROJECT: 'suskii-travels-staging',
+      AGENT_VERTEX_LOCATION: 'europe-west2',
+      // The current Flash model: the one Google gives a new project.
+      AGENT_MODEL_ROUTER: 'gemini-3.5-flash',
+      AGENT_MODEL_SPECIALIST: 'gemini-3.5-flash',
+      AGENT_MODEL_FALLBACK: 'gemini-3.5-flash',
+    });
+    expect(
+      loadConfig({
+        AGENT_MODEL_PROVIDER: 'vertex',
+        AGENT_VERTEX_PROJECT: 'suskii-travels-staging',
+        AGENT_VERTEX_LOCATION: 'global',
+      }).AGENT_VERTEX_LOCATION,
+    ).toBe('global');
+    expect(() => loadConfig({ AGENT_MODEL_PROVIDER: 'vertex' })).toThrow(
+      'AGENT_VERTEX_PROJECT: is required when AGENT_MODEL_PROVIDER is vertex',
+    );
+    for (const location of ['europe-west2.evil.example', 'eu', 'Europe-West2']) {
+      expect(() =>
+        loadConfig({
+          AGENT_MODEL_PROVIDER: 'vertex',
+          AGENT_VERTEX_PROJECT: 'suskii-travels-staging',
+          AGENT_VERTEX_LOCATION: location,
+        }),
+      ).toThrow('AGENT_VERTEX_LOCATION');
+    }
+    expect(() =>
+      loadConfig({ AGENT_MODEL_PROVIDER: 'vertex', AGENT_VERTEX_PROJECT: 'Not A Project' }),
+    ).toThrow('AGENT_VERTEX_PROJECT');
+  });
+
   it('never echoes a value in an error', () => {
     expect(() => loadConfig({ ...production, AGENT_RUN_TOKEN: 'short-secret' })).toThrow(
       /^Invalid agent environment: AGENT_RUN_TOKEN: [^s]/,
