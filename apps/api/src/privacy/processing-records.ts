@@ -176,6 +176,17 @@ export const RECIPIENTS = {
     status: 'optional',
     setting: 'AGENT_ENABLED with AGENT_MODEL_PROVIDER=gemini',
   },
+  google_vertex: {
+    name: 'Google Cloud Vertex AI (Gemini)',
+    role: 'processor',
+    receives:
+      'Scrubbed conversations with the assistant, Ask Suskii, with trip and booking facts but no names, contacts, documents or references, sent as the machine’s own identity with no key (ADR-105, ADR-112)',
+    location:
+      'United Kingdom: the europe-west2 (London) endpoint the requests are sent to; Google’s data residency terms for the model to be confirmed',
+    transfer: 'processor_terms',
+    status: 'optional',
+    setting: 'AGENT_ENABLED with AGENT_MODEL_PROVIDER=vertex',
+  },
   sentry: {
     name: 'Sentry',
     role: 'processor',
@@ -519,7 +530,7 @@ export const PROCESSING_ACTIVITIES: readonly ProcessingActivity[] = [
       'AgentToolCall',
       'AgentShadowRun',
     ],
-    recipients: [...hosting, 'google_gemini', 'anthropic', 'whatsapp'],
+    recipients: [...hosting, 'google_vertex', 'google_gemini', 'anthropic', 'whatsapp'],
   },
   {
     id: 'privacy',
