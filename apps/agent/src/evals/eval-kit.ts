@@ -70,6 +70,57 @@ export interface ToolAttempt {
   agent: AgentName;
   outcome: 'ok' | AgentToolDenial;
   arguments: Record<string, unknown>;
+  /** What a call that ran returned. */
+  result?: unknown;
+}
+
+const referencePlace = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('airport'),
+    code: z.string(),
+    name: z.string(),
+    cityName: z.string().nullable(),
+    countryCode: z.string(),
+    countryName: z.string(),
+    timeZone: z.string(),
+  }),
+  z.object({
+    type: z.literal('city'),
+    id: z.string(),
+    name: z.string(),
+    countryCode: z.string(),
+    countryName: z.string(),
+    airports: z.array(z.object({ code: z.string(), name: z.string() })),
+  }),
+]);
+type ReferencePlace = z.infer<typeof referencePlace>;
+let places: ReferencePlace[] | null = null;
+
+/**
+ * Reference data every case shares (ADR-112): `catalog.places`, answered from `places.json` as
+ * the catalog answers it, for a case that gives no answer of its own. The tool tells a model to
+ * resolve every place before a search ("never guess a code"); a model that does so must not be
+ * marked down because a case was written as if it already knew LOS and ABV.
+ */
+export function sharedAnswer(name: string, args: Record<string, unknown>): unknown {
+  if (name !== 'catalog.places') return undefined;
+  places ??= z.object({ places: z.array(referencePlace) }).parse(fixture('places.json')).places;
+  const query = (typeof args.query === 'string' ? args.query : '').trim().toLowerCase();
+  const types = Array.isArray(args.types) ? args.types : ['airport', 'city'];
+  const limit = typeof args.limit === 'number' ? args.limit : 5;
+  const words = (place: ReferencePlace): string[] =>
+    place.type === 'airport'
+      ? [place.code, place.name, place.cityName ?? '', place.countryName, place.countryCode]
+      : [place.name, place.countryName, place.countryCode, ...place.airports.map((a) => a.code)];
+  return {
+    places: places
+      .filter((place) => types.includes(place.type))
+      .filter(
+        (place) =>
+          query.length > 0 && words(place).some((word) => word.toLowerCase().includes(query)),
+      )
+      .slice(0, limit),
+  };
 }
 
 const answer = (reason: AgentToolDenial, result: unknown = null): ToolAnswer => ({
@@ -135,7 +186,13 @@ export class EvalGateway extends ToolGateway {
 
   call(name: string, call: ToolCall): Promise<ToolAnswer> {
     const note = (outcome: ToolAttempt['outcome'], result: ToolAnswer): Promise<ToolAnswer> => {
-      this.attempts.push({ tool: name, agent: call.agent, outcome, arguments: call.arguments });
+      this.attempts.push({
+        tool: name,
+        agent: call.agent,
+        outcome,
+        arguments: call.arguments,
+        ...(outcome === 'ok' ? { result: result.result } : {}),
+      });
       return Promise.resolve(result);
     };
     const tool = this.tools.find((candidate) => candidate.name === name);
@@ -149,15 +206,16 @@ export class EvalGateway extends ToolGateway {
         answer('confirmation_required', { confirmationId: EVAL_CONFIRMATION_ID }),
       );
     }
-    if (!(name in this.results)) return note('not_found', answer('not_found'));
-    return note('ok', { status: 'ok', reason: null, result: this.results[name] });
+    const result = name in this.results ? this.results[name] : sharedAnswer(name, call.arguments);
+    if (result === undefined) return note('not_found', answer('not_found'));
+    return note('ok', { status: 'ok', reason: null, result });
   }
 
   /** The tools that ran, with what they returned. */
   get ran(): { tool: string; result: unknown }[] {
     return this.attempts
       .filter((attempt) => attempt.outcome === 'ok')
-      .map((attempt) => ({ tool: attempt.tool, result: this.results[attempt.tool] }));
+      .map((attempt) => ({ tool: attempt.tool, result: attempt.result }));
   }
 
   /** Calls that ran for a tool the grant or the agent does not cover: must always be none. */
