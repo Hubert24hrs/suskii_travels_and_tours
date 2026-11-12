@@ -1,6 +1,6 @@
 import { color } from '@suskii/design-tokens';
 import { X } from 'lucide-react-native';
-import { useContext, type ReactNode } from 'react';
+import { useContext, type ReactNode, type Ref } from 'react';
 import { Modal, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 
@@ -25,6 +25,8 @@ export interface SheetProps {
   snapPoints?: string[];
   /** Base id for UI tests: the sheet, `{testID}-close` and `{testID}-backdrop`. */
   testID?: string;
+  /** The content's scroll view, for content that opens at a chosen place (a year in a list). */
+  scrollRef?: Ref<ScrollView>;
 }
 
 /**
@@ -41,6 +43,7 @@ export function Sheet({
   footer,
   snapPoints,
   testID,
+  scrollRef,
 }: SheetProps) {
   // Clears Android's navigation bar (edge to edge); zero where no provider is mounted (tests).
   const bottomInset = useContext(SafeAreaInsetsContext)?.bottom ?? 0;
@@ -93,6 +96,7 @@ export function Sheet({
             </Pressable>
           </View>
           <ScrollView
+            ref={scrollRef}
             className={snapPoints ? 'flex-1' : 'grow-0'}
             contentContainerClassName="gap-4 px-6 pb-4"
             keyboardShouldPersistTaps="handled"
