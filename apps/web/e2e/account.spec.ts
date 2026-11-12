@@ -223,10 +223,13 @@ test.describe('account', () => {
     await page.getByTestId('sign-in-submit').click();
     await page.waitForURL(/\/account$/);
     await expect(page.getByTestId('account-profile')).toBeVisible();
-    // The session's cookies carry no lifetime: the browser drops them when it closes.
-    const session = (await context.cookies(API)).filter((cookie) =>
-      /suskii_(at|rt|csrf)$/.test(cookie.name),
-    );
+    // The session's cookies carry no lifetime: the browser drops them when it closes. The
+    // refresh cookie is sent only to the API's sign-in routes, so it is asked for by that path.
+    const sessionCookies = async () =>
+      (await context.cookies([API, `${API}/v1/auth/refresh`])).filter((cookie) =>
+        /suskii_(at|rt|csrf)$/.test(cookie.name),
+      );
+    const session = await sessionCookies();
     expect(session.map((cookie) => cookie.name).sort()).toHaveLength(3);
     for (const cookie of session) expect(cookie.expires).toBe(-1);
 
@@ -234,9 +237,7 @@ test.describe('account', () => {
     await page.getByTestId('sign-out').click();
     await page.waitForURL((url) => url.pathname === '/');
     await signIn(page, email);
-    const kept = (await context.cookies(API)).filter((cookie) =>
-      /suskii_(at|rt|csrf)$/.test(cookie.name),
-    );
+    const kept = await sessionCookies();
     expect(kept).toHaveLength(3);
     for (const cookie of kept) expect(cookie.expires).toBeGreaterThan(Date.now() / 1000);
   });
