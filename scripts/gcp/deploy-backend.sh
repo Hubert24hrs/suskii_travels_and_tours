@@ -2,7 +2,7 @@
 # Puts the backend on Google Cloud in one run (ADR-110): the API, the worker and the agent
 # service (Ask Suskii's own) on Cloud Run, with Cloud SQL, Memorystore, a documents bucket,
 # Artifact Registry and Secret Manager. Meant for Google Cloud Shell, signed in as the owner of
-# the project:
+# the project (it also runs on any Linux machine with gcloud signed in and Node installed):
 #
 #   git clone https://github.com/Hubert24hrs/suskii_travels_and_tours.git
 #   cd suskii_travels_and_tours
@@ -91,7 +91,15 @@ set_setting() { # set_setting <name> <json value>
   gcloud storage cp "$SETTINGS_FILE" "$SETTINGS_OBJECT" --quiet >/dev/null
 }
 
-terraform() { "$TERRAFORM" -chdir="$TF_DIR" "$@"; }
+# Cloud Shell hands Terraform the owner's identity by itself. Anywhere else Terraform is given
+# the signed-in account's own short-lived token, fresh for every call, so one sign-in is enough.
+if gcloud auth application-default print-access-token >/dev/null 2>&1; then
+  terraform() { "$TERRAFORM" -chdir="$TF_DIR" "$@"; }
+else
+  terraform() {
+    GOOGLE_OAUTH_ACCESS_TOKEN="$(gcloud auth print-access-token)" "$TERRAFORM" -chdir="$TF_DIR" "$@"
+  }
+fi
 apply() {
   terraform apply -input=false -auto-approve \
     -var "project_id=$PROJECT" -var "region=$REGION" -var "environment=$ENVIRONMENT" "$@"
