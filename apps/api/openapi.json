@@ -56505,6 +56505,10 @@
               "cookie",
               "token"
             ]
+          },
+          "remember": {
+            "default": true,
+            "type": "boolean"
           }
         },
         "required": [
@@ -57588,6 +57592,10 @@
               "cookie",
               "token"
             ]
+          },
+          "remember": {
+            "default": true,
+            "type": "boolean"
           }
         },
         "required": [
@@ -59188,6 +59196,10 @@
               "cookie",
               "token"
             ]
+          },
+          "remember": {
+            "default": true,
+            "type": "boolean"
           },
           "referralCode": {
             "type": "string",
@@ -68984,6 +68996,10 @@
               "cookie",
               "token"
             ]
+          },
+          "remember": {
+            "default": true,
+            "type": "boolean"
           },
           "referralCode": {
             "type": "string",

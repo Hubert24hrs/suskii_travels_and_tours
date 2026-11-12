@@ -153,6 +153,8 @@ model Session {
   ipHash        String?        @map("ip_hash")
   /// Set when MFA was completed for this session.
   mfaVerifiedAt DateTime?      @map("mfa_verified_at") @db.Timestamptz(3)
+  /// False for a sign-in without "Remember me": cookies without a lifetime, a day at most (ADR-108).
+  remembered    Boolean        @default(true)
   createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   lastSeenAt    DateTime       @default(now()) @map("last_seen_at") @db.Timestamptz(3)
   expiresAt     DateTime       @map("expires_at") @db.Timestamptz(3)

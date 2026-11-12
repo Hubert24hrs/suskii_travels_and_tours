@@ -11,6 +11,7 @@ import {
   phoneSchema,
   referralCodeInputSchema,
   registerRequestSchema,
+  rememberSchema,
   ROLES,
 } from '@suskii/shared';
 
@@ -156,6 +157,10 @@ export const recoveryCodesSchema = named(
 // ---------------------------------------------------------------------------
 
 const transport = authTransportSchema.default('token');
+const remember = rememberSchema.meta({
+  description:
+    '"Remember me". Off, the session ends with the browser (cookie transport sets cookies without a lifetime) or the app, and within 24 hours whatever happens. On when left out.',
+});
 
 export const registerBodySchema = named(
   'RegisterRequest',
@@ -192,6 +197,7 @@ export const mfaVerifyBodySchema = named(
       code: otpCodeSchema.optional(),
       recoveryCode: z.string().min(1).max(32).optional(),
       transport,
+      remember,
     })
     .refine((value) => (value.code === undefined) !== (value.recoveryCode === undefined), {
       message: 'Send either code or recoveryCode',
@@ -207,6 +213,7 @@ export const otpVerifyBodySchema = named(
     phone: phoneSchema,
     code: otpCodeSchema,
     transport,
+    remember,
     referralCode: referralCodeInputSchema
       .optional()
       .meta({ description: 'Counts only when this code creates the account (ADR-031).' }),
@@ -286,6 +293,7 @@ export const socialSignInBodySchema = named(
       .optional()
       .meta({ description: "The secret behind the nonce's `binding`, when it has one." }),
     transport,
+    remember,
     referralCode: referralCodeInputSchema
       .optional()
       .meta({ description: 'Counts only when this sign-in creates the account (ADR-031).' }),

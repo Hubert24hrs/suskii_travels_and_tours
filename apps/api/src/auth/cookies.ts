@@ -27,6 +27,8 @@ export interface CookieSession {
   refreshToken: string;
   refreshTokenExpiresAt: Date;
   csrfToken: string;
+  /** False for a sign-in without "Remember me" (ADR-108). */
+  remembered?: boolean;
 }
 
 function base(config: AppConfig): CookieOptions {
@@ -43,19 +45,23 @@ export function setSessionCookies(
 ): void {
   const names = sessionCookieNames(config);
   const now = Date.now();
+  // Without "Remember me" the cookies carry no lifetime, so the browser drops them when it
+  // closes; the tokens inside still expire on the server (ADR-108).
+  const until = (expires: Date): CookieOptions =>
+    session.remembered === false ? {} : { maxAge: expires.getTime() - now };
   response.cookie(names.access, session.accessToken, {
     ...base(config),
     httpOnly: true,
     sameSite: 'lax',
     path: '/',
-    maxAge: session.accessTokenExpiresAt.getTime() - now,
+    ...until(session.accessTokenExpiresAt),
   });
   response.cookie(names.refresh, session.refreshToken, {
     ...base(config),
     httpOnly: true,
     sameSite: 'strict',
     path: REFRESH_COOKIE_PATH,
-    maxAge: session.refreshTokenExpiresAt.getTime() - now,
+    ...until(session.refreshTokenExpiresAt),
   });
   // Readable by the web app's JavaScript so it can echo it in X-CSRF-Token.
   response.cookie(names.csrf, session.csrfToken, {
@@ -63,7 +69,7 @@ export function setSessionCookies(
     httpOnly: false,
     sameSite: 'lax',
     path: '/',
-    maxAge: session.refreshTokenExpiresAt.getTime() - now,
+    ...until(session.refreshTokenExpiresAt),
   });
 }
 

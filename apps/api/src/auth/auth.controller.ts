@@ -159,7 +159,12 @@ export class AuthController {
   ): Promise<unknown> {
     const proof =
       body.code !== undefined ? { code: body.code } : { recoveryCode: body.recoveryCode ?? '' };
-    const outcome = await this.auth.verifyMfa(body.mfaToken, proof, requestContext(request));
+    const outcome = await this.auth.verifyMfa(
+      body.mfaToken,
+      proof,
+      requestContext(request),
+      body.remember,
+    );
     return presentSignIn(outcome, body.transport, response, this.config);
   }
 
@@ -289,6 +294,7 @@ export class AuthController {
       body.code,
       requestContext(request),
       body.referralCode,
+      body.remember,
     );
     return presentSignIn(outcome, body.transport, response, this.config);
   }

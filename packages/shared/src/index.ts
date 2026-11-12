@@ -202,6 +202,7 @@ export {
   displayNameSchema,
   emailSchema,
   loginRequestSchema,
+  rememberSchema,
   normalisePasswordWords,
   otpCodeSchema,
   passwordGuessableBy,
