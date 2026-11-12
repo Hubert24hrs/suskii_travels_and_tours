@@ -37,6 +37,10 @@ console need one site for their cookies, so they come with the domain: apply `li
 same project then, which adds the edge and closes the API's public address. The rest of this
 page is about `live/`.
 
+`backend/.terraform.lock.hcl` pins the provider versions this root was validated with, for
+Linux (Cloud Shell and CI). On another platform add its checksums first:
+`terraform providers lock -platform=darwin_arm64`.
+
 ## What the owner provides
 
 - **Two GCP projects** with billing: staging and production.
