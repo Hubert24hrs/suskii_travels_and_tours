@@ -135,9 +135,18 @@ backend and the assistant's backend to be deployed on Google's services. Built:
 `scripts/gcp/deploy-backend.sh <project>`, run by the owner in Cloud Shell, and
 `infra/terraform/backend/` with `edge = "none"` in the platform module (the API on its own
 `run.app` address, the worker and the agent service private, no load balancer, no website or
-console until the domain exists). Not run yet: it needs the owner's project with billing, and
-this session holds no Google credential. The owner's guide is
-`docs/owner/deploy-backend-on-google-cloud.md`.
+console until the domain exists). That managed shape is planned against the owner's project
+and not applied: it costs more a month than the owner can spend now.
+
+The backend on one machine (outside the numbered phases, ADR-111): the shape the owner chose
+and the one that is live. `scripts/gcp/deploy-vm.sh <project>` and `infra/terraform/vm/` put
+one Compute Engine machine in London (project `suskii-travels-staging`) that runs the release
+images of the API, the worker and the agent service in containers beside PostgreSQL, Redis
+and Caddy (`infra/gcp/vm/`), with keys in Secret Manager, data on a disk of its own and a
+nightly dump in a bucket. The API answers on `api.endpoints.suskii-travels-staging.cloud.goog`.
+It runs on the stand-ins for every provider; the assistant answers with the stand-in model
+until the owner puts a Gemini key in `LLM_API_KEY`. No website or console is deployed. The
+owner's guide is `docs/owner/deploy-backend-on-google-cloud.md`.
 
 Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
 hotel merging, affiliate partner offers with click and conversion tracking. Built; each partner
@@ -278,6 +287,7 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `node scripts/helm-rehearsal.mjs`                  | Same on kind with the Helm chart (needs kind and Helm; runs in CI)                |
 | `pnpm smoke --api URL [--web URL] [--admin URL]`   | Post-deploy smoke tests (public routes only, safe on production)                  |
 | `bash scripts/gcp/deploy-backend.sh PROJECT`       | The backend on Google Cloud, from Cloud Shell, as the owner (ADR-110)             |
+| `bash scripts/gcp/deploy-vm.sh PROJECT`            | The backend on one Compute Engine machine, the budget shape (ADR-111)             |
 | `pnpm check:migrations` / `pnpm test:scripts`      | Expand/contract guard on new migrations / node:test script suites                 |
 | `pnpm check:workflows`                             | Fail on a job condition GitHub cannot read (it would refuse the workflow file)    |
 | `docker compose --profile s3 up -d s3`             | S3-compatible store for `OBJECT_STORAGE=s3` locally (ADR-057)                     |
@@ -1706,6 +1716,19 @@ Tooling notes for agents:
   keep it in step with `apps/api/scripts/generate-secrets.ts`), every step looks at what
   exists first, and what it decided lives in one file in the state bucket that holds no
   secret. A new secret the backend reads gets a value there in the same change.
+- The backend on one machine (ADR-111, `infra/terraform/vm`, `infra/gcp/vm`): the compose
+  file there is `docker-compose.release.yml` with real keys, so a setting or a hardening
+  change to one goes to the other. The stack's files reach the machine as instance metadata
+  (never `metadata_startup_script`, which would replace the machine), and a release is the
+  metadata key `suskii-release`: nothing in a deploy logs in to the machine. Each container
+  gets only its own keys, read from Secret Manager as the machine's identity; never put a
+  secret in metadata, in Terraform or in the compose file. The assistant's container keeps
+  its ceiling on memory and processor time and is started last, and a release must stand
+  when it does not come up. `/v1/internal/*` stays closed at Caddy.
+- Before a Terraform root is applied for the first time, plan it against the real project
+  (`terraform plan` with a local backend override): `validate` cannot see a variable's
+  validation that only a real value trips, and that is how the managed shape's ingress bug was
+  found.
 - Terraform changes: `terraform fmt`, then `validate` and TFLint run in `infra.yml`; operators
   apply them (`infra/terraform/README.md`). Store and privacy changes update `docs/release/` in
   the same change.
@@ -1857,6 +1880,7 @@ Tooling notes for agents:
 - [ADR-108: The sign-in card, "Remember me", search bars over known places and stable city ids](docs/decisions/ADR-108-sign-in-card-and-remember-me.md)
 - [ADR-109: Ask Suskii: Gemini, one button that moves, bookings prepared for the traveller, and plain copy](docs/decisions/ADR-109-ask-suskii.md)
 - [ADR-110: The backend on Google Cloud before the domain and the edge exist](docs/decisions/ADR-110-backend-on-google-cloud-before-the-edge.md)
+- [ADR-111: The backend on one Compute Engine machine, the budget shape](docs/decisions/ADR-111-the-backend-on-one-machine.md)
 
 ## Open questions for the owner
 
@@ -2080,6 +2104,11 @@ date and time pickers (12 fields; today they are typed as `2026-12-01`), and whe
 addresses that hold a hyphen (`/travel-add-ons`) should change, which needs redirects. Added with the backend on Google Cloud (ADR-110): a Google Cloud project with
 billing and its id, one run of `scripts/gcp/deploy-backend.sh` in Cloud Shell, the four lines
 it prints, a budget alert on the project, and the domain with its Cloudflare zone when the
-website and the console should follow. Every
+website and the console should follow. Added with the backend on one machine (ADR-111): a
+Gemini key in the secret `LLM_API_KEY`, then one deploy with `ASSISTANT_MODEL=gemini`; a
+budget alert on `suskii-travels-staging`; whether `fast-delivery-d8d5c`, unlinked from billing
+to make room, should get billing back (a freed place or a higher limit from Google); the
+owner's own domain for the API in place of Google's free name; and when to move to the
+managed shape. Every
 owner action is listed, step by step, in
 `docs/owner/launch-checklist.md`.

@@ -6,6 +6,45 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### The backend on one Google Cloud machine, the budget shape (2026-11-12, ADR-111)
+
+When the deployment was about to start, the managed shape below turned out to cost more each
+month than the owner can spend now. Asked to choose, the owner took one small machine.
+
+#### Added
+
+- **`scripts/gcp/deploy-vm.sh <project>`**: one Compute Engine machine in London that runs the
+  release images of the API, the worker and the agent service in containers beside PostgreSQL,
+  Redis and Caddy. HTTPS with a certificate Caddy gets by itself, on Google's free name for
+  the project (`api.endpoints.<project>.cloud.goog`) until there is a domain.
+- **`infra/terraform/vm/`** and **`infra/gcp/vm/`**: the network, a fixed address, the machine
+  with a data disk of its own, the image repository, the documents and backups buckets, the
+  secrets' names; the compose stack, Caddy's settings and the machine's start-up, deploy and
+  backup scripts.
+- **A nightly dump of the database** to a private bucket that deletes it after 30 days. The
+  machine may add a dump and cannot read, replace or delete one.
+- **Releases without a login**: the release is named in the machine's metadata, a watcher on
+  the machine deploys it and reports to the serial console and a guest attribute.
+
+#### How the assistant is kept from hurting the platform on one machine
+
+Its own container with its own tokens, model key and database role; a ceiling of 512 MB and
+three quarters of a processor; started last, so a release stands whether or not it comes up.
+With its container stopped, every platform route answered as before.
+
+#### Fixed
+
+- The managed shape's API could not be created: the run-service module refused public
+  ingress, which `edge = "none"` needs. A real plan against the project found it.
+- A test's pattern for a key file's header was read as a private key by the secret scan. The
+  test now parses the generated keys.
+
+#### What this shape gives up
+
+One machine, so a restart is an outage of a minute; a database that is ours to back up, with
+up to a day of loss; no WAF and no load balancer. It is a staging backend. ADR-111 lists it
+all, and the managed shape stays ready for when the budget allows.
+
 ### The backend on Google Cloud, in one command (2026-11-12, ADR-110)
 
 The owner asked for the backend, and the assistant's backend beside it, to be deployed on

@@ -26,6 +26,16 @@ updates:
       - dependency-name: 'node'
         update-types: ['version-update:semver-major']
 
+  # The images the one-machine backend runs beside ours (ADR-111): PostgreSQL, Redis, Caddy.
+  - package-ecosystem: docker-compose
+    directory: /infra/gcp/vm
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: build
+
   # npm (pnpm workspace and catalog). Minor and patch updates are grouped into one pull request
   # per dependency type each week; majors arrive one per pull request and follow ADR-002's
   # version policy. Security updates are not grouped and open as soon as an advisory lands.

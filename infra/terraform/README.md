@@ -8,6 +8,7 @@ ADR-059 explains the topology; ADR-060 explains how the pipelines deploy onto it
 | ---------------------- | ---------------------------------------------------------------------------- |
 | `live/`                | The root module, applied once per environment                                |
 | `backend/`             | The backend alone, before the domain and the edge exist (ADR-110)            |
+| `vm/`                  | The backend on one Compute Engine machine, the budget shape (ADR-111)        |
 | `modules/platform/`    | GCP: network, database, cache, bucket, registry, secrets, IAM, Cloud Run, LB |
 | `modules/run-service/` | One Cloud Run service with the platform's defaults                           |
 | `modules/edge/`        | Cloudflare: DNS, TLS, origin secret header, WAF, rate limit and cache rules  |
@@ -40,6 +41,35 @@ page is about `live/`.
 `backend/.terraform.lock.hcl` pins the provider versions this root was validated with, for
 Linux (Cloud Shell and CI). On another platform add its checksums first:
 `terraform providers lock -platform=darwin_arm64`.
+
+## The backend on one machine (`vm/`)
+
+The budget shape (ADR-111), and the one the owner runs today. One Compute Engine VM in London
+runs the release images of the API, the worker and the agent service in containers beside
+PostgreSQL, Redis and Caddy (`infra/gcp/vm/compose.yml`, the release compose stack with real
+keys). Roughly a fifth of the managed shape's monthly cost, for one machine instead of
+several services: a restart takes the backend down for a minute, and the database is ours to
+back up (a dump goes to a bucket every night).
+
+```bash
+bash scripts/gcp/deploy-vm.sh <project id> [region] [zone]
+```
+
+- Terraform creates the network, a fixed address, the machine with a data disk of its own, the
+  image repository, the documents and backups buckets, the secrets' names and the identities.
+  The API answers on `api.endpoints.<project>.cloud.goog`, Google's free name for the project,
+  until `api_host` names the owner's own.
+- The stack's files reach the machine as instance metadata, so changing one never replaces
+  the machine. A release is named in `suskii-release`; a watcher on the machine deploys it and
+  reports to the serial console and the guest attribute `suskii/status`. Nothing logs in.
+- The machine reads its keys from Secret Manager as its own identity and gives each container
+  only its own. The assistant's container has a ceiling on memory and processor time and is
+  started last: a release stands whether or not it comes up.
+- To look at the machine: `gcloud compute instances get-serial-port-output <instance> --zone
+<zone>`, or SSH from the console's button (Identity-Aware Proxy only).
+
+`backend/` and `live/` stay as they are, for when the budget allows a managed database and
+the domain exists: the same images and secrets move over.
 
 ## What the owner provides
 

@@ -67,10 +67,11 @@ jobs:
       - name: Format
         run: terraform fmt -check -recursive -diff infra/terraform
       # `live` is an environment behind the edge; `backend` is the backend on its own address,
-      # before the domain exists (ADR-110). Both use the platform module.
-      - name: Validate (both roots)
+      # before the domain exists (ADR-110), both on the platform module; `vm` is the backend on
+      # one machine (ADR-111).
+      - name: Validate (every root)
         run: |
-          for root in live backend; do
+          for root in live backend vm; do
             (cd "infra/terraform/$root" && terraform init -backend=false -input=false && terraform validate)
           done
       - name: Lint
