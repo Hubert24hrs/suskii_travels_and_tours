@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import { type AccessTokenSource } from './google-identity.js';
 import {
   AgentModel,
   ModelError,
@@ -14,8 +15,23 @@ import {
 export const GEMINI_THINKING_LEVELS = ['minimal', 'low', 'medium', 'high'] as const;
 export type GeminiThinkingLevel = (typeof GEMINI_THINKING_LEVELS)[number];
 
+/**
+ * Vertex AI in one Google Cloud project and location, called as the machine's own identity
+ * (ADR-112): the same request and answer as the Gemini API, with a short-lived token in place
+ * of a key.
+ */
+export interface VertexTarget {
+  project: string;
+  /** A region such as `europe-west2`, where the request is processed, or `global`. */
+  location: string;
+  accessToken: AccessTokenSource;
+}
+
 export interface GeminiModelOptions {
-  apiKey: string;
+  /** Google's Gemini API: its key. Give this or `vertex`, never both. */
+  apiKey?: string | undefined;
+  /** Or Vertex AI as the machine's identity: no key anywhere. */
+  vertex?: VertexTarget | undefined;
   timeoutMs: number;
   /** Gemini 3 and later only (`thinkingConfig.thinkingLevel`); `low` when left out. */
   thinkingLevel?: GeminiThinkingLevel | undefined;
@@ -24,6 +40,10 @@ export interface GeminiModelOptions {
 }
 
 const API_URL = 'https://generativelanguage.googleapis.com/v1beta';
+/** Vertex AI: `<location>-` before it for a region, nothing for the global endpoint. */
+const VERTEX_GLOBAL_HOST = 'aiplatform.googleapis.com';
+/** `global`, or a region such as `europe-west2`: the only names that may go into the host. */
+export const VERTEX_LOCATION = /^(global|[a-z]+-[a-z]+\d+)$/;
 /** Ids this adapter makes for calls the API named none for; never sent back to it. */
 const OWN_ID = 'gm_';
 
@@ -70,9 +90,10 @@ const PASSING = new Set([408, 429, 500, 502, 503, 504]);
 
 /**
  * Google's Gemini through its `generateContent` REST call, confined to this adapter (ADR-109).
- * No SDK: one HTTPS request to one fixed host with the key in a header, redirects refused,
- * nothing retried here (the graph decides what a failure means) and nothing logged, since an
- * error body can repeat what was sent.
+ * No SDK: one HTTPS request to one fixed host, redirects refused, nothing retried here (the
+ * graph decides what a failure means) and nothing logged, since an error body can repeat what
+ * was sent. The host is the Gemini API, with the key in a header, or Vertex AI in the
+ * configured project and location, with the machine's own short-lived token (ADR-112).
  *
  * Two families behave differently, and the model's name tells which:
  * - Gemini 2.5 Flash thinks only when asked to. Thinking is switched off (`thinkingBudget: 0`):
@@ -82,15 +103,24 @@ const PASSING = new Set([408, 429, 500, 502, 503, 504]);
  *   travels on the tool call (`ModelToolCall.signature`) and is returned untouched.
  */
 export class GeminiAgentModel extends AgentModel {
-  readonly provider = 'gemini';
-  private readonly apiKey: string;
+  readonly provider: 'gemini' | 'vertex';
+  private readonly apiKey: string | undefined;
+  private readonly vertex: VertexTarget | undefined;
   private readonly timeoutMs: number;
   private readonly thinkingLevel: GeminiThinkingLevel;
   private readonly fetch: typeof globalThis.fetch;
 
   constructor(options: GeminiModelOptions) {
     super();
+    if (Boolean(options.apiKey) === Boolean(options.vertex)) {
+      throw new Error('GeminiAgentModel takes an API key or a Vertex AI target, and not both');
+    }
+    if (options.vertex && !VERTEX_LOCATION.test(options.vertex.location)) {
+      throw new Error('GeminiAgentModel: the Vertex AI location is not a region name');
+    }
     this.apiKey = options.apiKey;
+    this.vertex = options.vertex;
+    this.provider = options.vertex ? 'vertex' : 'gemini';
     this.timeoutMs = options.timeoutMs;
     this.thinkingLevel = options.thinkingLevel ?? 'low';
     this.fetch = options.fetch ?? globalThis.fetch;
@@ -126,18 +156,20 @@ export class GeminiAgentModel extends AgentModel {
     };
 
     const timeout = AbortSignal.timeout(this.timeoutMs);
+    // Only Vertex AI waits for anything (its token) before the request goes out.
+    const target = this.vertex
+      ? await this.vertexTarget(this.vertex, model)
+      : this.keyTarget(model);
+    if (request.signal.aborted || timeout.aborted) throw new ModelError('timeout');
     let response: Response;
     try {
-      response = await this.fetch(
-        `${API_URL}/models/${encodeURIComponent(model)}:generateContent`,
-        {
-          method: 'POST',
-          headers: { 'content-type': 'application/json', 'x-goog-api-key': this.apiKey },
-          body: JSON.stringify(body),
-          redirect: 'error',
-          signal: AbortSignal.any([request.signal, timeout]),
-        },
-      );
+      response = await this.fetch(target.url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...target.headers },
+        body: JSON.stringify(body),
+        redirect: 'error',
+        signal: AbortSignal.any([request.signal, timeout]),
+      });
     } catch {
       throw new ModelError(timeout.aborted || request.signal.aborted ? 'timeout' : 'unavailable');
     }
@@ -151,6 +183,37 @@ export class GeminiAgentModel extends AgentModel {
     }
     return toTurn(data, model);
   }
+
+  /** The Gemini API: the key in a header, never in the address. */
+  private keyTarget(model: string): Target {
+    return {
+      url: `${API_URL}/models/${encodeURIComponent(model)}:generateContent`,
+      headers: { 'x-goog-api-key': this.apiKey ?? '' },
+    };
+  }
+
+  /** Vertex AI in the configured project and location, as the machine's own identity. */
+  private async vertexTarget(vertex: VertexTarget, model: string): Promise<Target> {
+    const { project, location, accessToken } = vertex;
+    let token: string;
+    try {
+      token = await accessToken();
+    } catch {
+      // No identity to call with is a provider that cannot be reached, never a reason to log.
+      throw new ModelError('unavailable');
+    }
+    const host = location === 'global' ? VERTEX_GLOBAL_HOST : `${location}-${VERTEX_GLOBAL_HOST}`;
+    return {
+      url: `https://${host}/v1/projects/${encodeURIComponent(project)}/locations/${location}/publishers/google/models/${encodeURIComponent(model)}:generateContent`,
+      headers: { authorization: `Bearer ${token}` },
+    };
+  }
+}
+
+/** Where a call goes and how it says who is asking. */
+interface Target {
+  url: string;
+  headers: Record<string, string>;
 }
 
 /** A name such as `gemini-3.8-flash` or `gemini-2.5-flash-lite`: its major and minor version. */

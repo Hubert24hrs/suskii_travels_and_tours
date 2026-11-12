@@ -13,7 +13,9 @@
  * are checked and no model is called (CI runs this as unit tests). Without it the configured
  * model plays the part under evaluation: set LLM_API_KEY (the key of AGENT_MODEL_PROVIDER, which
  * is gemini unless set to anthropic), and AGENT_MODEL_ROUTER or AGENT_MODEL_SPECIALIST to try
- * another model. A real run costs a few cents; the summary prints
+ * another model. With AGENT_MODEL_PROVIDER=vertex and AGENT_VERTEX_PROJECT the model is Gemini
+ * through Vertex AI as the machine's identity, with no key (ADR-112): run it on Google Cloud
+ * (infra/gcp/cloudbuild.agent-eval.yaml), where the machine has one. A real run costs a few cents; the summary prints
  * the tokens used, priced by AGENT_MODEL_PRICES in the API's settings. No eval reaches the API,
  * a database or a traveller's data: tool results are fixtures.
  */
@@ -25,7 +27,12 @@ import { z } from 'zod';
 
 import { MODEL_DEFAULTS } from '../config.js';
 import { AnthropicAgentModel } from '../model/anthropic-model.js';
-import { GEMINI_THINKING_LEVELS, GeminiAgentModel } from '../model/gemini-model.js';
+import {
+  GEMINI_THINKING_LEVELS,
+  GeminiAgentModel,
+  VERTEX_LOCATION,
+} from '../model/gemini-model.js';
+import { metadataTokenSource } from '../model/google-identity.js';
 
 import { percent, type LiveModel } from './eval-kit.js';
 import {
@@ -54,7 +61,12 @@ const settings = z.object({
   // The provider that answers travellers (ADR-109) unless another is named.
   AGENT_MODEL_PROVIDER: z.preprocess(
     (value) => (value === '' ? undefined : value),
-    z.enum(['gemini', 'anthropic']).default('gemini'),
+    z.enum(['gemini', 'anthropic', 'vertex']).default('gemini'),
+  ),
+  AGENT_VERTEX_PROJECT: optional(z.string().regex(/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/)),
+  AGENT_VERTEX_LOCATION: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().regex(VERTEX_LOCATION).default('europe-west2'),
   ),
   AGENT_MODEL_ROUTER: optional(z.string().min(1)),
   AGENT_MODEL_SPECIALIST: optional(z.string().min(1)),
@@ -65,26 +77,44 @@ const settings = z.object({
 
 const out = (line = ''): void => void process.stdout.write(`${line}\n`);
 
-function liveModel(): LiveModel {
-  const env = settings.parse(process.env);
+/** The model under evaluation, from the settings: a key, or Vertex AI as this machine. */
+function evaluatedModel(env: z.infer<typeof settings>): LiveModel['model'] {
+  if (env.AGENT_MODEL_PROVIDER === 'vertex') {
+    if (!env.AGENT_VERTEX_PROJECT) {
+      throw new Error('Set AGENT_VERTEX_PROJECT to evaluate Gemini through Vertex AI.');
+    }
+    return new GeminiAgentModel({
+      vertex: {
+        project: env.AGENT_VERTEX_PROJECT,
+        location: env.AGENT_VERTEX_LOCATION,
+        accessToken: metadataTokenSource(),
+      },
+      timeoutMs: env.AGENT_MODEL_TIMEOUT_MS,
+      thinkingLevel: env.AGENT_MODEL_THINKING_LEVEL,
+    });
+  }
   if (!env.LLM_API_KEY) {
     throw new Error(
       'Set LLM_API_KEY to evaluate the model, or pass --recorded to check the pipeline only.',
     );
   }
+  return env.AGENT_MODEL_PROVIDER === 'gemini'
+    ? new GeminiAgentModel({
+        apiKey: env.LLM_API_KEY,
+        timeoutMs: env.AGENT_MODEL_TIMEOUT_MS,
+        thinkingLevel: env.AGENT_MODEL_THINKING_LEVEL,
+      })
+    : new AnthropicAgentModel({
+        apiKey: env.LLM_API_KEY,
+        timeoutMs: env.AGENT_MODEL_TIMEOUT_MS,
+      });
+}
+
+function liveModel(): LiveModel {
+  const env = settings.parse(process.env);
   const defaults = MODEL_DEFAULTS[env.AGENT_MODEL_PROVIDER];
   return {
-    model:
-      env.AGENT_MODEL_PROVIDER === 'gemini'
-        ? new GeminiAgentModel({
-            apiKey: env.LLM_API_KEY,
-            timeoutMs: env.AGENT_MODEL_TIMEOUT_MS,
-            thinkingLevel: env.AGENT_MODEL_THINKING_LEVEL,
-          })
-        : new AnthropicAgentModel({
-            apiKey: env.LLM_API_KEY,
-            timeoutMs: env.AGENT_MODEL_TIMEOUT_MS,
-          }),
+    model: evaluatedModel(env),
     names: {
       router: env.AGENT_MODEL_ROUTER ?? defaults.router,
       specialist: env.AGENT_MODEL_SPECIALIST ?? defaults.specialist,

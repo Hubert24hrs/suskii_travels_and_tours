@@ -365,3 +365,122 @@ describe('GeminiAgentModel', () => {
     expect(await waiting).toBe('timeout');
   });
 });
+
+describe('GeminiAgentModel on Vertex AI (ADR-112)', () => {
+  const vertex = (overrides: Record<string, unknown> = {}) => ({
+    project: 'suskii-travels-staging',
+    location: 'europe-west2',
+    accessToken: () => Promise.resolve('machine-token-not-a-real-one'),
+    ...overrides,
+  });
+
+  it("calls the project's regional endpoint as the machine, with no key anywhere", async () => {
+    const { fetch, calls, body } = fakeFetch(
+      text('Three flights leave on Friday.', { modelVersion: 'gemini-3.5-flash' }),
+    );
+    const model = new GeminiAgentModel({ vertex: vertex(), timeoutMs: 5000, fetch });
+
+    const turn = await model.complete(request({ tools: [SEARCH_TOOL] }), 'gemini-3.5-flash');
+
+    expect(model.provider).toBe('vertex');
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.url).toBe(
+      'https://europe-west2-aiplatform.googleapis.com/v1/projects/suskii-travels-staging/locations/europe-west2/publishers/google/models/gemini-3.5-flash:generateContent',
+    );
+    expect(calls[0]?.init.redirect).toBe('error');
+    expect(calls[0]?.init.headers).toEqual({
+      'content-type': 'application/json',
+      authorization: 'Bearer machine-token-not-a-real-one',
+    });
+    // The request is the Gemini API's own: Vertex AI takes it as it is.
+    expect(body()).toMatchObject({
+      systemInstruction: { parts: [{ text: 'You are the flights specialist.' }] },
+      tools: [{ functionDeclarations: [{ name: 'flights__search' }] }],
+      generationConfig: { thinkingConfig: { thinkingLevel: 'low' } },
+    });
+    expect(turn).toMatchObject({ text: 'Three flights leave on Friday.', stop: 'end' });
+    expect(turn.model).toBe('gemini-3.5-flash');
+  });
+
+  it('uses the global endpoint when asked to, and refuses a location that is not a region', async () => {
+    const { fetch, calls } = fakeFetch(text('ok'));
+    const global = new GeminiAgentModel({
+      vertex: vertex({ location: 'global' }),
+      timeoutMs: 5000,
+      fetch,
+    });
+    await global.complete(request(), 'gemini-3.5-flash');
+    expect(calls[0]?.url).toBe(
+      'https://aiplatform.googleapis.com/v1/projects/suskii-travels-staging/locations/global/publishers/google/models/gemini-3.5-flash:generateContent',
+    );
+
+    for (const location of ['europe-west2.evil.example', 'europe-west2/../x', '', 'EUROPE-WEST2']) {
+      expect(
+        () => new GeminiAgentModel({ vertex: vertex({ location }), timeoutMs: 5000, fetch }),
+      ).toThrow('not a region name');
+    }
+  });
+
+  it('takes a key or a Vertex AI target, never both and never neither', () => {
+    expect(() => new GeminiAgentModel({ timeoutMs: 5000 })).toThrow('not both');
+    expect(() => new GeminiAgentModel({ apiKey: KEY, vertex: vertex(), timeoutMs: 5000 })).toThrow(
+      'not both',
+    );
+    expect(new GeminiAgentModel({ apiKey: KEY, timeoutMs: 5000 }).provider).toBe('gemini');
+  });
+
+  it('calls nothing and reports the provider unavailable when the machine has no token', async () => {
+    const { fetch, calls } = fakeFetch(text('never sent'));
+    const model = new GeminiAgentModel({
+      vertex: vertex({
+        accessToken: () => Promise.reject(new Error('metadata server answered 404')),
+      }),
+      timeoutMs: 5000,
+      fetch,
+    });
+
+    expect(await failure(model.complete(request(), 'gemini-3.5-flash'))).toBe('unavailable');
+    expect(calls).toHaveLength(0);
+  });
+
+  it('reads a refusal of access as rejected and an overloaded region as unavailable', async () => {
+    for (const [status, reason] of [
+      [403, 'rejected'],
+      [404, 'rejected'],
+      [429, 'unavailable'],
+      [503, 'unavailable'],
+    ] as const) {
+      const { fetch } = fakeFetch({ error: { code: status, message: 'detail' } }, status);
+      const model = new GeminiAgentModel({ vertex: vertex(), timeoutMs: 5000, fetch });
+      expect([status, await failure(model.complete(request(), 'gemini-3.5-flash'))]).toEqual([
+        status,
+        reason,
+      ]);
+    }
+  });
+});
+
+describe('GeminiAgentModel on Vertex AI, stopped while the token is fetched', () => {
+  it('sends nothing once the run has stopped, and calls that a timeout', async () => {
+    const { fetch, calls } = fakeFetch(text('never sent'));
+    let hand: (token: string) => void = () => undefined;
+    const model = new GeminiAgentModel({
+      vertex: {
+        project: 'suskii-travels-staging',
+        location: 'europe-west2',
+        accessToken: () => new Promise<string>((resolve) => (hand = resolve)),
+      },
+      timeoutMs: 60_000,
+      fetch,
+    });
+    const stopped = new AbortController();
+    const waiting = failure(
+      model.complete(request({ signal: stopped.signal }), 'gemini-3.5-flash'),
+    );
+    stopped.abort();
+    hand('machine-token-not-a-real-one');
+
+    expect(await waiting).toBe('timeout');
+    expect(calls).toHaveLength(0);
+  });
+});

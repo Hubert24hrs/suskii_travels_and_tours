@@ -109,6 +109,47 @@ describe('agent service configuration', () => {
     ).toThrow('AGENT_MODEL_THINKING_LEVEL');
   });
 
+  it('takes Gemini through Vertex AI with a project and a region, and never a key (ADR-112)', () => {
+    expect(
+      loadConfig({
+        ...production,
+        LLM_API_KEY: undefined,
+        AGENT_MODEL_PROVIDER: 'vertex',
+        AGENT_VERTEX_PROJECT: 'suskii-travels-staging',
+      }),
+    ).toMatchObject({
+      AGENT_MODEL_PROVIDER: 'vertex',
+      AGENT_VERTEX_PROJECT: 'suskii-travels-staging',
+      AGENT_VERTEX_LOCATION: 'europe-west2',
+      // The current Flash model: the one Google gives a new project.
+      AGENT_MODEL_ROUTER: 'gemini-3.5-flash',
+      AGENT_MODEL_SPECIALIST: 'gemini-3.5-flash',
+      AGENT_MODEL_FALLBACK: 'gemini-3.5-flash',
+    });
+    expect(
+      loadConfig({
+        AGENT_MODEL_PROVIDER: 'vertex',
+        AGENT_VERTEX_PROJECT: 'suskii-travels-staging',
+        AGENT_VERTEX_LOCATION: 'global',
+      }).AGENT_VERTEX_LOCATION,
+    ).toBe('global');
+    expect(() => loadConfig({ AGENT_MODEL_PROVIDER: 'vertex' })).toThrow(
+      'AGENT_VERTEX_PROJECT: is required when AGENT_MODEL_PROVIDER is vertex',
+    );
+    for (const location of ['europe-west2.evil.example', 'eu', 'Europe-West2']) {
+      expect(() =>
+        loadConfig({
+          AGENT_MODEL_PROVIDER: 'vertex',
+          AGENT_VERTEX_PROJECT: 'suskii-travels-staging',
+          AGENT_VERTEX_LOCATION: location,
+        }),
+      ).toThrow('AGENT_VERTEX_LOCATION');
+    }
+    expect(() =>
+      loadConfig({ AGENT_MODEL_PROVIDER: 'vertex', AGENT_VERTEX_PROJECT: 'Not A Project' }),
+    ).toThrow('AGENT_VERTEX_PROJECT');
+  });
+
   it('never echoes a value in an error', () => {
     expect(() => loadConfig({ ...production, AGENT_RUN_TOKEN: 'short-secret' })).toThrow(
       /^Invalid agent environment: AGENT_RUN_TOKEN: [^s]/,
