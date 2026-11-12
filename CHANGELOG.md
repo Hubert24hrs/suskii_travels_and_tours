@@ -26,6 +26,9 @@ month than the owner can spend now. Asked to choose, the owner took one small ma
   replace or delete one.
 - **Releases without a login**: the release is named in the machine's metadata, a watcher on
   the machine deploys it and reports to the serial console and a guest attribute.
+- **The website and the admin console on the same machine**, each on its own name and
+  certificate, so the app can pay a booking on the stand-in payment page and staff have a
+  console. Their images are built for the addresses they are served on.
 
 #### How the assistant is kept from hurting the platform on one machine
 

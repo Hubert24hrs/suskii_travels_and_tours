@@ -37,11 +37,13 @@ fixed public address, and `infra/gcp/vm/compose.yml` runs on it:
 
 | Container  | What                                                        | Reachable from      |
 | ---------- | ----------------------------------------------------------- | ------------------- |
-| `caddy`    | HTTPS, a certificate from Let's Encrypt, the only open port | the internet        |
+| `caddy`    | HTTPS, certificates from Let's Encrypt, the only open ports | the internet        |
 | `api`      | the API's release image                                     | Caddy, the others   |
 | `worker`   | the worker's release image                                  | nobody              |
 | `agent`    | Ask Suskii's own service                                    | the API only        |
-| `postgres` | PostgreSQL 16, data on the data disk                        | the three above     |
+| `web`      | the website, built for this environment's addresses         | Caddy               |
+| `admin`    | the admin console, built for this environment's addresses   | Caddy               |
+| `postgres` | PostgreSQL 16, data on the data disk                        | the API, the agent  |
 | `redis`    | Redis 7 with a password, writes logged to the data disk     | the API, the worker |
 
 The compose file is `docker-compose.release.yml` with real keys: the same images, settings,
@@ -66,6 +68,29 @@ every change. No application code changed for this shape.
   the machine deploys it and writes the outcome to the serial console and to a guest attribute
   the operator reads. SSH is open only through Identity-Aware Proxy, for people the project
   lets in, and nothing in a release uses it.
+
+### The website and the console on the same machine
+
+The first plan left them out, as ADR-110 does. One thing forced them in: the stand-in payment
+page is a page of the website, so the app could book against the machine and not pay.
+
+- They run when `sites` is on (the default), each on its own name and certificate:
+  `web.endpoints.<project>.cloud.goog` and `admin.endpoints.<project>.cloud.goog` until the
+  owner's domain replaces them. The three names share one site, so the sign-in cookies the API
+  sets are first-party to the website and the console, which two `run.app` addresses could
+  not give (ADR-110).
+- Their images are built by Cloud Build for the addresses they are served on, which are
+  compiled into the pages. The tag names the commit and those addresses, so a changed address
+  or Turnstile key builds new images.
+- They hold no key. The website's pages read the API over the private network; a visitor's
+  browser calls the API on its public name.
+- **The forms the website protects with Turnstile stay closed** (sign-up, guest checkout, the
+  newsletter, a guest's first message to the assistant) until the owner creates a widget for
+  the website's name. The API checks that an answer names the website's own host, and the
+  test secret's answers name another: it fails closed, as it should. Signing in, searching,
+  paying a booking made in the app and everything behind a session work without it.
+- The console needs its first admin: `sudo /opt/suskii/ops scripts/staff-bootstrap.ts`, from a
+  login on the machine, after that person has signed up.
 
 ### The assistant cannot take the platform down
 
