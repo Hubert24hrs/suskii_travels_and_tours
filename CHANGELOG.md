@@ -6,6 +6,28 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### A mailbox on the testing backend, for its first admin (2026-11-12, ADR-113)
+
+The console's first admin needs a confirmed email address, and the backend machine sent no
+email at all, so `staff:bootstrap` refused every account and the owner's guide led nowhere.
+
+#### Added
+
+- **A mailbox on the machine** (`MAILBOX=true`, Mailpit under the compose profile `mailbox`):
+  every email the API sends lands there and goes no further, a week and 500 messages at most.
+  Its page is `mail.endpoints.<project>.cloud.goog`, behind Caddy's basic authentication with
+  the password in the new secret `MAILBOX_PASSWORD`. Each release checks from outside that the
+  page refuses a visitor without the password, and stops the mailbox if it does not. Switched
+  off, it goes with its mail. Terraform refuses it in production.
+- **`SMTP_ALLOW_PLAINTEXT`** on the API: a mail server on the same host or a private network
+  without TLS, like the private-path flags of ADR-038. Without it, production still sends only
+  with STARTTLS or implicit TLS. The SMTP client's options are a pure function with tests.
+
+#### Changed
+
+- The owner's guide walks through the first admin: sign up, open the confirming email in the
+  mailbox, run the bootstrap from the machine's SSH button, then set up the authenticator.
+
 ### Ask Suskii answers with Gemini on Vertex AI, with no key (2026-11-12, ADR-112)
 
 The deployed assistant answered with the stand-in model until the owner created a Gemini key.
