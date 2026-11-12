@@ -119,6 +119,17 @@ in every database, and the hotel form keeps what was typed when its tab is left.
 tested; the emulator did not reproduce a form that ignores taps, so the owner's steps and
 phone model are needed if it happens again.
 
+Ask Suskii and plain copy (outside the numbered phases, ADR-109, the second part of the owner's
+changes of 2026-11-12): the assistant is named "Ask Suskii"; the agent service answers with
+Google's Gemini (`AGENT_MODEL_PROVIDER=gemini`, `gemini-2.5-flash` unless a model is named)
+beside the Anthropic adapter; one button leads to it and does not stay put (CSS only on the
+website, a floating button in the app); three `propose` tools prepare a flight, a stay or a
+rental car as a quote and hand the traveller its checkout, and after a flight the assistant
+offers the rest of the trip once; `platform.guide` tells it how the platform works. No customer
+reads a hyphen or a dash. Built and tested on recorded answers; no eval has run against Gemini
+(it needs the owner's key as `GEMINI_API_KEY`), and Google serves the 2.5 models only to
+projects that have used them.
+
 Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
 hotel merging, affiliate partner offers with click and conversion tracking. Built; each partner
 needs the owner's account, then one run of `partner-sandbox.yml` (`docs/phases/partner-supply.md`). Own rides and the own fleet stay off
@@ -504,6 +515,12 @@ Tooling notes for agents:
   after `useHydrated()`. `e2e/hydration.spec.ts` alters the browser's `Intl`: add new pages there.
 - Copy comes from `@suskii/i18n`: server components use `getI18n()`; client components get a
   message subset through `I18nProvider` or labels as props. E2E tests use the catalog too.
+- Copy is plain (ADR-109): English joins no two words with a hyphen ("sign in", "check in",
+  "pickup", "top up", "travel extras"), no language uses a dash as punctuation, and a range is
+  written with a word ("10 Dec to 17 Dec", through `format.dateRange`). The catalog tests fail
+  otherwise. The same holds for what the API writes to a traveller (emails, texts, PDFs, the
+  assistant's guide). A format a field needs (`2026-12-01`) and the hyphens French and
+  Portuguese spelling requires are the only exceptions.
 - Languages (ADR-076): `en-NG`, `en-GB`, `en-US`, `fr`, `sw`, `ar`, `pt`. A new string goes in
   every catalog (the type check fails otherwise; `catalogs.test.ts` checks placeholders, plural
   forms and English left behind). The language is the footer cookie, else `Accept-Language`
@@ -1016,14 +1033,32 @@ Tooling notes for agents:
   counts and codes, never what was said. A new agent table joins `DATA_REGISTRY`, the export,
   account deletion, retention and the records of processing in the same change, and
   `resetState` in the e2e helpers.
+- Preparing a booking (ADR-109, `src/agent/tools/checkout-tools.ts`): a `propose` tool that
+  quotes one result of a search tool as the grant's caller and returns `preparedOut`, whose
+  `bookingStatus` is always `not_booked`, with a card to `/checkout/{quoteId}` and the note
+  `booking_handoff`. It never creates a booking, holds a seat or takes a name, a document or
+  money: those stay on the booking and payment pages. The ids it takes (`offerId`, `rateId`,
+  `carId`) come from the search tools' results, are never shown to a traveller and expire with
+  the search; an option that is gone answers `problems`, never an error. A new product that the
+  assistant should prepare gets such a tool, an id on its search tool's result and a case in
+  `agent-tools.e2e-spec.ts`.
+- `platform.guide` answers from `src/agent/platform-guide.ts`: plain sentences about what a
+  traveller can do and where, with no price, fee, hour or promise. A change to a feature a
+  traveller sees changes its topic there in the same change.
 - Clients read `GET /v1/agent/status` and offer the assistant only while `available` is true;
   an answer they cannot read hides it. Search, booking and payment never depend on it: the
   website's off-mode suite (`E2E_AGENT=off`, a CI step) runs the assistant, search and
   booking specs on a stack without it. A page that offers or needs the assistant gets a case
   in `assistant.spec.ts`'s off-mode block.
 - The clients draw what the API stored (an answer the guard passed, cards a tool built, the
-  confirmation card) and compose nothing. The website's entry is the server-rendered link in
-  `site-header.tsx`, never a client button on every page (the homepage budget has no room);
+  confirmation card) and compose nothing. There is one way in, the "Ask Suskii" button
+  (ADR-109), and it does not stay put. On the website it is `AskSuskii` in the root layout: a
+  server-rendered link moved by CSS alone (`globals.css`), never a client component (the
+  homepage budget has no room); a page that must not show it renders `NoAskSuskii` (payment
+  pages, sign-in forms, the assistant's own pages). In the app it is `AskSuskiiButton`, mounted
+  once over the screens; add a screen that must not show it to `HIDDEN` there. Both hold still
+  for "reduce motion" and can be put away. A Maestro flow about something else runs
+  `subflows/put-away-ask-suskii.yaml` after launch;
   `/assistant` and `/assistant/preferences` answer 404 while the assistant is off, and the
   preferences page stays open while it is paused, so erasing is always possible. The app
   keeps the open conversation's id and a guest's token in `assistantSession`
@@ -1207,8 +1242,10 @@ Tooling notes for agents:
   statuses the tools returned, no instructions read back, no tool named, no request for a
   secret. The rules are in `@suskii/shared` (`agent-grounding.ts`). The model's drafts and the
   guard's notes live in `turn.messages` and are never sources. One rewrite, then a notice.
-- Model vendors stay in `src/model/<vendor>-model.ts` behind `AgentModel`; the SDK retries
-  nothing and hosted tracing is refused at start-up. `MockAgentModel` replays scripted turns
+- Model vendors stay in `src/model/<vendor>-model.ts` behind `AgentModel` (Gemini, the default
+  of a deployed service, over plain HTTPS; Anthropic through its SDK); nothing retries and
+  hosted tracing is refused at start-up. A provider's default models are `MODEL_DEFAULTS` in
+  `config.ts`; a new model gets a price in the API's `DEFAULT_AGENT_MODEL_PRICES`. `MockAgentModel` replays scripted turns
   (`scripted()`), and unscripted says one fixed sentence (asked about the "status" it calls
   `platform.status` once).
 - A run is for travellers or for staff (`context.audience`), never both: staff runs keep only
@@ -1797,6 +1834,7 @@ Tooling notes for agents:
 - [ADR-106: Agent models, prompts and evaluation](docs/decisions/ADR-106-agent-models-prompts-and-evaluation.md)
 - [ADR-107: What an agent may do: tool tiers, confirmations, approvals and autonomy](docs/decisions/ADR-107-agent-authority.md)
 - [ADR-108: The sign-in card, "Remember me", search bars over known places and stable city ids](docs/decisions/ADR-108-sign-in-card-and-remember-me.md)
+- [ADR-109: Ask Suskii: Gemini, one button that moves, bookings prepared for the traveller, and plain copy](docs/decisions/ADR-109-ask-suskii.md)
 
 ## Open questions for the owner
 
@@ -2011,5 +2049,12 @@ assumes. Added with the sign-in card (ADR-108): the title of the Apple button be
 Store submission (Apple names the titles its button may carry; ours shows the mark and
 "Apple"); whether 24 hours is the right length for a sign-in that is not remembered; and, if
 the hotel form still ignores taps on the owner's phone with the new test app, the exact steps
-and the phone's model. Every owner action is listed, step by step, in
+and the phone's model. Added with Ask Suskii (ADR-109): a Gemini API key on a project with
+billing (the repository secret `GEMINI_API_KEY`, and the agent service's `LLM_API_KEY` in Secret
+Manager), Google's terms for the API read with counsel (whether prompts may be used to improve
+its models on the owner's tier), one run of the Agent evals against Gemini, the model to name
+if `gemini-2.5-flash` is refused for a new project, whether the app's typed dates should become
+date and time pickers (12 fields; today they are typed as `2026-12-01`), and whether the page
+addresses that hold a hyphen (`/travel-add-ons`) should change, which needs redirects. Every
+owner action is listed, step by step, in
 `docs/owner/launch-checklist.md`.

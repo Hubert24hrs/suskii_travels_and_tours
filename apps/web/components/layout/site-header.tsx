@@ -71,7 +71,6 @@ async function SupportLinks({ site, className }: { site: SiteContent | null; cla
 /** Utility row above the sticky bar (desktop): support contacts, manage booking, currency. */
 export async function UtilityBar({ site }: { site: SiteContent | null }) {
   const { t } = await getI18n();
-  const assistant = await assistantOffered();
   return (
     <nav
       aria-label={t('header.utilityNav')}
@@ -91,15 +90,6 @@ export async function UtilityBar({ site }: { site: SiteContent | null }) {
         >
           {t('support.link')}
         </AppLink>
-        {assistant ? (
-          <AppLink
-            href="/assistant"
-            data-testid="assistant-open"
-            className="inline-flex min-h-12 items-center font-body text-body-sm font-medium text-foreground hover:text-primary focus-visible:focus-ring"
-          >
-            {t('assistant.open')}
-          </AppLink>
-        ) : null}
         <CurrencySelect />
       </Container>
     </nav>
@@ -108,9 +98,10 @@ export async function UtilityBar({ site }: { site: SiteContent | null }) {
 
 /**
  * Whether the assistant is offered (ADR-101): only while the API says it is switched on, not
- * paused and connected; an answer the website cannot read hides it. The entry is a plain link
- * to the assistant's own page, in the top bar and the menu: the homepage's script budget
- * (ADR-043) has no room for a button that opens a chat, and a link costs none.
+ * paused and connected; an answer the website cannot read hides it. Its entry on every page is
+ * the "Ask Suskii" button (`AskSuskii`, ADR-109); the phone menu lists it too, for a visitor who
+ * put the button away. Both are plain links to the assistant's own page: the homepage's script
+ * budget (ADR-043) has no room for a button that opens a chat, and a link costs none.
  */
 async function assistantOffered(): Promise<boolean> {
   return (await api.agentStatus())?.available === true;

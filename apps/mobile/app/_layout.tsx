@@ -14,6 +14,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { AskSuskiiButton } from '../src/components/assistant/ask-suskii-button';
 import { appConfig, setHostedServer, subscribeServer } from '../src/config';
 import { appUpdate } from '../src/lib/app-update';
 import { untilStarted } from '../src/lib/bootstrap';
@@ -98,60 +99,70 @@ function Screens() {
   const { t } = useT();
   useNotificationTaps();
   return (
-    <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal', headerTitleAlign: 'center' }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="search/flights" options={{ title: t('mobile.search.titles.flights') }} />
-      <Stack.Screen name="search/hotels" options={{ title: t('mobile.search.titles.hotels') }} />
-      <Stack.Screen name="search/groups" options={{ title: t('groups.title') }} />
-      <Stack.Screen name="hotels/[hotelId]" options={{ title: '' }} />
-      <Stack.Screen name="checkout/[quoteId]" options={{ title: t('mobile.checkout.title') }} />
-      <Stack.Screen name="trips/[id]/index" options={{ title: '' }} />
-      <Stack.Screen
-        name="trips/[id]/visa/[applicationId]"
-        options={{ title: t('mobile.visa.title') }}
-      />
-      <Stack.Screen name="trips/[id]/addons" options={{ title: t('mobile.addons.title') }} />
-      <Stack.Screen name="trips/plan" options={{ title: t('trips.title') }} />
-      <Stack.Screen name="trips/built/[tripId]" options={{ title: t('trips.page.title') }} />
-      <Stack.Screen name="packages/index" options={{ title: t('mobile.search.titles.packages') }} />
-      <Stack.Screen name="packages/[slug]" options={{ title: '' }} />
-      <Stack.Screen name="tours/index" options={{ title: t('mobile.search.titles.tours') }} />
-      <Stack.Screen name="tours/[slug]" options={{ title: '' }} />
-      <Stack.Screen name="cars" options={{ title: t('mobile.cars.title') }} />
-      <Stack.Screen name="status" options={{ title: t('status.heading') }} />
-      <Stack.Screen name="buses/index" options={{ title: t('cars.buses.title') }} />
-      <Stack.Screen
-        name="buses/trips/[tripId]"
-        options={{ title: t('mobile.cars.busTripTitle') }}
-      />
-      <Stack.Screen name="rides/index" options={{ title: t('cars.rides.title') }} />
-      <Stack.Screen name="rides/[rideId]" options={{ title: t('cars.rides.live.title') }} />
-      <Stack.Screen name="rentals/index" options={{ title: t('cars.rentals.title') }} />
-      <Stack.Screen name="rentals/[slug]" options={{ title: '' }} />
-      <Stack.Screen name="driver/index" options={{ title: t('mobile.cars.driver.title') }} />
-      <Stack.Screen name="operator/scan" options={{ title: t('mobile.cars.operator.title') }} />
-      <Stack.Screen name="account/profile" options={{ title: t('account.nav.overview') }} />
-      <Stack.Screen
-        name="account/notifications"
-        options={{ title: t('account.nav.notifications') }}
-      />
-      <Stack.Screen
-        name="account/sessions"
-        options={{ title: t('account.security.sessions.heading') }}
-      />
-      <Stack.Screen name="account/referrals" options={{ title: t('account.nav.referrals') }} />
-      <Stack.Screen name="account/alerts" options={{ title: t('account.nav.alerts') }} />
-      <Stack.Screen name="account/company" options={{ title: t('account.nav.company') }} />
-      <Stack.Screen name="account/privacy" options={{ title: t('account.nav.privacy') }} />
-      <Stack.Screen
-        name="sign-in"
-        options={{ presentation: 'modal', title: t('mobile.auth.signInTitle') }}
-      />
-      <Stack.Screen
-        name="register"
-        options={{ presentation: 'modal', title: t('mobile.auth.registerTitle') }}
-      />
-    </Stack>
+    <>
+      <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal', headerTitleAlign: 'center' }}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="search/flights"
+          options={{ title: t('mobile.search.titles.flights') }}
+        />
+        <Stack.Screen name="search/hotels" options={{ title: t('mobile.search.titles.hotels') }} />
+        <Stack.Screen name="search/groups" options={{ title: t('groups.title') }} />
+        <Stack.Screen name="hotels/[hotelId]" options={{ title: '' }} />
+        <Stack.Screen name="checkout/[quoteId]" options={{ title: t('mobile.checkout.title') }} />
+        <Stack.Screen name="trips/[id]/index" options={{ title: '' }} />
+        <Stack.Screen
+          name="trips/[id]/visa/[applicationId]"
+          options={{ title: t('mobile.visa.title') }}
+        />
+        <Stack.Screen name="trips/[id]/addons" options={{ title: t('mobile.addons.title') }} />
+        <Stack.Screen name="trips/plan" options={{ title: t('trips.title') }} />
+        <Stack.Screen name="trips/built/[tripId]" options={{ title: t('trips.page.title') }} />
+        <Stack.Screen
+          name="packages/index"
+          options={{ title: t('mobile.search.titles.packages') }}
+        />
+        <Stack.Screen name="packages/[slug]" options={{ title: '' }} />
+        <Stack.Screen name="tours/index" options={{ title: t('mobile.search.titles.tours') }} />
+        <Stack.Screen name="tours/[slug]" options={{ title: '' }} />
+        <Stack.Screen name="cars" options={{ title: t('mobile.cars.title') }} />
+        <Stack.Screen name="status" options={{ title: t('status.heading') }} />
+        <Stack.Screen name="buses/index" options={{ title: t('cars.buses.title') }} />
+        <Stack.Screen
+          name="buses/trips/[tripId]"
+          options={{ title: t('mobile.cars.busTripTitle') }}
+        />
+        <Stack.Screen name="rides/index" options={{ title: t('cars.rides.title') }} />
+        <Stack.Screen name="rides/[rideId]" options={{ title: t('cars.rides.live.title') }} />
+        <Stack.Screen name="rentals/index" options={{ title: t('cars.rentals.title') }} />
+        <Stack.Screen name="rentals/[slug]" options={{ title: '' }} />
+        <Stack.Screen name="driver/index" options={{ title: t('mobile.cars.driver.title') }} />
+        <Stack.Screen name="operator/scan" options={{ title: t('mobile.cars.operator.title') }} />
+        <Stack.Screen name="account/profile" options={{ title: t('account.nav.overview') }} />
+        <Stack.Screen
+          name="account/notifications"
+          options={{ title: t('account.nav.notifications') }}
+        />
+        <Stack.Screen
+          name="account/sessions"
+          options={{ title: t('account.security.sessions.heading') }}
+        />
+        <Stack.Screen name="account/referrals" options={{ title: t('account.nav.referrals') }} />
+        <Stack.Screen name="account/alerts" options={{ title: t('account.nav.alerts') }} />
+        <Stack.Screen name="account/company" options={{ title: t('account.nav.company') }} />
+        <Stack.Screen name="account/privacy" options={{ title: t('account.nav.privacy') }} />
+        <Stack.Screen
+          name="sign-in"
+          options={{ presentation: 'modal', title: t('mobile.auth.signInTitle') }}
+        />
+        <Stack.Screen
+          name="register"
+          options={{ presentation: 'modal', title: t('mobile.auth.registerTitle') }}
+        />
+      </Stack>
+      {/* One button over every screen that may show it (ADR-109). */}
+      <AskSuskiiButton />
+    </>
   );
 }
 

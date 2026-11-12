@@ -250,7 +250,7 @@ function PreferencesForm() {
           value={prefs.locale ?? ''}
           onChange={(event) => setPrefs({ ...prefs, locale: event.target.value || null })}
           options={[
-            { value: '', label: '—' },
+            { value: '', label: t('account.profile.notSet') },
             ...SUPPORTED_LOCALES.map((v) => ({ value: v, label: v })),
           ]}
         />
@@ -261,7 +261,7 @@ function PreferencesForm() {
           value={prefs.currency ?? ''}
           onChange={(event) => setPrefs({ ...prefs, currency: event.target.value || null })}
           options={[
-            { value: '', label: '—' },
+            { value: '', label: t('account.profile.notSet') },
             ...SUPPORTED_CURRENCIES.map((v) => ({ value: v, label: v })),
           ]}
         />

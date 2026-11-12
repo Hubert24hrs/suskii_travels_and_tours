@@ -228,7 +228,7 @@ export const sw: Messages = {
       to: 'Kwenda',
       placePlaceholder: 'Mji au uwanja wa ndege',
       swap: 'Badilisha mahali pa kuanzia na unakoenda',
-      dates: 'Kuondoka - Kurudi',
+      dates: 'Kuondoka na kurudi',
       depart: 'Kuondoka',
       datesPlaceholder: 'Chagua tarehe',
       datePlaceholder: 'Chagua tarehe',
@@ -244,7 +244,7 @@ export const sw: Messages = {
     hotels: {
       destination: 'Unakokwenda',
       destinationPlaceholder: 'Unakwenda wapi?',
-      dates: 'Kuingia - Kutoka',
+      dates: 'Kuingia na kutoka',
       datesPlaceholder: 'Chagua tarehe',
       rooms: 'Vyumba na wageni',
       room: 'Chumba {number}',
@@ -2659,6 +2659,7 @@ export const sw: Messages = {
     },
     profile: {
       heading: 'Wasifu',
+      notSet: 'Haijawekwa',
       displayName: 'Jina',
       email: 'Barua pepe',
       emailUnverified: 'Bado haijathibitishwa.',
@@ -3230,11 +3231,13 @@ export const sw: Messages = {
     },
   },
   assistant: {
-    open: 'Muulize msaidizi',
-    title: 'Msaidizi wa Suskii',
+    open: 'Ask Suskii',
+    title: 'Ask Suskii',
+    hide: 'Ficha kitufe cha Ask Suskii',
+    dragHint: 'Hufungua Ask Suskii. Shikilia na uburute ili kuhamisha kitufe.',
     close: 'Funga',
     intro:
-      'Uliza kuhusu ndege, hoteli, magari, nafasi ulizohifadhi au kanuni zetu. Ninaweza kutafuta, kueleza na kuandaa badiliko ili ulithibitishe. Sihifadhi nafasi, silipi wala sirejeshi pesa peke yangu.',
+      'Uliza kuhusu ndege, hoteli, magari, nafasi ulizohifadhi au jinsi Suskii inavyofanya kazi. Ninaweza kutafuta, kueleza na kukuandalia uhifadhi: unaongeza wasafiri na kulipa kwenye ukurasa wa kuhifadhi. Silipi, sirejeshi pesa wala sithibitishi chochote peke yangu.',
     disclosure: 'Huyu ni msaidizi wa kiotomatiki. Unaweza kuomba mtu wakati wowote.',
     privacy: 'Usiandike hapa namba za kadi, manenosiri wala namba za pasipoti.',
     messageLabel: 'Ujumbe wako',
@@ -3242,7 +3245,7 @@ export const sw: Messages = {
     send: 'Tuma',
     thinking: 'Ninashughulikia…',
     you: 'Wewe',
-    name: 'Msaidizi',
+    name: 'Ask Suskii',
     startAgain: 'Anza mazungumzo mapya',
     talkToPerson: 'Ongea na mtu',
     history: 'Mazungumzo ya awali',
@@ -3293,6 +3296,10 @@ export const sw: Messages = {
         'Nchi nyingi zinahitaji pasipoti iliyo halali kwa angalau miezi sita baada ya kuwasili. Hiki ni kikumbusho cha jumla, si uamuzi wa kuingia: angalia sharti la nchi unayokwenda.',
       visa_guidance:
         'Masharti ya viza hubadilika, na ubalozi au afisa wa uhamiaji ndiye anayeamua. Huu ni mwongozo kutoka kwenye kumbukumbu za Suskii, si hakikisho la viza wala la kuingia.',
+      booking_handoff:
+        'Hakuna kilichowekwa wala kulipwa bado. Fungua kadi ili kuweka taarifa za wasafiri na kulipa kwenye ukurasa salama wa malipo. Bei hukaguliwa tena kabla hujalipa.',
+      other_services:
+        'Unahitaji mahali pa kukaa, gari au usafiri wa uwanja wa ndege kwa safari hii? Uliza, na Ask Suskii itatafuta kwa tarehe zilezile.',
     },
     rating: {
       question: 'Msaidizi alikusaidia kwa kiasi gani?',

@@ -13,6 +13,7 @@ tags:
     visible:
       id: flight-search-form
     timeout: 90000
+- runFlow: subflows/put-away-ask-suskii.yaml
 - tapOn:
     id: tab-account
 - scrollUntilVisible:

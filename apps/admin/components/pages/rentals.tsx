@@ -779,7 +779,7 @@ function Reservations() {
                 key: 'period',
                 header: t('rentals.period'),
                 cell: (row) =>
-                  `${format.dateTime(row.pickupAt)} – ${format.dateTime(row.returnAt)}`,
+                  `${format.dateTime(row.pickupAt)} ${t('common.rangeTo')} ${format.dateTime(row.returnAt)}`,
               },
               {
                 key: 'mode',

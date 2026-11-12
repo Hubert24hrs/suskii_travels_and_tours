@@ -18,6 +18,12 @@ export interface ModelToolCall {
   id: string;
   name: string;
   arguments: Record<string, unknown>;
+  /**
+   * Opaque state a provider hands out with a call and wants back with it on the next request
+   * (Gemini's thought signature). The graph carries it untouched and never reads it; it is not
+   * words, and no other provider sets it.
+   */
+  signature?: string;
 }
 
 export type ModelMessage =

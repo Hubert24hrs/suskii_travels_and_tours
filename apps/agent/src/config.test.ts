@@ -69,6 +69,46 @@ describe('agent service configuration', () => {
     ).toBe('accepted');
   });
 
+  it("names each provider's own models when none is set, and takes any that are", () => {
+    // Gemini: the owner asked for 2.5 Flash; one model routes, answers and stands in.
+    expect(loadConfig({ AGENT_MODEL_PROVIDER: 'gemini', LLM_API_KEY: 'key' })).toMatchObject({
+      AGENT_MODEL_PROVIDER: 'gemini',
+      AGENT_MODEL_ROUTER: 'gemini-2.5-flash',
+      AGENT_MODEL_SPECIALIST: 'gemini-2.5-flash',
+      AGENT_MODEL_FALLBACK: 'gemini-2.5-flash',
+    });
+    expect(loadConfig({ AGENT_MODEL_PROVIDER: 'anthropic', LLM_API_KEY: 'key' })).toMatchObject({
+      AGENT_MODEL_ROUTER: 'claude-haiku-5-5',
+      AGENT_MODEL_SPECIALIST: 'claude-sonnet-5-5',
+      AGENT_MODEL_FALLBACK: 'claude-haiku-5-5',
+    });
+    // A project Google no longer serves 2.5 to names its current Flash model instead.
+    expect(
+      loadConfig({
+        AGENT_MODEL_PROVIDER: 'gemini',
+        LLM_API_KEY: 'key',
+        AGENT_MODEL_ROUTER: 'gemini-3.5-flash-lite',
+        AGENT_MODEL_SPECIALIST: 'gemini-3.8-flash',
+        AGENT_MODEL_THINKING_LEVEL: 'minimal',
+      }),
+    ).toMatchObject({
+      AGENT_MODEL_ROUTER: 'gemini-3.5-flash-lite',
+      AGENT_MODEL_SPECIALIST: 'gemini-3.8-flash',
+      AGENT_MODEL_FALLBACK: 'gemini-2.5-flash',
+      AGENT_MODEL_THINKING_LEVEL: 'minimal',
+    });
+    expect(() => loadConfig({ AGENT_MODEL_PROVIDER: 'gemini' })).toThrow(
+      'LLM_API_KEY: is required when AGENT_MODEL_PROVIDER is gemini',
+    );
+    expect(() =>
+      loadConfig({
+        AGENT_MODEL_PROVIDER: 'gemini',
+        LLM_API_KEY: 'key',
+        AGENT_MODEL_THINKING_LEVEL: 'max',
+      }),
+    ).toThrow('AGENT_MODEL_THINKING_LEVEL');
+  });
+
   it('never echoes a value in an error', () => {
     expect(() => loadConfig({ ...production, AGENT_RUN_TOKEN: 'short-secret' })).toThrow(
       /^Invalid agent environment: AGENT_RUN_TOKEN: [^s]/,

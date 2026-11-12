@@ -14,6 +14,7 @@ tags:
     visible:
       id: flight-search-form
     timeout: 60000
+- runFlow: subflows/put-away-ask-suskii.yaml
 
 # One way, one adult, on the form's default date (two weeks out).
 - tapOn: One way

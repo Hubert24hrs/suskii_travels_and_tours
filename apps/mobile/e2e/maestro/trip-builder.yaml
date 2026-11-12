@@ -17,6 +17,7 @@ tags:
     visible:
       id: flight-search-form
     timeout: 60000
+- runFlow: subflows/put-away-ask-suskii.yaml
 
 # A trip belongs to an account: sign up with Google (the stack's mock provider, ADR-067).
 - tapOn:

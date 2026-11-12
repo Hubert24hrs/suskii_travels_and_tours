@@ -3,6 +3,7 @@ import { Card } from '@suskii/ui-web';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
+import { NoAskSuskii } from '../../components/assistant/ask-suskii';
 import { AssistantChat } from '../../components/assistant/assistant-chat';
 import { AssistantHistory } from '../../components/assistant/assistant-history';
 import { pickAssistantMessages } from '../../components/assistant/assistant-messages';
@@ -43,6 +44,7 @@ export default async function AssistantPage({
   const conversationId = typeof asked === 'string' && UUID.test(asked) ? asked : undefined;
   return (
     <Container className="flex flex-col gap-8 pt-8 pb-16">
+      <NoAskSuskii />
       <Breadcrumbs items={[{ name: t('assistant.title'), path: '/assistant' }]} />
       <div className="flex max-w-dialog flex-col gap-3">
         <h1 className="font-heading text-h2 font-extrabold text-heading">{t('assistant.title')}</h1>

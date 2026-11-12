@@ -229,7 +229,7 @@ export const fr: Messages = {
       to: 'À',
       placePlaceholder: 'Ville ou aéroport',
       swap: 'Inverser départ et destination',
-      dates: 'Aller - Retour',
+      dates: 'Aller et retour',
       depart: 'Aller',
       datesPlaceholder: 'Choisir les dates',
       datePlaceholder: 'Choisir une date',
@@ -245,7 +245,7 @@ export const fr: Messages = {
     hotels: {
       destination: 'Destination',
       destinationPlaceholder: 'Où allez-vous ?',
-      dates: 'Arrivée - Départ',
+      dates: 'Arrivée et départ',
       datesPlaceholder: 'Choisir les dates',
       rooms: 'Chambres et voyageurs',
       room: 'Chambre {number}',
@@ -2682,6 +2682,7 @@ export const fr: Messages = {
     },
     profile: {
       heading: 'Profil',
+      notSet: 'Non défini',
       displayName: 'Nom',
       email: 'E-mail',
       emailUnverified: 'Pas encore confirmé.',
@@ -3268,11 +3269,13 @@ export const fr: Messages = {
     },
   },
   assistant: {
-    open: 'Demander à l’assistant',
-    title: 'Assistant Suskii',
+    open: 'Ask Suskii',
+    title: 'Ask Suskii',
+    hide: 'Masquer le bouton Ask Suskii',
+    dragHint: 'Ouvre Ask Suskii. Maintenez et faites glisser pour déplacer le bouton.',
     close: 'Fermer',
     intro:
-      'Posez vos questions sur les vols, les hôtels, les voitures, vos réservations ou nos règles. Je peux chercher, expliquer et préparer une modification que vous confirmez. Je ne réserve, ne paie et ne rembourse jamais seul.',
+      'Posez vos questions sur les vols, les hôtels, les voitures, vos réservations ou le fonctionnement de Suskii. Je peux chercher, expliquer et préparer une réservation pour vous : vous ajoutez les voyageurs et payez sur la page de réservation. Je ne paie, ne rembourse et ne confirme jamais rien seul.',
     disclosure:
       'Ceci est un assistant automatique. Vous pouvez demander une personne à tout moment.',
     privacy:
@@ -3282,7 +3285,7 @@ export const fr: Messages = {
     send: 'Envoyer',
     thinking: 'Je m’en occupe…',
     you: 'Vous',
-    name: 'L’assistant',
+    name: 'Ask Suskii',
     startAgain: 'Commencer une nouvelle conversation',
     talkToPerson: 'Parler à une personne',
     history: 'Conversations précédentes',
@@ -3335,6 +3338,10 @@ export const fr: Messages = {
         'De nombreux pays demandent un passeport valable au moins six mois après votre arrivée. C’est un rappel général, pas une décision d’entrée : vérifiez la règle du pays où vous allez.',
       visa_guidance:
         'Les règles de visa changent, et c’est l’ambassade ou l’agent d’immigration qui décide. Ces indications viennent des notes de Suskii et ne garantissent ni un visa ni l’entrée.',
+      booking_handoff:
+        'Rien n’est encore réservé ni payé. Ouvrez la carte pour saisir les informations des voyageurs et payer sur la page de paiement sécurisée. Le prix est vérifié à nouveau avant le paiement.',
+      other_services:
+        'Besoin d’un hébergement, d’une voiture ou d’un transfert aéroport pour ce voyage ? Demandez, et Ask Suskii cherchera pour les mêmes dates.',
     },
     rating: {
       question: "L'assistant vous a-t-il bien aidé ?",
@@ -3555,7 +3562,7 @@ export const fr: Messages = {
       transfer: 'Transfert aéroport',
       insurance: 'Assurance voyage',
     },
-    route: '{from} – {to}',
+    route: '{from} vers {to}',
     adults: {
       one: '{count} adulte',
       other: '{count} adultes',
@@ -3640,7 +3647,7 @@ export const fr: Messages = {
       changeLabel: 'Modifier : {part}',
       viewBooking: 'Voir la réservation',
       viewLabel: 'Voir la réservation {reference}',
-      flightLine: '{from} – {to}, {airline}',
+      flightLine: '{from} vers {to}, {airline}',
       priceChanged: 'Le prix est passé de {previous} à {current}.',
       acceptPrice: 'Accepter le nouveau prix',
       reviewHeading: 'Vérifier et payer',

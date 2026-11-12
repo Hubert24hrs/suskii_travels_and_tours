@@ -29,3 +29,16 @@ export const assistantSession = {
 
 /** How often a conversation is read again while the assistant is answering. */
 export const ASSISTANT_POLL_MS = 1_500;
+
+const CHECKOUT = /^\/checkout\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+
+/**
+ * The screen of the app a card of the assistant opens, where the app has one of its own
+ * (ADR-109): a booking the assistant prepared opens the app's checkout for that quote, where the
+ * traveller enters the details and pays. Null for every other link, which goes through the
+ * allowlist of incoming links or to the website.
+ */
+export const assistantCardPath = (href: string): string | null => {
+  const quoteId = CHECKOUT.exec(href)?.[1];
+  return quoteId ? `/checkout/${quoteId.toLowerCase()}` : null;
+};

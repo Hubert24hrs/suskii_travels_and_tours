@@ -133,7 +133,7 @@ module "agent" {
   ingress         = "INGRESS_TRAFFIC_INTERNAL_ONLY"
   public          = true
   env = merge(
-    { LOG_LEVEL = "info", AGENT_MODEL_PROVIDER = "anthropic" },
+    { LOG_LEVEL = "info", AGENT_MODEL_PROVIDER = "gemini" },
     var.agent_env,
     {
       NODE_ENV                       = "production"

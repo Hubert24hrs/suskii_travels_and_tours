@@ -53,6 +53,8 @@ const legOut = z.object({
 
 const flightOut = z.object({
   option: z.number().int(),
+  /** Handed to flights.prepare_booking when the traveller chooses this option. */
+  offerId: z.string(),
   airline: z.string(),
   sample: z.boolean(),
   legs: z.array(legOut),
@@ -67,6 +69,8 @@ const flightOut = z.object({
 
 const hotelOut = z.object({
   option: z.number().int(),
+  /** Handed to hotels.prepare_booking when the traveller chooses this option. */
+  rateId: z.string(),
   name: z.string(),
   sample: z.boolean(),
   stars: z.number().int(),
@@ -125,7 +129,7 @@ export class SearchTools implements OnModuleInit {
       agentTool({
         name: 'flights.search',
         description:
-          'Search flights for given airports, dates and travellers, with the price the traveller would pay now. Use IATA codes from catalog.places. Leave returnDate out for a one-way trip. Prices are for every traveller together, taxes and fees included. Offers marked sample are demo fares, not real ones.',
+          'Search flights for given airports, dates and travellers, with the price the traveller would pay now. Use IATA codes from catalog.places. Leave returnDate out for a one-way trip. Prices are for every traveller together, taxes and fees included. Offers marked sample are demo fares, not real ones. When the traveller chooses an option, hand its offerId to flights.prepare_booking; never show an offerId to the traveller.',
         tier: 'read',
         scope: 'search',
         agents: ['flights', 'trip_builder', 'disruption'],
@@ -197,6 +201,7 @@ export class SearchTools implements OnModuleInit {
             const href = `/flights/search?${flightRequestToParams(request.data).toString()}`;
             const offers = result.offers.slice(0, input.limit).map((offer, index) => ({
               option: index + 1,
+              offerId: offer.id,
               airline: offer.owner.name,
               sample: offer.supplier === 'mock',
               legs: offer.slices.map(legOf),
@@ -233,7 +238,7 @@ export class SearchTools implements OnModuleInit {
       agentTool({
         name: 'hotels.search',
         description:
-          'Search places to stay in a city for given dates and guests, with the price the traveller would pay now for the whole stay. Use a city id from catalog.places. Stays marked sample are demo inventory, not real hotels.',
+          'Search places to stay in a city for given dates and guests, with the price the traveller would pay now for the whole stay. Use a city id from catalog.places. Stays marked sample are demo inventory, not real hotels. When the traveller chooses an option, hand its rateId to hotels.prepare_booking; never show a rateId to the traveller.',
         tier: 'read',
         scope: 'search',
         agents: ['hotels', 'trip_builder'],
@@ -302,6 +307,7 @@ export class SearchTools implements OnModuleInit {
               .slice(0, input.limit)
               .map((hotel: HotelSummary, index) => ({
                 option: index + 1,
+                rateId: hotel.cheapestRate.id,
                 name: supplierText(hotel.name),
                 sample: hotel.supplier === 'mock',
                 stars: hotel.stars,

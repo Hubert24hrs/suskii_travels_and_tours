@@ -5,6 +5,7 @@ import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { preconnect } from 'react-dom';
 
+import { AskSuskii } from '../components/assistant/ask-suskii';
 import { ErrorReporting } from '../components/error-reporting';
 import { SiteFooter } from '../components/layout/site-footer';
 import { SiteHeader, UtilityBar } from '../components/layout/site-header';
@@ -73,6 +74,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           </I18nProvider>
         </main>
         <SiteFooter site={site} />
+        <AskSuskii />
         <WebVitalsReporter />
         <ErrorReporting />
         {adTagsOn(adTags) ? (

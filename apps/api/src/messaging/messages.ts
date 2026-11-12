@@ -58,7 +58,7 @@ export function checkinReminderMessage(details: {
   bookingUrl: string;
   bookingId: string;
 }): NotificationContent {
-  const lead = `Your flight ${details.route} leaves ${documentDateTime(details.departureLocal)} (local time). Online check-in is usually open now with the airline.`;
+  const lead = `Your flight ${details.route} leaves ${documentDateTime(details.departureLocal)} (local time). Online check in is usually open now with the airline.`;
   return {
     category: 'trip_reminder',
     template: 'checkin-reminder',
@@ -66,10 +66,7 @@ export function checkinReminderMessage(details: {
     email: simpleEmail(
       `Check in for ${details.reference}`,
       'Time to check in',
-      [
-        lead,
-        `Your booking reference is ${details.reference}; your e-ticket is on the booking page.`,
-      ],
+      [lead, `Your booking reference is ${details.reference}; your ticket is on the booking page.`],
       { label: 'Open booking', url: details.bookingUrl },
     ),
     text: `${BRAND.name}: ${lead} Ref ${details.reference}.`,

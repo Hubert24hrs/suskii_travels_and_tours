@@ -172,7 +172,7 @@ describe('the assistant end to end, with the agent service as its own process (e
       agent: 'concierge',
       modelProvider: 'mock',
       model: 'mock-specialist',
-      promptVersion: 'concierge@2',
+      promptVersion: 'concierge@3',
       toolCallCount: 0,
     });
     // The router and the specialist each took a turn, and the usage they reported is stored.

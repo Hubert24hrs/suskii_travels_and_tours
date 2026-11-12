@@ -41,6 +41,8 @@ const REQUIRED_FORMS: Record<string, readonly string[]> = {
  */
 const SAME_AS_ENGLISH: Record<string, ReadonlySet<string>> = {
   fr: new Set([
+    // The assistant's name is the same in every language.
+    'Ask Suskii',
     // A satellite navigation unit is "GPS" in French, Swahili and Portuguese too.
     'GPS',
     // Property words French shares with English.
@@ -85,10 +87,12 @@ const SAME_AS_ENGLISH: Record<string, ReadonlySet<string>> = {
     '{hours} h',
     'Halal',
   ]),
-  sw: new Set(['Spa', 'GPS']),
+  sw: new Set(['Spa', 'GPS', 'Ask Suskii']),
   pt: new Set([
+    'Ask Suskii',
     // Rental extras: Portuguese uses the same words.
     'GPS',
+    'Extra',
     'Extras',
     'Extras {amount}',
     // Property words Portuguese shares with English.
@@ -116,7 +120,7 @@ const SAME_AS_ENGLISH: Record<string, ReadonlySet<string>> = {
     'Halal',
     'Kosher',
   ]),
-  ar: new Set(['you@example.com']),
+  ar: new Set(['you@example.com', 'Ask Suskii']),
 };
 
 /** True when a string has no words of its own: placeholders, numbers, symbols and brand names. */
@@ -124,7 +128,7 @@ const wordless = (text: string): boolean =>
   text
     .replace(/\{\w+\}|%s/g, '')
     .replace(
-      /\b(Suskii Prime|Suskii|Prime|SMS|SUSKII T&T|WhatsApp|Google Play|App Store|Apple Pay|Google Pay|Google|Apple|Cloudflare|Meta|Facebook|Instagram|TikTok|iOS|Android|eSIM|USSD|PDF|JPEG|JPG|PNG|NIN|PIN|SOS|SUV|XL|USB|Wi-Fi|QR|LOS|DELETE)\b/g,
+      /\b(Suskii Prime|Suskii|Prime|SMS|SUSKII T&T|WhatsApp|Google Play|App Store|Apple Pay|Google Pay|Google|Apple|Cloudflare|Meta|Facebook|Instagram|TikTok|iOS|Android|eSIM|USSD|PDF|JPEG|JPG|PNG|NIN|PIN|SOS|SUV|XL|USB|WiFi|QR|LOS|DELETE)\b/g,
       '',
     )
     .replace(/[\s\p{P}\p{S}\d]/gu, '') === '';
@@ -183,6 +187,31 @@ describe('translated catalogs', () => {
           same.push(`${path}: ${text}`);
     }
     expect(same).toEqual([]);
+  });
+
+  // The owner's house style (ADR-109): copy is written in plain words. English joins no two
+  // words with a hyphen, and no language uses a dash as punctuation. What stays is a format a
+  // field needs (a date typed as 2026-12-01) and the hyphens French and Portuguese spelling
+  // requires inside a word.
+  const FORMAT = /\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2})?/g;
+  const textsOf = (leaf: Leaf): string[] =>
+    typeof leaf === 'string' ? [leaf] : Object.values(leaf);
+
+  it.each(['en-NG', 'en-GB', 'en-US'])('%s joins no words with a hyphen', (locale) => {
+    const found: string[] = [];
+    for (const [path, leaf] of leaves(getMessages(locale)))
+      for (const text of textsOf(leaf))
+        if (/[\p{L}\p{N}}]-[\p{L}\p{N}{]/u.test(text.replace(FORMAT, '')))
+          found.push(`${path}: ${text}`);
+    expect(found).toEqual([]);
+  });
+
+  it.each([...SUPPORTED_LOCALES])('%s uses no dash as punctuation', (locale) => {
+    const found: string[] = [];
+    for (const [path, leaf] of leaves(getMessages(locale)))
+      for (const text of textsOf(leaf))
+        if (/\s-\s|[‒–—―]/.test(text)) found.push(`${path}: ${text}`);
+    expect(found).toEqual([]);
   });
 
   it('names every language in its own language', () => {

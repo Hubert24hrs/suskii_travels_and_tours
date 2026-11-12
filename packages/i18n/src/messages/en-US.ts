@@ -74,7 +74,7 @@ export const enUS: MessageOverlay<Messages> = {
       travellers: { one: '{count} traveler', other: '{count} travelers' },
       basis: {
         per_person: { one: '{count} traveler', other: '{count} travelers' },
-        per_person_per_day: { one: '{count} traveler-day', other: '{count} traveler-days' },
+        per_person_per_day: { one: '{count} traveler day', other: '{count} traveler days' },
       },
     },
     status: { CANCELLED: 'Canceled' },
@@ -96,7 +96,7 @@ export const enUS: MessageOverlay<Messages> = {
       per_person: '{price} per traveler',
       per_person_per_day: '{price} per traveler per day',
     },
-    errors: { too_many_travellers: 'This add-on cannot cover this many travelers.' },
+    errors: { too_many_travellers: 'This extra cannot cover this many travelers.' },
   },
   pages: {
     verticals: {

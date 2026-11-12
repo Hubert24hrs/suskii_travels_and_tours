@@ -201,8 +201,12 @@ web_env = {
 # The agent service's own settings (used with deploy_agent): the provider and the model of each
 # role. The names are the provider's; each change is measured by the agent evals before it
 # answers travellers (ADR-106).
+# Ask Suskii answers with Google's Gemini (ADR-109); LLM_API_KEY in Secret Manager is the Gemini
+# API key. Without names below, all three roles use gemini-2.5-flash. Google serves the 2.5
+# models only to projects that have used them: with a key of a new project, name the current
+# Flash model for each role.
 agent_env = {
-  AGENT_MODEL_PROVIDER = "anthropic"
+  AGENT_MODEL_PROVIDER = "gemini"
   # AGENT_MODEL_ROUTER     = "REPLACE" # a small, fast model
   # AGENT_MODEL_SPECIALIST = "REPLACE" # the model that answers
   # AGENT_MODEL_FALLBACK   = "REPLACE" # tried once when the provider fails

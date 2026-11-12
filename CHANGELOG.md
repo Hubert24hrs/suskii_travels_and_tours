@@ -6,6 +6,57 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Ask Suskii and plain copy (2026-11-12, ADR-109)
+
+The second part of the owner's changes: one assistant for the whole platform, and a rule for
+every word a customer reads.
+
+#### Added
+
+- **The assistant is "Ask Suskii"**, on its button, its page and beside its answers, in every
+  language.
+- **Gemini answers it.** The agent service has a second model adapter for Google's Gemini API
+  beside the Anthropic one (`AGENT_MODEL_PROVIDER=gemini`, the default of a deployed agent
+  service; all three roles use `gemini-2.5-flash` unless a model is named). One HTTPS call, the
+  key in a header, no SDK. The eval command and the Agent evals workflow can measure either
+  provider (`GEMINI_API_KEY` or `LLM_API_KEY`).
+- **One button that moves.** On the website a server-rendered link rests in four places in
+  turn and glides between them by CSS alone: no script ships for it. In the app one floating
+  button takes a new place on each screen and every 15 seconds, can be dragged, and can be put
+  away. Neither shows on a payment page, a sign-in form or the assistant's own page, and both
+  hold still for "reduce motion".
+- **The assistant prepares a booking.** Three tools (`flights.prepare_booking`,
+  `hotels.prepare_booking`, `cars.prepare_booking`) check the price with the supplier and hand
+  the traveller a card that opens the checkout for it. Names, documents and payment stay on
+  the booking and payment pages; the assistant never says "booked".
+- **After a flight it offers the rest of the trip** once: a place to stay, a car, an airport
+  transfer, insurance, for the dates and place of the flight.
+- **It knows the platform.** `platform.guide` returns, per topic, what a traveller can do and
+  where, with what is switched on in this environment.
+
+#### Changed
+
+- **No hyphens or dashes in what a customer reads.** English copy joins no two words with a
+  hyphen ("sign in", "check in", "pickup", "top up", "WiFi", "not refundable"); "add-ons" are
+  "travel extras"; no language uses a dash as punctuation; a date range reads "10 Dec to 17
+  Dec". The same in the API's emails, texts and PDFs. Catalog tests keep it so.
+- The link to the assistant in the website's top bar is gone (the button replaced it), and the
+  app's Account screen offers the assistant only while the button is put away.
+
+#### Not changed, and why
+
+- Dates typed in the app still use the form `2026-12-01`: those 12 fields need a date and time
+  picker, a change of its own.
+- French and Portuguese words whose spelling has a hyphen, the addresses of pages, and what a
+  supplier or a traveller wrote.
+
+#### Still owed
+
+- One run of the Agent evals against Gemini with the owner's key: every result so far is from
+  recorded answers.
+- Google serves the 2.5 models only to projects that have used them: a key of a new project
+  names the current Flash model in the three model settings.
+
 ### Owner's changes: sign-in, search bars, the flight form, the hotel form (2026-11-12, ADR-108)
 
 The owner tried the test app on a phone and sent reference pictures with a list of changes.
