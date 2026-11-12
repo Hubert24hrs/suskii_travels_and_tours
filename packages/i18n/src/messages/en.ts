@@ -1629,6 +1629,8 @@ export const en = {
       date: 'Date',
       seats: 'Seats',
       anyCity: 'Choose a city',
+      typeCity: 'Type a city',
+      noCityMatch: 'No city matches what you typed. Check the spelling.',
       search: 'Search buses',
       noCities: 'No bus routes are open yet. Check back soon.',
       results: { one: '{count} departure', other: '{count} departures' },
@@ -1703,6 +1705,8 @@ export const en = {
       quote: 'See the fare',
       quoting: 'Getting your fare',
       noPlaces: 'Rides are not open in this city yet.',
+      typePlace: 'Type a place',
+      noPlaceMatch: 'No place matches what you typed. Check the spelling.',
       errors: {
         samePlace: 'Pick-up and drop-off must be different.',
         outsideArea: 'This trip is outside the area we serve.',

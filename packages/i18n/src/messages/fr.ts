@@ -1696,6 +1696,8 @@ export const fr: Messages = {
       date: 'Date',
       seats: 'Places',
       anyCity: 'Choisir une ville',
+      typeCity: 'Saisir une ville',
+      noCityMatch: "Aucune ville ne correspond à votre saisie. Vérifiez l'orthographe.",
       search: 'Rechercher des bus',
       noCities: "Aucune ligne de bus n'est encore ouverte. Revenez bientôt.",
       results: { one: '{count} départ', other: '{count} départs' },
@@ -1771,6 +1773,8 @@ export const fr: Messages = {
       quote: 'Voir le prix',
       quoting: 'Calcul du prix',
       noPlaces: 'Les courses ne sont pas encore disponibles dans cette ville.',
+      typePlace: 'Saisir un lieu',
+      noPlaceMatch: "Aucun lieu ne correspond à votre saisie. Vérifiez l'orthographe.",
       errors: {
         samePlace: 'La prise en charge et la dépose doivent être différentes.',
         outsideArea: 'Ce trajet est hors de la zone desservie.',

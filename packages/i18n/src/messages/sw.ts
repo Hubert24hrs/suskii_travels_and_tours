@@ -1686,6 +1686,8 @@ export const sw: Messages = {
       date: 'Tarehe',
       seats: 'Viti',
       anyCity: 'Chagua mji',
+      typeCity: 'Andika mji',
+      noCityMatch: 'Hakuna mji unaolingana na ulichoandika. Angalia tahajia.',
       search: 'Tafuta mabasi',
       noCities: 'Bado hakuna njia za mabasi zilizo wazi. Rudi hivi karibuni.',
       results: { one: 'Safari {count}', other: 'Safari {count}' },
@@ -1761,6 +1763,8 @@ export const sw: Messages = {
       quote: 'Angalia nauli',
       quoting: 'Tunapata nauli yako',
       noPlaces: 'Safari za gari bado hazijafunguliwa katika mji huu.',
+      typePlace: 'Andika mahali',
+      noPlaceMatch: 'Hakuna mahali panapolingana na ulichoandika. Angalia tahajia.',
       errors: {
         samePlace: 'Mahali pa kuchukuliwa na kushushwa lazima pawe tofauti.',
         outsideArea: 'Safari hii iko nje ya eneo tunalohudumia.',

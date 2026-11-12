@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { ScrollView, Text } from 'react-native';
 
 import { RequireAccount } from '../components/account/require-account';
-import { ChoiceChips } from '../components/booking/form-controls';
+import { ChoiceChips, SearchableChips } from '../components/booking/form-controls';
 import { Loading, Notice } from '../components/states';
 import { problemSlug } from '../lib/api';
 import { LOCAL_DATE_TIME, deviceLocalTime, routeParam } from '../lib/cars';
@@ -137,16 +137,23 @@ function RideRequest() {
           }}
         />
       ) : null}
-      <ChoiceChips
+      <SearchableChips
+        // A new city is a new list: what was typed for the old one goes with it.
+        key={`pickup-${chosenCity}`}
         testID="ride-pickup"
         label={t('cars.rides.pickup')}
+        placeholder={t('cars.rides.typePlace')}
+        emptyLabel={t('cars.rides.noPlaceMatch')}
         options={inCity}
         value={pickup}
         onChange={setPickup}
       />
-      <ChoiceChips
+      <SearchableChips
+        key={`dropoff-${chosenCity}`}
         testID="ride-dropoff"
         label={t('cars.rides.dropoff')}
+        placeholder={t('cars.rides.typePlace')}
+        emptyLabel={t('cars.rides.noPlaceMatch')}
         options={inCity.filter((option) => option.value !== pickup)}
         value={dropoff}
         onChange={setDropoff}

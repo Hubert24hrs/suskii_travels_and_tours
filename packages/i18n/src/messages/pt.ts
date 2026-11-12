@@ -1687,6 +1687,8 @@ export const pt: Messages = {
       date: 'Data',
       seats: 'Lugares',
       anyCity: 'Escolher uma cidade',
+      typeCity: 'Escrever uma cidade',
+      noCityMatch: 'Nenhuma cidade corresponde ao que escreveu. Verifique a ortografia.',
       search: 'Pesquisar autocarros',
       noCities: 'Ainda não há rotas de autocarro disponíveis. Volte em breve.',
       results: { one: '{count} partida', other: '{count} partidas' },
@@ -1762,6 +1764,8 @@ export const pt: Messages = {
       quote: 'Ver o preço',
       quoting: 'A obter o preço',
       noPlaces: 'As viagens de carro ainda não estão disponíveis nesta cidade.',
+      typePlace: 'Escrever um local',
+      noPlaceMatch: 'Nenhum local corresponde ao que escreveu. Verifique a ortografia.',
       errors: {
         samePlace: 'A recolha e o destino têm de ser diferentes.',
         outsideArea: 'Esta viagem está fora da zona que servimos.',

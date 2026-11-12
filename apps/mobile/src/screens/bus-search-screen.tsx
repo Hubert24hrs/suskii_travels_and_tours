@@ -6,7 +6,7 @@ import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { ChoiceChips } from '../components/booking/form-controls';
+import { ChoiceChips, SearchableChips } from '../components/booking/form-controls';
 import { Loading, Notice } from '../components/states';
 import { ISO_DAY, routeParam } from '../lib/cars';
 import { daysFromToday, fromIso, toIso } from '../lib/dates';
@@ -154,16 +154,20 @@ export function BusSearchScreen() {
         <Notice body={t('cars.buses.noCities')} />
       ) : (
         <Card className="gap-4 p-4">
-          <ChoiceChips
+          <SearchableChips
             testID="bus-from"
             label={t('cars.buses.from')}
+            placeholder={t('cars.buses.typeCity')}
+            emptyLabel={t('cars.buses.noCityMatch')}
             options={options}
             value={from}
             onChange={setFrom}
           />
-          <ChoiceChips
+          <SearchableChips
             testID="bus-to"
             label={t('cars.buses.to')}
+            placeholder={t('cars.buses.typeCity')}
+            emptyLabel={t('cars.buses.noCityMatch')}
             options={options.filter((option) => option.value !== from)}
             value={to}
             onChange={setTo}
