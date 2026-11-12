@@ -6,6 +6,55 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Date and time pickers in the app (2026-11-12, ADR-114)
+
+Twelve fields in the app took a date or a date and time as typed text, under a hint that showed
+the form the API reads (`2026-12-01T14:30`): the last place a customer read a hyphen (ADR-109).
+Each now opens a picker. The screens send exactly what they sent before.
+
+#### Added
+
+- **`DatePicker` in ui-native**, on the sheet the other pickers use: the years (from the end
+  nearer today, opening at the year on show), the months of a year, the days of a month with
+  previous and next, and for a date and time the hours `00` to `23` and minutes every five. Done
+  keeps the value and waits for a complete one; closing the sheet keeps the old value. Names come
+  from Intl in the app's Latin-digit locale and the arrows follow right to left. No native module.
+- **`DateField` and `DateTimeField` in the app**, showing a date in words ("21 Apr 1990") and a
+  wall time as the app shows times ("5 Dec 2026 14:35"), with the days each field allows: dates of
+  birth back 120 years, expiry dates from today, a rental from today where the car is (the
+  search, with no car yet, from the earliest today on Earth), a ride within a week, a transfer's
+  arrival around its own day.
+- **A phone flow step for dates**, `subflows/choose-date.yaml` (the field and the day with `env`).
+- **Test helpers**: `chooseDate()` chooses a value as a person does, and `pinClock()` pins the
+  phone's date (only `Date`) for tests that choose fixed days.
+
+#### Changed
+
+- The date of birth and passport expiry at checkout, a transfer's arrival time, a rental's
+  pickup and return (search and car), the rental licence's expiry, a ride for later, and the
+  driver's date of birth, licence expiry and insurance expiry are pickers.
+- The rental return offers no day before the pickup; a return earlier on the same day is still
+  refused with the period message.
+- `FieldButton` shows an error under the field, as `Input` does; `Sheet` takes a `scrollRef`.
+
+#### Removed
+
+- The four hints (`mobile.checkout.dateHint`, `dateTimeHint`, `mobile.cars.dateHint`,
+  `dateTimeHint`) from every catalog, and the hyphen test's allowance for a date's form. A new
+  catalog test refuses a date written `YYYY-MM-DD` in any language.
+- The "Native date and time pickers for Cars" backlog item, and the owner's open question about
+  the typed dates.
+
+#### Tests
+
+- ui-native: the picker (a birth year through the years and the months, the range's days and
+  months, the 24 hour time, Done and closing) and its value helpers.
+- App: the screen tests choose dates in the pickers; new tests for a transfer's arrival time
+  (the days around the transfer, the exact value sent) and a ride booked for later (today to a
+  week ahead, the same instant as before).
+- Every Maestro flow and subflow passes `maestro check-syntax`; the flows run on the emulator in
+  the `mobile` workflow.
+
 ### The assistant's answer always appears (2026-11-12)
 
 A check run on another pull request showed the console's assistant leaving the first answer of a

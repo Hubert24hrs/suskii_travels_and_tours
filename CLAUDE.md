@@ -132,6 +132,12 @@ reads a hyphen or a dash. Built and tested; the three evals pass against Gemini 
 Vertex AI (ADR-112), whose first runs fixed the eval cases, the thinking limit, Markdown in
 answers and the wording of the offer after a booking.
 
+Date and time pickers (outside the numbered phases, ADR-114, `docs/phases/date-pickers.md`): the
+app's twelve typed dates (dates of birth, expiry dates, a rental's pickup and return, a ride for
+later, a transfer's arrival) are pickers: `DatePicker` in ui-native, with years, months and days,
+and hours and minutes on the 24 hour clock. The screens send the same ISO values as before, and no
+string shows a date in that form. Built and tested; the phone flows run on the emulator in CI.
+
 The backend on Google Cloud (outside the numbered phases, ADR-110): the owner asked for the
 backend and the assistant's backend to be deployed on Google's services. Built:
 `scripts/gcp/deploy-backend.sh <project>`, run by the owner in Cloud Shell, and
@@ -326,7 +332,9 @@ Tooling notes for agents:
   MMKV, crypto, localization, file system, web browser, screen capture). Screen tests render
   through `renderWithApp()` and fake the API with `mockApi({ 'GET /v1/...': () => json(...) })`
   (`src/test/app.tsx`); typed fixtures live in `src/test/fixtures.ts`. Mock `../config` in a test
-  that needs `attestation: 'mock'`.
+  that needs `attestation: 'mock'`. Choose a date as a person does with `chooseDate()`; a test
+  that chooses fixed days pins the phone's date with `pinClock()` (it fakes `Date` only) and
+  calls `jest.useRealTimers()` after, since pickers offer no day before today.
 - `expo prebuild` generates `apps/mobile/android` and `ios` (gitignored, continuous native
   generation); it also rewrites the `android`/`ios` scripts, which already use `expo run:*`.
 - E2E tests reuse running services when `E2E_DATABASE_URL` / `E2E_REDIS_URL` are set (the database
@@ -550,8 +558,9 @@ Tooling notes for agents:
   "pickup", "top up", "travel extras"), no language uses a dash as punctuation, and a range is
   written with a word ("10 Dec to 17 Dec", through `format.dateRange`). The catalog tests fail
   otherwise. The same holds for what the API writes to a traveller (emails, texts, PDFs, the
-  assistant's guide). A format a field needs (`2026-12-01`) and the hyphens French and
-  Portuguese spelling requires are the only exceptions.
+  assistant's guide). The hyphens French and Portuguese spelling requires are the only
+  exception, and no string shows a date in the form a machine reads (`2026-12-01`): dates are
+  chosen in pickers (ADR-114).
 - Languages (ADR-076): `en-NG`, `en-GB`, `en-US`, `fr`, `sw`, `ar`, `pt`. A new string goes in
   every catalog (the type check fails otherwise; `catalogs.test.ts` checks placeholders, plural
   forms and English left behind). The language is the footer cookie, else `Accept-Language`
@@ -647,7 +656,9 @@ Tooling notes for agents:
 - Maestro flows live in `e2e/maestro` and run in order from `e2e/run-android.sh` (critical path,
   bus, offline trip, an in-house tour with the route restored, a message to support, a combined
   trip paid once, then Google sign-up and sign-in again); add new journeys there. `device.sh`
-  holds the device set-up and `run_flow`; check a new flow with `maestro check-syntax`.
+  holds the device set-up and `run_flow`; check a new flow with `maestro check-syntax`. A date
+  is chosen with `subflows/choose-date.yaml` (`FIELD`, `DATE` with `env`); never `hideKeyboard`
+  where no keyboard is open (on Android it presses Back and leaves the screen).
 - The phone check (ADR-100, `e2e/run-hosted.sh`, `phone-check.yml`) runs the test APK against the
   online test server with nothing routed to the runner. A flow it runs must work on a server that
   keeps its data for hours: take anything unique (an account's address) from `-e`, never a fixed
@@ -677,7 +688,14 @@ Tooling notes for agents:
   `webHost()`, never cache them at module load. A server chosen under Test server wins.
 - Sheets are React Native modals (`Sheet` in ui-native); give pickers a `testID` (the field,
   `{testID}-sheet`, `{testID}-done`, days `{testID}-day-YYYY-MM-DD`, steppers
-  `{testID}-{type}-add`).
+  `{testID}-{type}-add`; a date picker's `{testID}-year-YYYY`, `{testID}-month-YYYY-MM`,
+  `{testID}-hour-HH` and `{testID}-minute-MM`).
+- A date or a date and time is `DateField` or `DateTimeField` (`components/date-field.tsx`, on
+  ui-native's `DatePicker`, ADR-114), never a typed field. The screen holds the ISO value the API
+  takes (`YYYY-MM-DD`, `YYYY-MM-DDTHH:mm` on the 24 hour clock) and the field shows it in words.
+  Give each field the days it allows (`birthDates()`, `expiryDates()` in `lib/dates.ts`;
+  `rentalDates()`, `rideDates()` in `lib/cars.ts`): a place's today is `todayIn(zone)`, and a
+  form that knows no place yet starts at `earliestToday()`. The API still checks every value.
 - Sign-in (ADR-067, ADR-108): registration signs straight in through `useAuth().register()`;
   `SocialButtons` offers Google and Apple at the top of Register and, side by side under "or
   continue with" (`layout="row"`), on the Sign in card (the mock on test stacks, the system
@@ -1941,6 +1959,7 @@ Tooling notes for agents:
 - [ADR-111: The backend on one Compute Engine machine, the budget shape](docs/decisions/ADR-111-the-backend-on-one-machine.md)
 - [ADR-112: Ask Suskii on Gemini through Vertex AI, as the machine's own identity](docs/decisions/ADR-112-ask-suskii-on-vertex-ai.md)
 - [ADR-113: A mailbox on the testing backend, so its first admin can confirm an address](docs/decisions/ADR-113-a-mailbox-on-the-testing-backend.md)
+- [ADR-114: Date and time pickers in the app](docs/decisions/ADR-114-date-and-time-pickers-in-the-app.md)
 
 ## Open questions for the owner
 
@@ -2157,8 +2176,7 @@ Store submission (Apple names the titles its button may carry; ours shows the ma
 the hotel form still ignores taps on the owner's phone with the new test app, the exact steps
 and the phone's model. Added with Ask Suskii (ADR-109): Google's terms for Gemini read with
 counsel (whether prompts may be used to improve its models), a Gemini API key only to run the
-Agent evals from GitHub (`GEMINI_API_KEY`), whether the app's typed dates should become
-date and time pickers (12 fields; today they are typed as `2026-12-01`), and whether the page
+Agent evals from GitHub (`GEMINI_API_KEY`), and whether the page
 addresses that hold a hyphen (`/travel-add-ons`) should change, which needs redirects. Added with the backend on Google Cloud (ADR-110): a Google Cloud project with
 billing and its id, one run of `scripts/gcp/deploy-backend.sh` in Cloud Shell, the four lines
 it prints, a budget alert on the project, and the domain with its Cloudflare zone when the
