@@ -91,19 +91,43 @@ function RecentSearches() {
   );
 }
 
+/**
+ * What the form held when it was last on screen. Home shows one search form at a time, so the
+ * form is taken down when another tab is opened; without this a traveller who looked at flights
+ * or cars and came back found the destination empty and Search answering with an error. Memory
+ * only: a place, dates and room counts, gone when the app closes.
+ */
+let kept: { draft: HotelFormDraft; city: CityOption | null } | null = null;
+
+/** For tests: the next form starts empty. */
+export function resetHotelSearchForm(): void {
+  kept = null;
+}
+
+/** The kept form, unless its check-in day has passed while the app stayed open. */
+function keptForm(): { draft: HotelFormDraft; city: CityOption | null } | null {
+  return kept && kept.draft.checkIn >= daysFromToday(0) ? kept : null;
+}
+
 export function HotelSearchForm() {
   const { t, locale } = useT();
   const format = useFormatters();
   const router = useRouter();
-  const [draft, setDraft] = useState<HotelFormDraft>(() => ({
-    ...emptyHotelDraft(),
-    checkIn: daysFromToday(14),
-    checkOut: daysFromToday(16),
-  }));
-  const [city, setCity] = useState<CityOption | null>(null);
+  const [draft, setDraft] = useState<HotelFormDraft>(
+    () =>
+      keptForm()?.draft ?? {
+        ...emptyHotelDraft(),
+        checkIn: daysFromToday(14),
+        checkOut: daysFromToday(16),
+      },
+  );
+  const [city, setCity] = useState<CityOption | null>(() => keptForm()?.city ?? null);
   const [errors, setErrors] = useState<FieldErrors>({});
-  const update = (patch: Partial<HotelFormDraft>) =>
-    setDraft((current) => ({ ...current, ...patch }));
+  const update = (patch: Partial<HotelFormDraft>, place: CityOption | null = city) => {
+    const next = { ...draft, ...patch };
+    kept = { draft: next, city: place };
+    setDraft(next);
+  };
 
   const submit = () => {
     const input = hotelDraftToInput(draft);
@@ -122,9 +146,10 @@ export function HotelSearchForm() {
       <CityField
         label={t('search.hotels.destination')}
         value={city}
+        testID="hotel-destination"
         onChange={(value) => {
           setCity(value);
-          update({ cityId: value?.id ?? '' });
+          update({ cityId: value?.id ?? '' }, value);
         }}
         error={errors['destination.cityId']}
       />

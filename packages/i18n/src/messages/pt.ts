@@ -836,6 +836,7 @@ export const pt: Messages = {
       none: 'Não foram encontrados hotéis para estas datas. Experimente outras datas ou uma cidade próxima.',
       loadMore: 'Mostrar mais hotéis',
       seeRooms: 'Ver quartos',
+      placeGone: 'Já não encontramos esse local. Procure-o de novo.',
       seeRoomsLabel: 'Ver quartos em {hotel}',
       stars: { one: 'Hotel de {count} estrela', other: 'Hotel de {count} estrelas' },
       review: { one: '{score}/10 de {count} avaliação', other: '{score}/10 de {count} avaliações' },

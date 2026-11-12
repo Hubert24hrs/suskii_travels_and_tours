@@ -22,6 +22,7 @@ import { parse } from 'csv-parse/sync';
 
 import { emailSchema, passwordSchema } from '@suskii/shared';
 
+import { stableCityId } from '../src/catalog/reference-ids';
 import { airportSearchText, citySearchText } from '../src/catalog/search-text';
 import { PrismaClient, type AirportType, type Prisma } from '../src/generated/prisma/client';
 import { syncRbacCatalog } from '../src/rbac/rbac-catalog';
@@ -89,8 +90,12 @@ async function seedReferenceData(prisma: PrismaClient): Promise<void> {
     const current = cityByKey.get(key);
     if (!current || rank[airport.type] < rank[current.type]) cityByKey.set(key, airport);
   }
+  // Each city gets an id derived from its country and name, the same in every database, so an
+  // id a phone or a browser kept still names the city after a test server is rebuilt. Cities
+  // already here keep theirs (`skipDuplicates`).
   await prisma.city.createMany({
     data: [...cityByKey.values()].map((airport) => ({
+      id: stableCityId(airport.country_code, cityName(airport.municipality)),
       name: cityName(airport.municipality),
       countryCode: airport.country_code,
       latitude: Number(airport.latitude),

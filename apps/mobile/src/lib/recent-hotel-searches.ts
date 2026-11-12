@@ -75,6 +75,15 @@ export const recentHotelSearches = {
     );
     preferences.set(KEY, JSON.stringify([search, ...others].slice(0, KEPT)));
   },
+  /**
+   * Drops the searches of a city the API no longer knows (its id came from another database, or
+   * the city was retired), so the shortcut is not offered again.
+   */
+  forgetCity(cityId: string, today = localToday()): void {
+    const kept = this.list(today).filter((entry) => entry.cityId !== cityId);
+    if (kept.length === 0) preferences.remove(KEY);
+    else preferences.set(KEY, JSON.stringify(kept));
+  },
   clear(): void {
     preferences.remove(KEY);
   },

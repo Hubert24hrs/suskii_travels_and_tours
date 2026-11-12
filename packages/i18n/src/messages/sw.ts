@@ -837,6 +837,7 @@ export const sw: Messages = {
       none: 'Hakuna hoteli zilizopatikana kwa tarehe hizi. Jaribu tarehe nyingine au mji wa karibu.',
       loadMore: 'Onyesha hoteli zaidi',
       seeRooms: 'Angalia vyumba',
+      placeGone: 'Hatuwezi kupata mahali hapo tena. Patafute tena.',
       seeRoomsLabel: 'Angalia vyumba katika {hotel}',
       stars: { one: 'Hoteli ya nyota {count}', other: 'Hoteli ya nyota {count}' },
       review: { one: '{score}/10 kutoka maoni {count}', other: '{score}/10 kutoka maoni {count}' },

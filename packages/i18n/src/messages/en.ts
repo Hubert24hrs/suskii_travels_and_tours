@@ -808,6 +808,7 @@ export const en = {
       none: 'No hotels found for these dates. Try other dates or a nearby city.',
       loadMore: 'Show more hotels',
       seeRooms: 'See rooms',
+      placeGone: 'We could not find that place any more. Search for it again.',
       seeRoomsLabel: 'See rooms at {hotel}',
       stars: { one: '{count}-star hotel', other: '{count}-star hotel' },
       review: { one: '{score}/10 from {count} review', other: '{score}/10 from {count} reviews' },
