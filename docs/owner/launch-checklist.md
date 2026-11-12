@@ -174,6 +174,11 @@ Check: `pnpm smoke --api https://<api host> --web https://<web host> --admin htt
 2. **Apple**: a Services ID and the App ID. Set `PUBLIC_APPLE_SERVICES_ID` and
    `APPLE_CLIENT_IDS`.
 
+Before the App Store submission, check the **Apple button** on the Sign in card against Apple's
+guidelines for Sign in with Apple. The card shows Apple's mark and the word "Apple" (ADR-108);
+Apple names the titles its button may carry, so review may ask for "Continue with Apple" or for
+the mark alone. Android and the website are not bound by that rule.
+
 ## 4. More hotels, tours and commission (optional at launch)
 
 | Partner       | What you need                                                                                        | Where it goes                                                          | Check                                 |

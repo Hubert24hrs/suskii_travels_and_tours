@@ -123,3 +123,12 @@ message. It is the answer a hand-typed address gets.
 - The deal threshold (15%), the smallest class (five hotels) and the lowest guest score (7): the
   constants in `packages/shared/src/hotel-collections.ts`.
 - Viator access for "Things to do" in production (already on the checklist, ADR-069).
+
+## Amendment (2026-11-12, ADR-108): ids a device keeps
+
+"Continue your search" keeps a city's id on the device. Cities were seeded with random ids, so
+the id differed in every database, and the hosted test server gets a new database every four
+hours: a shortcut kept from an earlier server named a city the new one did not know. Seeded
+cities now get an id derived from their country and name (`stableCityId`), the same
+everywhere. When the API does refuse a search for an unknown city, the app drops that city's
+shortcuts and says the place was not found; it does not retry.

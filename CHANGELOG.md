@@ -6,6 +6,50 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Owner's changes: sign-in, search bars, the flight form, the hotel form (2026-11-12, ADR-108)
+
+The owner tried the test app on a phone and sent reference pictures with a list of changes.
+This is the first part; Ask Suskii follows (ADR-109).
+
+#### Added
+
+- **Sign in is one card**, on the website and in the app: "Welcome back", the email, the
+  password with an eye that shows and hides it, "Remember me" beside "Forgot password?", a wide
+  Sign in button, then Google and Apple side by side under "or continue with", and "Create
+  account". In the app the fingerprint button sits under Sign in. A texted code is one line
+  under the card ("Use your mobile number instead").
+- **"Remember me" decides how long the sign-in lasts.** Ticked (as every sign-in was before),
+  nothing changes. Unticked, the session ends within 24 hours, the website's cookies end with
+  the browser and the app keeps the session in memory only; at its next start the app clears
+  what the account kept on the phone. The API's sign-in routes take an optional `remember`.
+- **A search bar over the chips** of the bus form's From and To and of a ride's pick-up and
+  drop-off, in the app: typing narrows the list, a name typed in full is chosen, and the
+  keyboard's search key takes the only place left.
+- **The same id for a city in every database** (`stableCityId`), so an id a phone or a browser
+  kept still names the city after a test server is rebuilt.
+
+#### Changed
+
+- **"Describe your trip" is gone from the flight forms** of the website and the app. The API
+  route stays for app builds already on phones.
+- **The hotel form keeps what was typed** when another tab of Home is opened and the traveller
+  comes back.
+
+#### Fixed
+
+- **"Continue your search" after the test server was rebuilt.** The shortcut named a city by
+  an id that only the earlier database knew; the results screen said it could not load and
+  offered a Retry that could never work. Besides the stable ids, the app now drops such a
+  shortcut and says the place was not found.
+
+#### Noted
+
+- The phone flow written for the owner's report passed on the emulator before any change. The
+  two defects above were found by reading and are fixed; a field that takes no typing was not
+  reproduced.
+- The Apple button shows the mark and "Apple". Apple names the titles its button may carry, so
+  this is checked before the App Store submission (an owner item).
+
 ### Audit of the final code (2026-11-12)
 
 After `main` was brought up to date, every check CI runs was run again locally on the final
