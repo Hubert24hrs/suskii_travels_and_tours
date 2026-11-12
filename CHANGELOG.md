@@ -6,6 +6,36 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Audit of the final code (2026-11-12)
+
+After `main` was brought up to date, every check CI runs was run again locally on the final
+commit, with the recorded evals, the load test and the release rehearsal on images built from
+it, and the code was read for siblings of the two defects just fixed.
+
+#### Fixed
+
+- **A company policy's days in advance** were counted from the UTC date. In the first hour of
+  a Lagos day a flight six days off counted as seven and passed a seven-day minimum. They are
+  counted from today where the trip starts (`todayIn`): a flight's first origin, an in-house
+  product's own place; a stay names no zone and is read in UTC, as before. Flights, hotels and
+  group requests already checked dates by the place's own calendar.
+
+#### Changed
+
+- **The Agent evals workflow can replay the recorded answers** ("Replay the recorded
+  answers"): no key, no model call. It ran on GitHub for the first time this way, for all three
+  suites and for one, and passed. This proves the workflow, not a model: the first run against
+  a model is still the owner's. The workflow is named "Agent evals", as the documents call it.
+
+#### Noted, not changed
+
+- The weekly scheduled security run failed on 2 and 9 November at its dependency audit, on the
+  commit that was the head then. The same step passes on the current code (in CI on `main` and
+  locally): nothing to fix, and the next scheduled run will say so.
+- Six manual workflows have never run, because each needs the owner's keys: the AI search
+  eval, the partner, messaging and web-data vendor checks, the mobile release and the release.
+  GitHub loads all of them (each shows under its own name in the Actions list).
+
 ### Fixed: the Agent eval workflow could not be started (2026-11-11)
 
 - `agent-eval.yml` named the matrix in its job's own `if`. GitHub reads a job's `if` before the

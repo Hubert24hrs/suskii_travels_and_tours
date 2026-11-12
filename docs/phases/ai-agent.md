@@ -1500,6 +1500,11 @@ written:
   refuses a job condition GitHub cannot read. What this does not prove: the workflow has still
   never run a suite against a model. That needs the owner's `LLM_API_KEY`; without it the
   workflow stops at its first step and names the missing secret.
+- **The workflow has now run, on recorded answers** (2026-11-12). "Replay the recorded
+  answers" starts the same jobs without a key and without a model call. Run on GitHub for all
+  three suites and for one suite alone, it passed: the workflow starts, builds one job for each
+  suite asked for, runs the eval and keeps its result (marked `recorded`). It measures the
+  workflow. No eval has run against a model.
 - **Not the assistant's, found by the same run:** the website's "Tonight in {city}" links were
   dated by the visitor's calendar and failed every evening for cities further east (ADR-097,
   amended). The website's tests met it only when they ran at 22:20 UTC.

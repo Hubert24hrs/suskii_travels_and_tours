@@ -58,6 +58,33 @@ describe('company travel policy facts (ADR-078)', () => {
     });
   });
 
+  it('counts the days from today where the trip starts, not from the UTC date', () => {
+    // 23:30 UTC on the 1st is 00:30 on the 2nd in Lagos: a flight from Lagos on the 9th is
+    // seven days away there, though the UTC calendar still says eight.
+    const lateEvening = new Date('2026-11-01T23:30:00Z');
+    const fromLagos = {
+      kind: 'flight',
+      offer: {
+        slices: [
+          {
+            origin: { ...airport('LOS'), timeZone: 'Africa/Lagos' },
+            destination: airport('ABV'),
+            departureLocal: '2026-11-09T08:00',
+            arrivalLocal: '2026-11-09T09:15',
+            segments: [{ cabinClass: 'economy' }],
+          },
+        ],
+      },
+    } as unknown as ItemPayload;
+    const facts = tripPolicyFacts(fromLagos, money(1n, 'NGN'), fx, null, lateEvening);
+    expect(facts.daysInAdvance).toBe(7);
+    // The same flight an hour earlier, still the 1st in Lagos: eight days.
+    const earlier = new Date('2026-11-01T22:30:00Z');
+    expect(tripPolicyFacts(fromLagos, money(1n, 'NGN'), fx, null, earlier).daysInAdvance).toBe(8);
+    // A stay names no zone and is read in UTC.
+    expect(tripPolicyFacts(hotel, money(100n, 'NGN'), fx, null, lateEvening).daysInAdvance).toBe(9);
+  });
+
   it("prices a stay per night in the cap's currency, rounded up", () => {
     // NGN 450,001.00 over 3 nights is NGN 150,000.34 a night.
     const inNaira = tripPolicyFacts(hotel, money(45_000_100n, 'NGN'), fx, 'NGN', NOW);

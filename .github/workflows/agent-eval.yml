@@ -1,4 +1,4 @@
-name: Agent eval
+name: Agent evals
 
 # The Suskii Agent evals against the real model (ADR-106): routing (97 messages, travellers' and
 # staff's, 95%), grounding (33 answers: no invention shown, 90% of grounded answers shown) and
@@ -6,6 +6,11 @@ name: Agent eval
 # few cents). Needs the LLM_API_KEY repository secret. CI checks the graph, the guard and the
 # graders on every change with recorded answers (apps/agent/src/evals/*.test.ts). No job here
 # reaches the API, a database or a traveller's data: tool results are fixtures.
+#
+# "Replay the recorded answers" runs the same jobs on the recorded answers CI uses: no key is
+# needed and no model is called. It shows that the workflow itself works (it starts, builds one
+# job for each suite asked for, runs the eval and keeps the result); it says nothing about a
+# model. Its result is marked `recorded`.
 #
 # Each suite's result is kept as an artifact (agent-eval-<suite>.json: counts, the ids of the
 # cases that did not pass, the model and the commit; never a message or an answer). A super
@@ -24,6 +29,10 @@ on:
           - routing
           - grounding
           - safety
+      recorded:
+        description: Replay the recorded answers (no key, no model call; checks the workflow only)
+        type: boolean
+        default: false
       router_model:
         description: Model that routes (AGENT_MODEL_ROUTER)
         required: false
@@ -59,6 +68,7 @@ jobs:
           format('["{0}"]', inputs.suite)) }}
     steps:
       - name: Check the model key is set
+        if: ${{ !inputs.recorded }}
         env:
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
         run: |
@@ -88,11 +98,16 @@ jobs:
 
       - name: Run the eval
         env:
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          # A replay never gets the key: nothing in it could call the model by mistake.
+          LLM_API_KEY: ${{ !inputs.recorded && secrets.LLM_API_KEY || '' }}
           AGENT_MODEL_ROUTER: ${{ inputs.router_model }}
           AGENT_MODEL_SPECIALIST: ${{ inputs.specialist_model }}
           SUITE: ${{ matrix.suite }}
-        run: pnpm --filter @suskii/agent "eval:agent-$SUITE" --json "$RUNNER_TEMP/agent-eval-$SUITE.json"
+          RECORDED: ${{ inputs.recorded }}
+        run: |
+          args=(--json "$RUNNER_TEMP/agent-eval-$SUITE.json")
+          if [ "$RECORDED" = "true" ]; then args+=(--recorded); fi
+          pnpm --filter @suskii/agent "eval:agent-$SUITE" "${args[@]}"
 
       # Kept whether the eval passed or not: a failed run is what needs reading.
       - name: Keep the result
