@@ -241,32 +241,6 @@ export const sw: Messages = {
       groupLink: 'Wasafiri 10 au zaidi? Omba nauli ya kikundi',
       submit: 'Tafuta safari za ndege',
     },
-    describe: {
-      open: 'Eleza safari yako badala yake',
-      label: 'Eleza safari yako',
-      placeholder:
-        'Kwa mfano: Lagos hadi London Ijumaa ijayo, watu wazima 2, kurudi wiki moja baadaye',
-      submit: 'Jaza fomu',
-      working: 'Tunasoma safari yako',
-      privacy:
-        'Usiweke majina, namba au taarifa nyingine binafsi. Tunatuma maandishi kwa mtoa huduma wetu wa AI ili kujaza fomu na hatuyahifadhi.',
-      tooShort: 'Eleza safari yako kwa maneno machache',
-      filled: 'Tumejaza fomu kutokana na maelezo yako. Iangalie, kisha utafute.',
-      missing: 'Ongeza kile ambacho hatukuweza kujua: {fields}.',
-      month: 'Ulitaja {month}: chagua tarehe katika mwezi huo.',
-      fields: {
-        origin: 'unakoondokea',
-        destination: 'unakokwenda',
-        departureDate: 'tarehe ya kuondoka',
-        returnDate: 'tarehe ya kurudi',
-        legs: 'safari za ndege',
-      },
-      notUnderstood:
-        'Hatukuweza kugeuza hilo kuwa utafutaji wa safari ya ndege. Sema unaondokea wapi na unakwenda wapi, au tumia fomu iliyo hapa chini.',
-      overLimit: 'Umeeleza safari nyingi leo. Tumia fomu iliyo hapa chini badala yake.',
-      unavailable:
-        'Maelezo ya safari hayapatikani kwa sasa. Tumia fomu iliyo hapa chini badala yake.',
-    },
     hotels: {
       destination: 'Unakokwenda',
       destinationPlaceholder: 'Unakwenda wapi?',

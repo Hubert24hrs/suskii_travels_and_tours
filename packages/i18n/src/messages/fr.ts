@@ -242,34 +242,6 @@ export const fr: Messages = {
       groupLink: '10 voyageurs ou plus ? Demandez un tarif de groupe',
       submit: 'Rechercher des vols',
     },
-    describe: {
-      open: 'Décrivez plutôt votre voyage',
-      label: 'Décrivez votre voyage',
-      placeholder:
-        'Par exemple : Lagos à Londres vendredi prochain, 2 adultes, retour une semaine plus tard',
-      submit: 'Remplir le formulaire',
-      working: 'Lecture de votre voyage',
-      privacy:
-        "N'indiquez ni noms, ni numéros, ni autres données personnelles. Nous envoyons le texte à notre prestataire d'IA pour remplir le formulaire et ne le conservons pas.",
-      tooShort: 'Décrivez votre voyage en quelques mots',
-      filled:
-        'Nous avons rempli le formulaire à partir de votre description. Vérifiez-le, puis lancez la recherche.',
-      missing: 'Ajoutez ce que nous n’avons pas pu déterminer : {fields}.',
-      month: 'Vous avez indiqué {month} : choisissez une date dans ce mois.',
-      fields: {
-        origin: "l'aéroport de départ",
-        destination: 'la destination',
-        departureDate: 'la date de départ',
-        returnDate: 'la date de retour',
-        legs: 'les vols',
-      },
-      notUnderstood:
-        "Nous n'avons pas pu en faire une recherche de vol. Indiquez d'où vous partez et où vous allez, ou utilisez le formulaire ci-dessous.",
-      overLimit:
-        "Vous avez décrit beaucoup de voyages aujourd'hui. Utilisez plutôt le formulaire ci-dessous.",
-      unavailable:
-        'La description de voyage n’est pas disponible pour le moment. Utilisez plutôt le formulaire ci-dessous.',
-    },
     hotels: {
       destination: 'Destination',
       destinationPlaceholder: 'Où allez-vous ?',

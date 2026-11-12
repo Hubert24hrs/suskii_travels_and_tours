@@ -1,7 +1,7 @@
 import type { Vertical } from '@suskii/shared';
 import { I18nProvider } from '@suskii/i18n/react';
 
-import { api, type HotelDestination } from '../../lib/api';
+import type { HotelDestination } from '../../lib/api';
 import { publicEnv } from '../../lib/env';
 import { getI18n } from '../../lib/i18n';
 import { getDataSaver } from '../../lib/preferences';
@@ -26,9 +26,8 @@ export async function SearchPanel({
   initial?: SearchInitialState;
   overlap?: boolean;
 }) {
-  const [{ t, locale, currency, messages }, aiSearch, dataSaver] = await Promise.all([
+  const [{ t, locale, currency, messages }, dataSaver] = await Promise.all([
     getI18n(),
-    api.naturalSearchStatus(),
     getDataSaver(),
   ]);
   return (
@@ -46,7 +45,6 @@ export async function SearchPanel({
             countryName: destination.country.name,
           }))}
           initial={initial}
-          describe={aiSearch?.enabled ? { maxLength: aiSearch.maxLength } : undefined}
           // A booking takes up to nine travellers; larger groups are a request (ADR-093). The
           // link is rendered here, on the server, so the homepage's JavaScript does not grow.
           flightsFooter={
