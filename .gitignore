@@ -73,6 +73,8 @@ apps/api/src/generated/
 crash.log
 infra/terraform/environments/*.tfvars
 infra/terraform/environments/*.tfbackend
+# What scripts/gcp/deploy-backend.sh keeps between runs (a copy of the one in the state bucket).
+infra/terraform/backend/settings.auto.tfvars.json
 
 # Redis snapshots from a local redis-server
 *.rdb

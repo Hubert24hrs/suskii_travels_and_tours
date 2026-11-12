@@ -6,12 +6,13 @@
 # pointed at this address gets 403 too. Only 443 listens; Cloudflare redirects http to https
 # for the website and console and refuses it for the API.
 # The address, certificate and policy exist from the first apply so DNS and the certificate can be
-# ready before the services are.
+# ready before the services are. None of this exists with edge = "none" (ADR-110): the API then
+# answers on its run.app address and nothing else is public.
 
 locals {
   # Cloud Armor allows five subexpressions per rule: the secret check plus four ranges.
   cloudflare_rules = chunklist(var.cloudflare_ip_ranges, 4)
-  lb_services = var.deploy_services ? {
+  lb_services = var.deploy_services && local.edged ? {
     api   = module.api[0].name
     web   = module.web[0].name
     admin = module.admin[0].name
@@ -19,6 +20,7 @@ locals {
 }
 
 resource "google_compute_global_address" "lb" {
+  count      = local.edged ? 1 : 0
   project    = var.project_id
   name       = "${local.name}-lb"
   ip_version = "IPV4"
@@ -29,7 +31,7 @@ resource "google_compute_global_address" "lb" {
 # Certificates for the origin, validated through DNS records that the edge module creates in
 # Cloudflare (dns_authorizations output), so issuance works while traffic is proxied.
 resource "google_certificate_manager_dns_authorization" "hosts" {
-  for_each   = var.hosts
+  for_each   = local.edged ? var.hosts : {}
   project    = var.project_id
   name       = "${local.name}-${each.key}"
   domain     = each.value
@@ -38,6 +40,7 @@ resource "google_certificate_manager_dns_authorization" "hosts" {
 }
 
 resource "google_certificate_manager_certificate" "origin" {
+  count   = local.edged ? 1 : 0
   project = var.project_id
   name    = "${local.name}-origin"
   scope   = "DEFAULT"
@@ -49,6 +52,7 @@ resource "google_certificate_manager_certificate" "origin" {
 }
 
 resource "google_certificate_manager_certificate_map" "origin" {
+  count      = local.edged ? 1 : 0
   project    = var.project_id
   name       = "${local.name}-origin"
   labels     = local.labels
@@ -56,16 +60,17 @@ resource "google_certificate_manager_certificate_map" "origin" {
 }
 
 resource "google_certificate_manager_certificate_map_entry" "hosts" {
-  for_each     = var.hosts
+  for_each     = local.edged ? var.hosts : {}
   project      = var.project_id
   name         = "${local.name}-${each.key}"
-  map          = google_certificate_manager_certificate_map.origin.name
+  map          = google_certificate_manager_certificate_map.origin[0].name
   hostname     = each.value
-  certificates = [google_certificate_manager_certificate.origin.id]
+  certificates = [google_certificate_manager_certificate.origin[0].id]
   labels       = local.labels
 }
 
 resource "google_compute_security_policy" "edge" {
+  count       = local.edged ? 1 : 0
   project     = var.project_id
   name        = "${local.name}-edge"
   description = "Only this zone's Cloudflare traffic reaches the origin."
@@ -101,10 +106,18 @@ resource "google_compute_security_policy" "edge" {
     }
   }
 
+  lifecycle {
+    precondition {
+      condition     = var.origin_auth_secret != ""
+      error_message = "origin_auth_secret is required behind the edge (TF_VAR_origin_auth_secret)."
+    }
+  }
+
   depends_on = [google_project_service.apis]
 }
 
 resource "google_compute_ssl_policy" "origin" {
+  count           = local.edged ? 1 : 0
   project         = var.project_id
   name            = "${local.name}-origin"
   profile         = "RESTRICTED" # AEAD suites only (ECDHE with AES-GCM or ChaCha20-Poly1305)
@@ -129,7 +142,7 @@ resource "google_compute_backend_service" "run" {
   name                  = "${local.name}-${each.key}"
   load_balancing_scheme = "EXTERNAL_MANAGED"
   protocol              = "HTTPS"
-  security_policy       = google_compute_security_policy.edge.id
+  security_policy       = google_compute_security_policy.edge[0].id
   backend {
     group = google_compute_region_network_endpoint_group.run[each.key].id
   }
@@ -140,7 +153,7 @@ resource "google_compute_backend_service" "run" {
 }
 
 resource "google_compute_url_map" "main" {
-  count           = var.deploy_services ? 1 : 0
+  count           = var.deploy_services && local.edged ? 1 : 0
   project         = var.project_id
   name            = local.name
   default_service = google_compute_backend_service.run["web"].id
@@ -163,22 +176,22 @@ resource "google_compute_url_map" "main" {
 }
 
 resource "google_compute_target_https_proxy" "main" {
-  count           = var.deploy_services ? 1 : 0
+  count           = var.deploy_services && local.edged ? 1 : 0
   project         = var.project_id
   name            = local.name
   url_map         = google_compute_url_map.main[0].id
-  certificate_map = "//certificatemanager.googleapis.com/${google_certificate_manager_certificate_map.origin.id}"
-  ssl_policy      = google_compute_ssl_policy.origin.id
+  certificate_map = "//certificatemanager.googleapis.com/${google_certificate_manager_certificate_map.origin[0].id}"
+  ssl_policy      = google_compute_ssl_policy.origin[0].id
 }
 
 resource "google_compute_global_forwarding_rule" "https" {
-  count                 = var.deploy_services ? 1 : 0
+  count                 = var.deploy_services && local.edged ? 1 : 0
   project               = var.project_id
   name                  = "${local.name}-https"
   load_balancing_scheme = "EXTERNAL_MANAGED"
   ip_protocol           = "TCP"
   port_range            = "443"
-  ip_address            = google_compute_global_address.lb.id
+  ip_address            = google_compute_global_address.lb[0].id
   target                = google_compute_target_https_proxy.main[0].id
   labels                = local.labels
 }

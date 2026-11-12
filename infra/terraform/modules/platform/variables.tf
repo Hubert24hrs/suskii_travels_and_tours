@@ -26,6 +26,33 @@ variable "hosts" {
   })
 }
 
+variable "edge" {
+  description = <<-EOT
+    What stands in front of the services. "cloudflare" (the default, ADR-059): a load balancer
+    that only Cloudflare may reach, for an environment with its own domain. "none" (ADR-110): no
+    load balancer and no website or console; the API answers on its own run.app address with
+    Google's certificate, so the backend can go live before the domain and the edge exist. The
+    website and the console need one site for their cookies, which means a domain, so they are
+    created only behind the edge.
+  EOT
+  type        = string
+  default     = "cloudflare"
+  validation {
+    condition     = contains(["cloudflare", "none"], var.edge)
+    error_message = "edge must be cloudflare or none."
+  }
+}
+
+variable "agent_url" {
+  description = <<-EOT
+    The agent service's address for the API (the agent_internal_url output), set once that
+    service exists: the API's AGENT_URL. Empty leaves it to api_env. A variable of its own
+    because the two services name each other, which Terraform cannot resolve in one apply.
+  EOT
+  type        = string
+  default     = ""
+}
+
 variable "github_repository" {
   description = "owner/name of the repository whose workflows may deploy (Workload Identity Federation)."
   type        = string
@@ -161,8 +188,10 @@ variable "origin_auth_secret" {
   EOT
   type        = string
   sensitive   = true
+  default     = ""
   validation {
-    condition     = can(regex("^[A-Za-z0-9_-]{32,128}$", var.origin_auth_secret))
+    # Empty only without the edge (edge = "none"); the security policy refuses it otherwise.
+    condition     = var.origin_auth_secret == "" || can(regex("^[A-Za-z0-9_-]{32,128}$", var.origin_auth_secret))
     error_message = "origin_auth_secret must be 32 to 128 URL-safe characters."
   }
 }

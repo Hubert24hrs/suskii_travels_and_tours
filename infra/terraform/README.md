@@ -7,6 +7,7 @@ ADR-059 explains the topology; ADR-060 explains how the pipelines deploy onto it
 | Path                   | What                                                                         |
 | ---------------------- | ---------------------------------------------------------------------------- |
 | `live/`                | The root module, applied once per environment                                |
+| `backend/`             | The backend alone, before the domain and the edge exist (ADR-110)            |
 | `modules/platform/`    | GCP: network, database, cache, bucket, registry, secrets, IAM, Cloud Run, LB |
 | `modules/run-service/` | One Cloud Run service with the platform's defaults                           |
 | `modules/edge/`        | Cloudflare: DNS, TLS, origin secret header, WAF, rate limit and cache rules  |
@@ -15,6 +16,26 @@ ADR-059 explains the topology; ADR-060 explains how the pipelines deploy onto it
 
 Operators apply Terraform from a workstation. CI checks formatting, validates and lints it, but
 holds no rights to apply it. The GitHub deployer identity can only deploy new revisions.
+
+## The backend alone (`backend/`)
+
+Before the domain and the Cloudflare zone exist, the backend can go live by itself: the API on
+its own `run.app` address, the worker and the agent service reachable from the VPC only, with
+the same database, cache, bucket, registry, identities and secrets as below, on the stand-ins
+for every provider. The platform module does this with `edge = "none"` (ADR-110): no load
+balancer, no certificates, no Cloud Armor, no website and no console.
+
+The owner runs it from Google Cloud Shell with one command, which also gives the secrets their
+values, builds the images with Cloud Build and rolls them out:
+
+```bash
+bash scripts/gcp/deploy-backend.sh <project id> [region]
+```
+
+`docs/owner/deploy-backend-on-google-cloud.md` is the owner's guide. The website and the
+console need one site for their cookies, so they come with the domain: apply `live/` to the
+same project then, which adds the edge and closes the API's public address. The rest of this
+page is about `live/`.
 
 ## What the owner provides
 

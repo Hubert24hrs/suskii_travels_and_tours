@@ -28,8 +28,6 @@ locals {
       ALLOW_MOCK_PROVIDERS      = tostring(var.allow_mock_providers)
       SENTRY_ENVIRONMENT        = var.environment
       DATABASE_ALLOW_PLAINTEXT  = "true" # Cloud SQL socket: the connector encrypts the hop
-      CLIENT_IP_HEADER          = "cf-connecting-ip"
-      CLIENT_COUNTRY_HEADER     = "cf-ipcountry"
       COOKIE_SECURE             = "true"
       WEB_APP_URL               = local.origins.web
       CORS_ORIGINS              = join(",", [local.origins.web, local.origins.admin])
@@ -40,6 +38,16 @@ locals {
       OBJECT_STORAGE_PATH_STYLE = "true"
       OBJECT_STORAGE_BUCKET     = google_storage_bucket.documents.name
     },
+    # Who the caller is. Behind the edge Cloudflare says so in its own headers. Without it the
+    # API is reached through Google's front end alone, which appends the caller's address to
+    # X-Forwarded-For: one trusted hop, and no country.
+    local.edged ? {
+      CLIENT_IP_HEADER      = "cf-connecting-ip"
+      CLIENT_COUNTRY_HEADER = "cf-ipcountry"
+      } : {
+      TRUST_PROXY_HOPS = "1"
+    },
+    var.agent_url == "" ? {} : { AGENT_URL = var.agent_url },
   )
 }
 
@@ -52,7 +60,7 @@ module "api" {
   name                = "${local.name}-api"
   image               = var.images.api
   service_account     = google_service_account.runtime["api"].email
-  ingress             = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
+  ingress             = local.edged ? "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER" : "INGRESS_TRAFFIC_ALL"
   public              = true
   env                 = local.api_env
   secrets             = local.secret_readers.api
@@ -164,7 +172,7 @@ module "agent" {
 }
 
 module "web" {
-  count  = var.deploy_services ? 1 : 0
+  count  = var.deploy_services && local.edged ? 1 : 0
   source = "../run-service"
 
   project_id      = var.project_id
@@ -199,7 +207,7 @@ module "web" {
 }
 
 module "admin" {
-  count  = var.deploy_services ? 1 : 0
+  count  = var.deploy_services && local.edged ? 1 : 0
   source = "../run-service"
 
   project_id          = var.project_id

@@ -66,11 +66,13 @@ jobs:
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
       - name: Format
         run: terraform fmt -check -recursive -diff infra/terraform
-      - name: Validate (every environment uses this root)
-        working-directory: infra/terraform/live
+      # `live` is an environment behind the edge; `backend` is the backend on its own address,
+      # before the domain exists (ADR-110). Both use the platform module.
+      - name: Validate (both roots)
         run: |
-          terraform init -backend=false -input=false
-          terraform validate
+          for root in live backend; do
+            (cd "infra/terraform/$root" && terraform init -backend=false -input=false && terraform validate)
+          done
       - name: Lint
         working-directory: infra/terraform
         env:
