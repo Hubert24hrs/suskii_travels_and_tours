@@ -21,8 +21,9 @@ month than the owner can spend now. Asked to choose, the owner took one small ma
   with a data disk of its own, the image repository, the documents and backups buckets, the
   secrets' names; the compose stack, Caddy's settings and the machine's start-up, deploy and
   backup scripts.
-- **A nightly dump of the database** to a private bucket that deletes it after 30 days. The
-  machine may add a dump and cannot read, replace or delete one.
+- **A dump of the database** every night and before each release's database step, to a
+  private bucket that deletes it after 30 days. The machine may add a dump and cannot read,
+  replace or delete one.
 - **Releases without a login**: the release is named in the machine's metadata, a watcher on
   the machine deploys it and reports to the serial console and a guest attribute.
 

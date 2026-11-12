@@ -3,8 +3,9 @@
 # sets `suskii-release` on the instance ("<image tag> <anything, to deploy the same tag again>").
 #
 # In order: the stack's files from the instance metadata, the keys from Secret Manager into
-# memory-only env files, the images, the database step, then the new containers. The platform
-# first, the assistant after it: an assistant that does not come up never fails the release.
+# memory-only env files, the images, a dump of the database, the database step, then the new
+# containers. The platform first, the assistant after it: an assistant that does not come up
+# never fails the release.
 # The outcome is written where the operator can read it without a login: the serial console and
 # the instance's guest attribute `suskii/status`, which names the whole release so that the
 # report of an earlier one is never taken for this one's. No secret is printed.
@@ -138,6 +139,15 @@ compose --profile release pull --quiet
 
 STEP=data
 compose up -d --wait --wait-timeout 180 postgres redis
+
+# A dump before the database step, so a release that changes the schema can be undone. The
+# first release has nothing to keep yet. No dump, no migration: a failure here stops the
+# release with the running containers untouched.
+STEP=backup
+if [ "$(docker exec suskii-postgres-1 psql -U suskii -d suskii -Atc \
+  "select to_regclass('public._prisma_migrations') is not null" 2>/dev/null)" = "t" ]; then
+  /opt/suskii/backup.sh
+fi
 
 STEP=database
 compose --profile release run --rm migrate

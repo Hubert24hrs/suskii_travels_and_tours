@@ -53,8 +53,9 @@ every change. No application code changed for this shape.
   at each release and hands each container only its own: the worker gets one token, the agent
   service its two tokens, its model key and its own database address, and nothing of the API's.
 - **Data** lives on a disk of its own, which outlives the machine. A dump of the database goes
-  to a private bucket every night; the bucket deletes it after 30 days, and the machine may
-  add a dump but cannot read, replace or delete one. Fields the API encrypts stay encrypted in
+  to a private bucket every night and before each release's database step (no dump, no
+  migration); the bucket deletes it after 30 days, and the machine may add a dump but cannot
+  read, replace or delete one. Fields the API encrypts stay encrypted in
   a dump, and their key is not in the bucket.
 - **The name.** Until the owner has a domain the API answers on Google's free name for the
   project, `api.endpoints.<project>.cloud.goog`, which Terraform points at the machine's

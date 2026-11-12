@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Nightly backup of the backend VM's database (ADR-111): one compressed dump, uploaded to the
-# project's backups bucket as the VM's own identity, which may add objects there and nothing
-# else. The bucket deletes a dump after 30 days. Fields the API encrypts stay encrypted in the
-# dump: their key is in Secret Manager, never in this file or in the bucket.
+# Backup of the backend VM's database (ADR-111), every night and before each release's database
+# step: one compressed dump, uploaded to the project's backups bucket as the VM's own identity,
+# which may add objects there and nothing else. The bucket deletes a dump after 30 days. Fields
+# the API encrypts stay encrypted in the dump: their key is in Secret Manager, never in this
+# file or in the bucket.
 set -euo pipefail
 
 MD=http://metadata.google.internal/computeMetadata/v1

@@ -21,14 +21,20 @@ Both figures are estimates from Google's list prices, not quotes.
   service**. Neither is reachable from outside.
 - **PostgreSQL and Redis** on the same machine, with their data on a disk of its own that
   outlives the machine.
-- **A backup** of the database every night at about 02:15 UTC, kept 30 days in a private
-  bucket (`suskii-travels-staging-backups`).
+- **A backup** of the database every night at about 02:15 UTC and before every deploy, kept 30
+  days in a private bucket (`suskii-travels-staging-backups`).
 - **Every key** in Secret Manager, generated for you and never shown.
 
 It runs on the built-in stand-ins for airlines, hotels, payments, email and texts, so every
 journey works and no real money moves. Each real provider is connected later with its key.
 
-There is no website or admin console on it yet.
+There is no website or admin console on it yet. That has one consequence for the app: a
+booking can be made against this backend but not paid for, because the stand-in payment page
+is a page of the website. Putting the website on the same machine is the next step; it adds
+no machine and almost no cost.
+
+To point the test app at it: Account, Test server, and enter
+`https://api.endpoints.suskii-travels-staging.cloud.goog` as the API address.
 
 ### What this shape does not give you
 
@@ -39,6 +45,10 @@ There is no website or admin console on it yet.
 
 It is the right size for testing the app with real people. Before paying customers depend on
 it, move to the managed shape.
+
+The machine has 4 GB of memory and uses about 1.2 GB with everything running. A machine half
+the size (`e2-small`, 2 GB) would save about 15 US dollars a month and leave little room when
+traffic grows or a deploy runs. Say the word and it is a one minute change.
 
 ### Ask Suskii and the rest of the platform
 
