@@ -179,6 +179,68 @@ test.describe('account', () => {
     });
   });
 
+  test('the sign-in card: welcome, show password, and a sign-in that is not remembered', async ({
+    page,
+    context,
+  }) => {
+    const email = newEmail('web-remember');
+    await register(page, email);
+    await page.getByTestId('sign-out').click();
+    await page.waitForURL((url) => url.pathname === '/');
+
+    await page.goto('/sign-in?next=/account');
+    const card = page.getByTestId('sign-in-card');
+    await expect(card.getByRole('heading', { level: 1 })).toHaveText(t('auth.signIn.welcome'));
+    await expect(card.getByRole('link', { name: t('auth.signIn.forgot') })).toHaveAttribute(
+      'href',
+      '/forgot-password',
+    );
+    await expect(card.getByRole('link', { name: t('auth.signIn.createAccount') })).toHaveAttribute(
+      'href',
+      '/register?next=%2Faccount',
+    );
+    // Google and Apple sit side by side and keep their full names for a screen reader.
+    await expect(card.getByRole('button', { name: t('auth.social.google') })).toBeVisible();
+    await expect(card.getByRole('button', { name: t('auth.social.apple') })).toBeVisible();
+
+    // The eye shows what was typed, and hides it again.
+    const password = page.getByTestId('sign-in-password');
+    await page.getByTestId('sign-in-email').fill(email);
+    await password.fill(PASSWORD);
+    await expect(password).toHaveAttribute('type', 'password');
+    await page.getByRole('button', { name: t('auth.signIn.showPassword') }).click();
+    await expect(password).toHaveAttribute('type', 'text');
+    await page.getByRole('button', { name: t('auth.signIn.hidePassword') }).click();
+    await expect(password).toHaveAttribute('type', 'password');
+
+    // "Remember me" is ticked to start with; unticked, the card says what that means.
+    const remember = page.getByTestId('sign-in-remember');
+    await expect(remember).toBeChecked();
+    await remember.uncheck();
+    await expect(card.getByText(t('auth.signIn.rememberOff'))).toBeVisible();
+    await expectNoAxeViolations(page);
+
+    await page.getByTestId('sign-in-submit').click();
+    await page.waitForURL(/\/account$/);
+    await expect(page.getByTestId('account-profile')).toBeVisible();
+    // The session's cookies carry no lifetime: the browser drops them when it closes.
+    const session = (await context.cookies(API)).filter((cookie) =>
+      /suskii_(at|rt|csrf)$/.test(cookie.name),
+    );
+    expect(session.map((cookie) => cookie.name).sort()).toHaveLength(3);
+    for (const cookie of session) expect(cookie.expires).toBe(-1);
+
+    // Signing in the ordinary way again is remembered, as before.
+    await page.getByTestId('sign-out').click();
+    await page.waitForURL((url) => url.pathname === '/');
+    await signIn(page, email);
+    const kept = (await context.cookies(API)).filter((cookie) =>
+      /suskii_(at|rt|csrf)$/.test(cookie.name),
+    );
+    expect(kept).toHaveLength(3);
+    for (const cookie of kept) expect(cookie.expires).toBeGreaterThan(Date.now() / 1000);
+  });
+
   test('signs out and forgets the guest booking tokens of this tab', async ({ page }) => {
     const email = newEmail('web-sign-out');
     await register(page, email);

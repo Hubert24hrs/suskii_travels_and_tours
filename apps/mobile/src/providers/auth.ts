@@ -62,31 +62,33 @@ const outcomeOf = (status: number): SignInOutcome =>
 export function useAuth() {
   const { api, session, user, queryClient } = useApp();
 
+  // `remember` is the sign-in screen's "Remember me" (ADR-108): off, the API ends the session
+  // within a day and the phone keeps it in memory only. Every other caller leaves it on.
   const signIn = useCallback(
-    async (email: string, password: string): Promise<SignInOutcome> => {
+    async (email: string, password: string, remember = true): Promise<SignInOutcome> => {
       const attestation = await attestationHeader(api);
       const { data, response } = await api.POST('/v1/auth/login', {
         params: attestation ? { header: { 'X-Suskii-Attestation': attestation } } : {},
-        body: { email, password, transport: 'token' },
+        body: { email, password, transport: 'token', remember },
       });
       if (!data) return outcomeOf(response.status);
       if (data.status === 'mfa_required') return { status: 'mfa', challenge: data };
-      await session.save(data);
+      await session.save(data, { remember });
       return { status: 'signed-in' };
     },
     [api, session],
   );
 
   const verifyMfa = useCallback(
-    async (mfaToken: string, code: string): Promise<SignInOutcome> => {
+    async (mfaToken: string, code: string, remember = true): Promise<SignInOutcome> => {
       const recovery = !/^\d{6}$/.test(code);
       const { data, response } = await api.POST('/v1/auth/mfa/verify', {
         body: recovery
-          ? { mfaToken, recoveryCode: code, transport: 'token' }
-          : { mfaToken, code, transport: 'token' },
+          ? { mfaToken, recoveryCode: code, transport: 'token', remember }
+          : { mfaToken, code, transport: 'token', remember },
       });
       if (!data) return outcomeOf(response.status);
-      await session.save(data);
+      await session.save(data, { remember });
       return { status: 'signed-in' };
     },
     [api, session],
@@ -108,18 +110,24 @@ export function useAuth() {
 
   /** Signs in (or creates the account) with a texted code; MFA still applies. */
   const verifyCode = useCallback(
-    async (phone: string, code: string, referralCode?: string): Promise<SignInOutcome> => {
+    async (
+      phone: string,
+      code: string,
+      referralCode?: string,
+      remember = true,
+    ): Promise<SignInOutcome> => {
       const { data, response } = await api.POST('/v1/auth/otp/verify', {
         body: {
           phone,
           code,
           transport: 'token',
+          remember,
           ...(referralCode ? { referralCode } : {}),
         },
       });
       if (!data) return outcomeOf(response.status);
       if (data.status === 'mfa_required') return { status: 'mfa', challenge: data };
-      await session.save(data);
+      await session.save(data, { remember });
       return { status: 'signed-in' };
     },
     [api, session],
@@ -162,11 +170,13 @@ export function useAuth() {
       provider: SocialProvider,
       token: Extract<ProviderToken, { status: 'token' }>,
       referralCode?: string,
+      remember = true,
     ): Promise<SignInOutcome> => {
       const body = {
         idToken: token.idToken,
         nonce: token.nonce,
         transport: 'token' as const,
+        remember,
         ...(token.bindingSecret ? { bindingSecret: token.bindingSecret } : {}),
         ...(token.displayName ? { displayName: token.displayName } : {}),
         ...(referralCode ? { referralCode } : {}),
@@ -177,7 +187,7 @@ export function useAuth() {
           : await api.POST('/v1/auth/apple', { body });
       if (!data) return outcomeOf(response.status);
       if (data.status === 'mfa_required') return { status: 'mfa', challenge: data };
-      await session.save(data);
+      await session.save(data, { remember });
       return { status: 'signed-in' };
     },
     [api, session],
@@ -190,6 +200,7 @@ export function useAuth() {
   const fingerprintSignIn = useCallback(
     async (
       prompt: string,
+      remember = true,
     ): Promise<SignInOutcome | { status: 'expired' } | { status: 'cancelled' }> => {
       const credential = await biometrics.read(prompt);
       if (credential === 'cancelled') return { status: 'cancelled' };
@@ -207,7 +218,8 @@ export function useAuth() {
         return outcomeOf(response.status);
       }
       if (data.status === 'mfa_required') return { status: 'mfa', challenge: data };
-      await session.save(data);
+      // The device route starts an ordinary session; the phone alone decides whether to keep it.
+      await session.save(data, { remember });
       return { status: 'signed-in' };
     },
     [api, session],

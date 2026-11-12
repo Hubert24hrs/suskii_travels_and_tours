@@ -9,7 +9,7 @@
  * The source is a 1254 px square: the logo's rounded square on black corners. The corners become
  * transparent (marks) or the logo's red (opaque icons, which the platforms round themselves).
  */
-import { mkdirSync } from 'node:fs';
+import { copyFileSync, mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -87,3 +87,28 @@ for (const app of ['web', 'admin']) {
 }
 await write(logo, join(ROOT, 'apps/web/public/brand/icon-512.png'), 512);
 await write(logo, join(ROOT, 'apps/web/public/brand/logo-mark.png'), 96);
+
+// The marks on the "Google" and "Apple" sign-in buttons (ADR-108). They are the providers'
+// own marks, in their own colours, kept as files so no component holds a colour of theirs:
+// the website serves the vectors, the app bundles them at the three pixel densities.
+const PROVIDER_MARK = 20;
+for (const provider of ['google', 'apple']) {
+  const source = join(ROOT, `brand/providers/${provider}.svg`);
+  const web = join(ROOT, `apps/web/public/brand/providers/${provider}.svg`);
+  mkdirSync(dirname(web), { recursive: true });
+  copyFileSync(source, web);
+  process.stdout.write(`${web.slice(ROOT.length + 1)}\n`);
+  for (const scale of [1, 2, 3]) {
+    const size = PROVIDER_MARK * scale;
+    const path = join(
+      ROOT,
+      `apps/mobile/assets/providers/${provider}${scale === 1 ? '' : `@${scale}x`}.png`,
+    );
+    mkdirSync(dirname(path), { recursive: true });
+    await sharp(source, { density: 72 * 12 })
+      .resize(size, size, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .png({ compressionLevel: 9 })
+      .toFile(path);
+    process.stdout.write(`${path.slice(ROOT.length + 1)} (${size} px)\n`);
+  }
+}

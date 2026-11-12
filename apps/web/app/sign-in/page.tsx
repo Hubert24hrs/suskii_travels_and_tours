@@ -20,10 +20,10 @@ export default async function SignInPage({
 }: {
   searchParams: Promise<{ next?: string | string[] }>;
 }) {
-  const { t } = await getI18n();
   const { next } = await searchParams;
+  // The card carries its own heading ("Welcome back", ADR-108).
   return (
-    <AuthPage heading={t('auth.signIn.heading')} intro={t('auth.signIn.intro')}>
+    <AuthPage>
       <SignInForm next={typeof next === 'string' ? next : null} />
     </AuthPage>
   );

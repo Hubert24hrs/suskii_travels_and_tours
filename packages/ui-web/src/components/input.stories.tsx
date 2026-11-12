@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Mail } from 'lucide-react';
+import { Eye, Mail } from 'lucide-react';
 
 import { Input } from './input';
 
@@ -17,6 +17,23 @@ export const WithIcon: Story = { args: { icon: <Mail className="size-5" /> } };
 export const WithHint: Story = { args: { hint: 'We send your e-ticket here.' } };
 export const WithError: Story = {
   args: { error: 'Enter a valid email address.', defaultValue: 'ada@' },
+};
+export const WithTrailing: Story = {
+  args: {
+    label: 'Password',
+    type: 'password',
+    placeholder: undefined,
+    defaultValue: 'a long passphrase',
+    trailing: (
+      <button
+        type="button"
+        aria-label="Show password"
+        className="inline-flex size-10 items-center justify-center rounded-md text-muted focus-visible:focus-ring"
+      >
+        <Eye aria-hidden="true" className="size-5" />
+      </button>
+    ),
+  },
 };
 export const HiddenLabel: Story = { args: { hideLabel: true } };
 export const Disabled: Story = { args: { disabled: true } };

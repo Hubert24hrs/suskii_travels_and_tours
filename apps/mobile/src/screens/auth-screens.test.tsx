@@ -1,11 +1,14 @@
 import { getMessages } from '@suskii/i18n';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { openBrowserAsync } from 'expo-web-browser';
 
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 
 import { biometrics } from '../lib/biometric';
+import { SECURE_KEYS } from '../lib/secure-storage';
+import { tripStore } from '../lib/trips';
 import { clearMfaHandOff, handOffMfa, mfaHandOff } from '../providers/auth';
 import { guestSession, json, mockApi, renderWithApp, USER_ID } from '../test/app';
 
@@ -32,6 +35,105 @@ const signedIn = {
     hasPassword: false,
   },
 };
+
+describe('SignInScreen: the card and "Remember me"', () => {
+  const login = () =>
+    mockApi({
+      'POST /v1/auth/login': () =>
+        json({ ...signedIn, user: { ...signedIn.user, email: 'ada@example.com' } }),
+    });
+
+  it('welcomes the traveller back, shows the password on request and links to a reset', async () => {
+    mockApi({});
+    await renderWithApp(<SignInScreen />);
+
+    expect(screen.getByRole('header', { name: m.auth.signIn.welcome })).toBeOnTheScreen();
+    expect(
+      screen.getByText(m.auth.signIn.welcomeBody.replace('{brand}', 'SUSKII T&T')),
+    ).toBeOnTheScreen();
+    // Google and Apple sit side by side, named in full for a screen reader.
+    expect(screen.getByLabelText(m.auth.social.google)).toBeOnTheScreen();
+    expect(screen.getByLabelText(m.auth.social.apple)).toBeOnTheScreen();
+
+    const password = screen.getByTestId('sign-in-password');
+    expect(password.props.secureTextEntry).toBe(true);
+    await fireEvent.press(screen.getByLabelText(m.auth.signIn.showPassword));
+    expect(screen.getByTestId('sign-in-password').props.secureTextEntry).toBe(false);
+    await fireEvent.press(screen.getByLabelText(m.auth.signIn.hidePassword));
+    expect(screen.getByTestId('sign-in-password').props.secureTextEntry).toBe(true);
+
+    // The reset link is emailed and opens on the website, so the request starts there.
+    await fireEvent.press(screen.getByTestId('sign-in-forgot'));
+    expect(openBrowserAsync).toHaveBeenCalledWith(expect.stringMatching(/\/forgot-password$/));
+
+    await fireEvent.press(screen.getByTestId('sign-in-to-register'));
+    expect(router.replace).toHaveBeenCalledWith('/register');
+  });
+
+  it('remembers the sign-in unless the box is unticked', async () => {
+    const { calls } = login();
+    const session = guestSession();
+    await renderWithApp(<SignInScreen />, session);
+
+    expect(screen.getByTestId('sign-in-remember').props.accessibilityState).toMatchObject({
+      checked: true,
+    });
+    expect(screen.queryByTestId('sign-in-remember-off')).toBeNull();
+    await fireEvent.changeText(screen.getByTestId('sign-in-email'), 'ada@example.com');
+    await fireEvent.changeText(
+      screen.getByTestId('sign-in-password'),
+      'a perfectly long passphrase',
+    );
+    await fireEvent.press(screen.getByTestId('sign-in-submit'));
+
+    await waitFor(() => expect(session.signedIn).toBe(true));
+    const sent = calls.find((request) => request.url.endsWith('/v1/auth/login'));
+    expect(await sent?.json()).toMatchObject({ remember: true });
+    expect(await SecureStore.getItemAsync(SECURE_KEYS.refreshToken)).toBe('refresh-token');
+  });
+
+  it('keeps a sign-in that is not remembered in memory only, and says what that means', async () => {
+    const { calls } = login();
+    const session = guestSession();
+    await session.clear();
+    await renderWithApp(<SignInScreen />, session);
+
+    await fireEvent.press(screen.getByTestId('sign-in-remember'));
+    expect(screen.getByTestId('sign-in-remember-off')).toHaveTextContent(m.mobile.auth.rememberOff);
+    await fireEvent.changeText(screen.getByTestId('sign-in-email'), 'ada@example.com');
+    await fireEvent.changeText(
+      screen.getByTestId('sign-in-password'),
+      'a perfectly long passphrase',
+    );
+    await fireEvent.press(screen.getByTestId('sign-in-submit'));
+
+    await waitFor(() => expect(session.signedIn).toBe(true));
+    const sent = calls.find((request) => request.url.endsWith('/v1/auth/login'));
+    expect(await sent?.json()).toMatchObject({ remember: false });
+    // The app can use the session, and nothing of it is written to the phone.
+    expect(session.accessToken()).toBe('access-token');
+    expect(await SecureStore.getItemAsync(SECURE_KEYS.refreshToken)).toBeNull();
+    expect(await SecureStore.getItemAsync(SECURE_KEYS.accessToken)).toBeNull();
+  });
+});
+
+describe('a sign-in that was not remembered, after the app was closed', () => {
+  it('clears what the account kept on the phone at the next start, as a sign-out would', async () => {
+    // The last run signed in without "Remember me" and the app was closed on it.
+    const before = guestSession();
+    await before.save(signedIn as Parameters<typeof before.save>[0], { remember: false });
+    const forget = jest.spyOn(tripStore, 'forgetAccount');
+
+    const next = guestSession();
+    await next.load();
+    mockApi({});
+    await renderWithApp(<SignInScreen />, next);
+
+    expect(next.signedIn).toBe(false);
+    await waitFor(() => expect(forget).toHaveBeenCalledTimes(1));
+    forget.mockRestore();
+  });
+});
 
 describe('SignInScreen with a phone code', () => {
   afterEach(() => {
@@ -66,6 +168,7 @@ describe('SignInScreen with a phone code', () => {
       phone: '+2348012345678',
       code: '123456',
       transport: 'token',
+      remember: true,
       referralCode: 'K7Q2MXRA',
     });
   });
@@ -129,6 +232,7 @@ describe('RegisterScreen', () => {
       email: 'ada@example.com',
       password: 'a perfectly long passphrase',
       transport: 'token',
+      remember: true,
     });
   });
 
@@ -221,6 +325,7 @@ describe('Google and Apple on the test server (mock provider)', () => {
       idToken: 'mock.id.token',
       nonce: 'n'.repeat(43),
       transport: 'token',
+      remember: true,
     });
   });
 
@@ -272,6 +377,7 @@ describe('Google and Apple on the test server (mock provider)', () => {
       mfaToken: 'mfa-token',
       code: '123456',
       transport: 'token',
+      remember: true,
     });
   });
 
@@ -290,7 +396,7 @@ describe('Google and Apple on the test server (mock provider)', () => {
     // Unknown is not off: Google and Apple show at once, with the email form below them.
     expect(screen.getByTestId('social-google')).toBeOnTheScreen();
     expect(screen.getByTestId('social-apple')).toBeOnTheScreen();
-    expect(screen.getByText(m.mobile.auth.orSignIn)).toBeOnTheScreen();
+    expect(screen.getByText(m.auth.social.orContinue)).toBeOnTheScreen();
     await waitFor(() => expect(asked).toBe(1));
 
     await fireEvent.press(screen.getByTestId('social-apple'));

@@ -59,6 +59,7 @@ export function SocialCallback() {
       idToken,
       nonce: pending.nonce,
       ...(pending.referralCode ? { referralCode: pending.referralCode } : {}),
+      ...(pending.remember === false ? { remember: false } : {}),
     }).then(
       ({ data }) => {
         if (!data) return fail();

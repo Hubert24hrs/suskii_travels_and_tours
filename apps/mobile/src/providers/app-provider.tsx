@@ -98,6 +98,10 @@ export function AppProvider({
   const api = useMemo(() => createAppApi(session, () => locale), [session, locale]);
   // Signed out by the API (revoked elsewhere): the account's data goes with the tokens.
   useEffect(() => session.onRevoked(() => forgetAccountData(queryClient)), [session, queryClient]);
+  // A sign-in without "Remember me" ended when the app closed (ADR-108): the same clearing.
+  useEffect(() => {
+    if (session.takeEndedWithApp()) forgetAccountData(queryClient);
+  }, [session, queryClient]);
   const user = useSyncExternalStore(
     (listener) => session.subscribe(listener),
     () => session.user,

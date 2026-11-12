@@ -11,6 +11,8 @@ export interface InputProps extends Omit<TextInputProps, 'style'> {
   /** Error message; announced and shown under the field. */
   error?: string | undefined;
   icon?: ReactNode;
+  /** A control inside the field at its end (show or hide a password), with its own name. */
+  trailing?: ReactNode;
   className?: string;
 }
 
@@ -19,6 +21,7 @@ export function Input({
   hint,
   error,
   icon,
+  trailing,
   className,
   onFocus,
   onBlur,
@@ -59,6 +62,7 @@ export function Input({
           }}
           {...props}
         />
+        {trailing}
       </View>
       {hint ? <Text className="font-body text-caption text-muted">{hint}</Text> : null}
       {error ? (

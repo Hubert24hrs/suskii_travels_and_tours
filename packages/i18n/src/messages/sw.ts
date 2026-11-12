@@ -1304,6 +1304,8 @@ export const sw: Messages = {
         'Kama barua pepe hii tayari ina akaunti, ingia kwa nenosiri lake badala yake.',
       orSignIn: 'au ingia kwa barua pepe au simu yako',
       orRegister: 'au jisajili kwa barua pepe yako',
+      rememberOff:
+        'Utatolewa kwenye akaunti ukifunga programu, na baada ya siku moja kwa vyovyote vile.',
       fingerprint: {
         signIn: 'Ingia kwa alama ya kidole',
         prompt: 'Ingia kwenye SUSKII T&T',
@@ -2517,6 +2519,18 @@ export const sw: Messages = {
       password: 'Nenosiri',
       submit: 'Ingia',
       forgot: 'Umesahau nenosiri lako?',
+      welcome: 'Karibu tena',
+      welcomeBody: 'Ingia ili kuendelea kwenye {brand}',
+      emailPlaceholder: 'wewe@mfano.com',
+      remember: 'Nikumbuke',
+      rememberOff:
+        'Utatolewa kwenye akaunti ukifunga kivinjari, na baada ya siku moja kwa vyovyote vile.',
+      showPassword: 'Onyesha nenosiri',
+      hidePassword: 'Ficha nenosiri',
+      newHere: 'Mgeni kwenye {brand}?',
+      createAccount: 'Fungua akaunti',
+      usePhone: 'Tumia namba yako ya simu badala yake',
+      useEmail: 'Tumia barua pepe yako badala yake',
       toRegister: 'Mgeni kwenye Suskii? Fungua akaunti',
       phone: 'Namba ya simu',
       phoneHint: 'Weka msimbo wa nchi, kwa mfano +234 801 234 5678.',
@@ -2567,6 +2581,9 @@ export const sw: Messages = {
       or: 'au',
       google: 'Endelea na Google',
       apple: 'Endelea na Apple',
+      orContinue: 'au endelea na',
+      googleShort: 'Google',
+      appleShort: 'Apple',
       failed: 'Kuingia huko hakukufanikiwa. Jaribu tena, au tumia barua pepe yako.',
       mockTitle: 'Chagua akaunti ya majaribio',
       mockIntro:

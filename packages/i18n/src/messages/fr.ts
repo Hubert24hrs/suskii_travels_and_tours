@@ -1306,6 +1306,8 @@ export const fr: Messages = {
         'Si cet e-mail a déjà un compte, connectez-vous plutôt avec son mot de passe.',
       orSignIn: 'ou connectez-vous avec votre e-mail ou votre téléphone',
       orRegister: 'ou inscrivez-vous avec votre e-mail',
+      rememberOff:
+        "Vous serez déconnecté à la fermeture de l'application, et au plus tard après un jour.",
       fingerprint: {
         signIn: 'Se connecter avec l’empreinte',
         prompt: 'Se connecter à SUSKII T&T',
@@ -2538,6 +2540,18 @@ export const fr: Messages = {
       password: 'Mot de passe',
       submit: 'Se connecter',
       forgot: 'Mot de passe oublié ?',
+      welcome: 'Bon retour',
+      welcomeBody: 'Connectez-vous pour continuer sur {brand}',
+      emailPlaceholder: 'vous@exemple.com',
+      remember: 'Se souvenir de moi',
+      rememberOff:
+        'Vous serez déconnecté à la fermeture du navigateur, et au plus tard après un jour.',
+      showPassword: 'Afficher le mot de passe',
+      hidePassword: 'Masquer le mot de passe',
+      newHere: 'Nouveau sur {brand} ?',
+      createAccount: 'Créer un compte',
+      usePhone: 'Utiliser plutôt votre numéro de mobile',
+      useEmail: 'Utiliser plutôt votre e-mail',
       toRegister: 'Nouveau sur Suskii ? Créez un compte',
       phone: 'Numéro de mobile',
       phoneHint: "Indiquez l'indicatif pays, par exemple +234 801 234 5678.",
@@ -2589,6 +2603,9 @@ export const fr: Messages = {
       or: 'ou',
       google: 'Continuer avec Google',
       apple: 'Continuer avec Apple',
+      orContinue: 'ou continuer avec',
+      googleShort: 'Google',
+      appleShort: 'Apple',
       failed: "Cette connexion n'a pas fonctionné. Réessayez ou utilisez votre e-mail.",
       mockTitle: 'Choisissez un compte de test',
       mockIntro:
