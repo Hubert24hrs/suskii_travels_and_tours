@@ -1,0 +1,178 @@
+# The backend on one Compute Engine VM (ADR-111): the release images of the API, the worker and
+# the agent service (Ask Suskii's own), with PostgreSQL, Redis and Caddy for HTTPS. The same
+# containers, settings and hardening as docker-compose.release.yml, which CI rehearses on every
+# change; here the keys come from Secret Manager and the data lives on the VM's data disk.
+#
+# Written to /opt/suskii on the VM from instance metadata and started by deploy.sh, which also
+# writes the env files: compose.env (names, no secret) and one file per container under
+# /run/suskii (memory only). Nothing but Caddy has a published port.
+name: suskii
+
+x-hardened: &hardened
+  restart: unless-stopped
+  read_only: true
+  tmpfs: [/tmp]
+  security_opt: ['no-new-privileges:true']
+  cap_drop: [ALL]
+  logging:
+    driver: json-file
+    options: { max-size: 20m, max-file: '3' }
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file: [/run/suskii/postgres.env]
+    environment:
+      POSTGRES_USER: suskii
+      POSTGRES_DB: suskii
+    volumes: ['/mnt/data/postgres:/var/lib/postgresql/data']
+    shm_size: 128m
+    mem_limit: 768m
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U suskii -d suskii']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  # Queues need every key kept: nothing is evicted, and writes are logged to the data disk.
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    env_file: [/run/suskii/redis.env]
+    command:
+      - sh
+      - -c
+      - exec redis-server --requirepass "$$REDIS_PASSWORD" --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
+    volumes: ['/mnt/data/redis:/data']
+    mem_limit: 384m
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" --no-auth-warning ping | grep -q PONG']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  # The database step of a release, once per deploy, before the new containers start: migrations
+  # and reference data as the schema owner, then the API's and the agent service's own roles.
+  migrate:
+    image: ${SUSKII_REGISTRY:?}/suskii-api-migrate:${SUSKII_TAG:?}
+    env_file: [/run/suskii/migrate.env]
+    environment:
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+    profiles: [release]
+
+  api:
+    <<: *hardened
+    image: ${SUSKII_REGISTRY:?}/suskii-api:${SUSKII_TAG:?}
+    env_file: [/run/suskii/api.env]
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: info
+      API_PORT: '8080'
+      OTEL_SERVICE_NAME: suskii-api
+      SENTRY_ENVIRONMENT: ${SUSKII_ENVIRONMENT:?}
+      COOKIE_SECURE: 'true'
+      # Caddy is the one proxy in front: the caller's address is the last one it adds.
+      TRUST_PROXY_HOPS: '1'
+      WEB_APP_URL: https://${SUSKII_WEB_HOST:?}
+      CORS_ORIGINS: https://${SUSKII_WEB_HOST:?},https://${SUSKII_ADMIN_HOST:?}
+      ADMIN_ORIGINS: https://${SUSKII_ADMIN_HOST:?}
+      ADMIN_IP_ALLOWLIST: ''
+      OPS_ALERT_EMAIL: ''
+      # One host, one private bridge network: nothing between the containers leaves the VM.
+      DATABASE_ALLOW_PLAINTEXT: 'true'
+      REDIS_ALLOW_PLAINTEXT: 'true'
+      AGENT_ALLOW_PLAINTEXT: 'true'
+      # Documents go to the project's bucket through its S3-compatible address (ADR-057).
+      OBJECT_STORAGE: s3
+      OBJECT_STORAGE_ENDPOINT: https://storage.googleapis.com
+      OBJECT_STORAGE_PATH_STYLE: 'true'
+      OBJECT_STORAGE_REGION: auto
+      OBJECT_STORAGE_BUCKET: ${SUSKII_DOCUMENTS_BUCKET:?}
+      # The stand-ins for every supplier, payment and message provider, until the owner connects
+      # real accounts: each is a setting here and a key in Secret Manager away.
+      ALLOW_MOCK_PROVIDERS: 'true'
+      FLIGHT_SUPPLIERS: mock
+      HOTEL_SUPPLIERS: mock
+      PAYMENT_PROVIDERS: mock
+      TAX_SELLER_COUNTRY: NG
+      EMAIL_PROVIDER: mock
+      PUSH_PROVIDER: mock
+      ANTIVIRUS_PROVIDER: mock
+      DEVICE_ATTESTATION: mock
+      LLM_PROVIDER: mock
+      AI_SEARCH_ENABLED: 'false'
+      SUPPORT_ASSISTANT_ENABLED: 'false'
+      # The assistant is its own container. The API never waits on it: with this off, or the
+      # container down, every search, booking and payment route answers as before.
+      AGENT_ENABLED: ${SUSKII_ASSISTANT_ENABLED:?}
+      AGENT_SERVICE: http
+      AGENT_URL: http://agent:4200
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    mem_limit: 1280m
+
+  worker:
+    <<: *hardened
+    image: ${SUSKII_REGISTRY:?}/suskii-worker:${SUSKII_TAG:?}
+    env_file: [/run/suskii/worker.env]
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: info
+      OTEL_SERVICE_NAME: suskii-worker
+      SENTRY_ENVIRONMENT: ${SUSKII_ENVIRONMENT:?}
+      WORKER_HEALTH_PORT: '4100'
+      REDIS_ALLOW_PLAINTEXT: 'true'
+      API_INTERNAL_URL: http://api:8080
+      API_INTERNAL_ALLOW_PLAINTEXT: 'true'
+    depends_on:
+      api:
+        condition: service_healthy
+    mem_limit: 512m
+
+  # Ask Suskii's own service (ADR-101). It holds its two tokens and its model key, nothing of
+  # the API's; it connects to PostgreSQL as its own role, which sees only the `agent` schema;
+  # and it has a ceiling on memory and processor time, so a busy assistant cannot starve the API.
+  agent:
+    <<: *hardened
+    image: ${SUSKII_REGISTRY:?}/suskii-agent:${SUSKII_TAG:?}
+    env_file: [/run/suskii/agent.env]
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: info
+      AGENT_PORT: '4200'
+      API_INTERNAL_URL: http://api:8080
+      API_INTERNAL_ALLOW_PLAINTEXT: 'true'
+      AGENT_DATABASE_ALLOW_PLAINTEXT: 'true'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    mem_limit: 512m
+    cpus: 0.75
+
+  # HTTPS for the API: a certificate from Let's Encrypt for the VM's name, kept on the data disk.
+  caddy:
+    image: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+    restart: unless-stopped
+    environment:
+      SUSKII_API_HOST: ${SUSKII_API_HOST:?}
+    ports: ['80:80', '443:443', '443:443/udp']
+    volumes:
+      - /opt/suskii/Caddyfile:/etc/caddy/Caddyfile:ro
+      - /mnt/data/caddy/data:/data
+      - /mnt/data/caddy/config:/config
+    depends_on: [api]
+    mem_limit: 128m
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    logging:
+      driver: json-file
+      options: { max-size: 20m, max-file: '3' }
