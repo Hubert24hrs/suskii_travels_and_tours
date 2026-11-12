@@ -32,6 +32,9 @@ export function metadataTokenSource({
   let pending: Promise<string> | null = null;
 
   const ask = async (): Promise<string> => {
+    // Reviewed: the metadata server answers only plain http, on a link-local address that never
+    // leaves the host, and the request refuses redirects (see TOKEN_URL).
+    // nosemgrep: typescript.react.security.react-insecure-request.react-insecure-request
     const response = await fetch(TOKEN_URL, {
       headers: { 'Metadata-Flavor': 'Google' },
       redirect: 'error',
