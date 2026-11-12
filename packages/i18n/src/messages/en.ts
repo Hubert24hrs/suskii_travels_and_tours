@@ -1134,10 +1134,17 @@ export const en = {
       clearFilters: 'Clear filters',
       noResults: 'Nothing matches this search. Try other dates, places or filters.',
     },
+    datePicker: {
+      chooseDate: 'Choose a date',
+      chooseDateTime: 'Choose a date and time',
+      chooseYear: 'Choose a year',
+      chooseMonth: 'Choose a month',
+      time: 'Time on the 24 hour clock',
+      hour: 'Hour',
+      minutes: 'Minutes',
+    },
     checkout: {
       title: 'Checkout',
-      dateHint: 'Year, month and day, as in 1990-04-21',
-      dateTimeHint: 'Date and local time on the 24 hour clock, as in 2026-12-01T14:30',
       payOnProvider: 'You pay on the payment provider’s secure page. We never see your card.',
       viewBooking: 'View booking',
       deviceCheckFailed: 'We could not verify this device. Update the app and try again.',
@@ -1297,8 +1304,6 @@ export const en = {
     cars: {
       title: 'Buses and cars',
       busTripTitle: 'Choose seats',
-      dateHint: 'Year, month and day, as in 2026-12-01',
-      dateTimeHint: 'Date and time on the 24 hour clock, as in 2026-12-01T10:00',
       searchAgain: 'Change search',
       rider: 'Who is riding',
       renter: 'Who is renting (as on the driving licence)',

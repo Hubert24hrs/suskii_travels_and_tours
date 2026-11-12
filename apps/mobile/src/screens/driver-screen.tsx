@@ -8,9 +8,11 @@ import { ScrollView, Text, View } from 'react-native';
 
 import { RequireAccount } from '../components/account/require-account';
 import { ChoiceChips } from '../components/booking/form-controls';
+import { DateField } from '../components/date-field';
 import { Loading, Notice } from '../components/states';
 import { problemSlug } from '../lib/api';
 import { ISO_DAY, kilometres } from '../lib/cars';
+import { birthDates, EXPIRY_YEARS, expiryDates } from '../lib/dates';
 import { pickDocument } from '../lib/visa-upload';
 import { useApp, useT } from '../providers/app-provider';
 
@@ -152,14 +154,12 @@ function DriverApply({ onApplied }: { onApplied: () => Promise<unknown> }) {
         autoCapitalize="words"
         autoComplete="name-family"
       />
-      <Input
+      <DateField
         testID="driver.dateOfBirth"
         label={t('mobile.cars.driver.dateOfBirth')}
-        hint={t('mobile.checkout.dateHint')}
         value={form.dateOfBirth}
-        onChangeText={(dateOfBirth) => set({ dateOfBirth })}
-        keyboardType="numbers-and-punctuation"
-        maxLength={10}
+        onChange={(dateOfBirth) => set({ dateOfBirth })}
+        {...birthDates()}
       />
       {cities.length > 0 ? (
         <ChoiceChips
@@ -191,14 +191,12 @@ function DriverApply({ onApplied }: { onApplied: () => Promise<unknown> }) {
         autoComplete="off"
         maxLength={30}
       />
-      <Input
+      <DateField
         testID="driver.licenceExpiresOn"
         label={t('mobile.cars.driver.licenceExpiresOn')}
-        hint={t('mobile.cars.dateHint')}
         value={form.licenceExpiresOn}
-        onChangeText={(licenceExpiresOn) => set({ licenceExpiresOn })}
-        keyboardType="numbers-and-punctuation"
-        maxLength={10}
+        onChange={(licenceExpiresOn) => set({ licenceExpiresOn })}
+        {...expiryDates(EXPIRY_YEARS.licence)}
       />
       <Alert message={error} />
       <Button testID="driver-apply-submit" fullWidth loading={busy} onPress={() => void submit()}>
@@ -331,14 +329,12 @@ function AddVehicle({ onAdded }: { onAdded: () => Promise<unknown> }) {
         keyboardType="number-pad"
         maxLength={1}
       />
-      <Input
+      <DateField
         testID="vehicle.insuranceExpiresOn"
         label={t('mobile.cars.driver.insuranceExpiresOn')}
-        hint={t('mobile.cars.dateHint')}
         value={form.insuranceExpiresOn}
-        onChangeText={(insuranceExpiresOn) => set({ insuranceExpiresOn })}
-        keyboardType="numbers-and-punctuation"
-        maxLength={10}
+        onChange={(insuranceExpiresOn) => set({ insuranceExpiresOn })}
+        {...expiryDates(EXPIRY_YEARS.insurance)}
       />
       <Alert message={error} />
       <Button testID="vehicle-add" variant="secondary" loading={busy} onPress={() => void submit()}>

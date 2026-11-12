@@ -22,6 +22,8 @@ export {
   type DateRangePickerLabels,
   type DateRangePickerProps,
 } from './components/date-range-picker';
+export { DatePicker, type DatePickerLabels, type DatePickerProps } from './components/date-picker';
+export type { DateFieldMode } from './calendar/date-value';
 export { DealCard, type DealCardProps } from './components/deal-card';
 export { DestinationCard, type DestinationCardProps } from './components/destination-card';
 export { FieldButton, type FieldButtonProps } from './components/field-button';

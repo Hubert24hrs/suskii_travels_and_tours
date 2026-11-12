@@ -1,7 +1,10 @@
 import type { Schemas } from '@suskii/api-client';
+import { addDays, RENTAL_MAX_DAYS } from '@suskii/shared';
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import { useApp } from '../providers/app-provider';
+
+import type { DateBounds } from './dates';
 
 export type CarsFeatures = Schemas['CarsFeatures'];
 
@@ -36,9 +39,52 @@ export const anyCarsProduct = (features: CarsFeatures | null): boolean =>
 /** Kilometres with one decimal for offers and summaries (metres in, rounded to 100 m). */
 export const kilometres = (metres: number): number => Math.round(metres / 100) / 10;
 
-/** A wall-clock date and time typed as YYYY-MM-DDTHH:mm. */
+/** A wall-clock date and time as the API takes it, YYYY-MM-DDTHH:mm. */
 export const LOCAL_DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 export const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** The time a rental's pickup and return take until another is chosen. */
+export const RENTAL_DEFAULT_TIME = '10:00';
+
+/**
+ * How far ahead a pickup can be: the API's default `RENTAL_MAX_ADVANCE_DAYS`. The API checks its
+ * own setting; the picker offers no day after this one.
+ */
+const RENTAL_ADVANCE_DAYS = 180;
+
+/**
+ * How far ahead a ride can be booked: the API's default `RIDE_SCHEDULE_MAX_DAYS`, the "7 days"
+ * its message names. The API checks its own setting.
+ */
+const RIDE_SCHEDULE_DAYS = 7;
+
+/**
+ * The days a rental's pickup and return can fall on, from `today` where the car is (ADR-114):
+ * a pickup within the API's horizon, a return from the pickup's day to the longest rental after
+ * the last pickup day. The API checks the period again (lead time, horizon, length).
+ */
+export function rentalDates(
+  today: string,
+  pickupAt: string,
+): { pickup: DateBounds; return: DateBounds } {
+  const lastPickup = addDays(today, RENTAL_ADVANCE_DAYS);
+  const lastReturn = addDays(lastPickup, RENTAL_MAX_DAYS);
+  const pickupDay = LOCAL_DATE_TIME.test(pickupAt) ? pickupAt.slice(0, 10) : today;
+  const firstReturn = pickupDay < today ? today : pickupDay > lastReturn ? lastReturn : pickupDay;
+  return {
+    pickup: { min: today, max: lastPickup },
+    return: { min: firstReturn, max: lastReturn },
+  };
+}
+
+/**
+ * The days a ride can be booked for. The time is the phone's wall time (the request sends the
+ * instant it names), so today is the phone's.
+ */
+export const rideDates = (today: string): DateBounds => ({
+  min: today,
+  max: addDays(today, RIDE_SCHEDULE_DAYS),
+});
 
 /** One value of a route parameter (Expo Router gives arrays for repeated keys). */
 export const routeParam = (value: string | string[] | undefined): string | undefined =>

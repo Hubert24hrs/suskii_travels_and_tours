@@ -5,7 +5,15 @@ import { getDocumentAsync } from 'expo-document-picker';
 import { File } from 'expo-file-system';
 
 import { openSecureCache, secureCache } from '../lib/cache';
-import { json, mockApi, offline, renderWithApp, signedInSession } from '../test/app';
+import {
+  chooseDate,
+  json,
+  mockApi,
+  offline,
+  pinClock,
+  renderWithApp,
+  signedInSession,
+} from '../test/app';
 import {
   carsFeatures,
   OFFER_ID,
@@ -37,6 +45,10 @@ const scanner = (
 ).__camera;
 
 describe('driver mode', () => {
+  // The licence and insurance dates below lie ahead of this day: pickers offer no day before today.
+  beforeEach(() => pinClock('2026-10-01T09:00:00Z'));
+  afterEach(() => jest.useRealTimers());
+
   it('sends an application, then shows what is still to do', async () => {
     let applied = false;
     const { calls } = mockApi({
@@ -51,11 +63,11 @@ describe('driver mode', () => {
 
     await fireEvent.changeText(await screen.findByTestId('driver.givenNames'), 'Chinedu');
     await fireEvent.changeText(screen.getByTestId('driver.surname'), 'Okeke');
-    await fireEvent.changeText(screen.getByTestId('driver.dateOfBirth'), '1990-04-12');
+    await chooseDate('driver.dateOfBirth', '1990-04-12');
     await fireEvent.press(await screen.findByTestId('driver.cityName-Lagos'));
     await fireEvent.changeText(screen.getByTestId('driver.nin'), '123 4567 8901');
     await fireEvent.changeText(screen.getByTestId('driver.licenceNumber'), 'lag12345ab67');
-    await fireEvent.changeText(screen.getByTestId('driver.licenceExpiresOn'), '2031-06-30');
+    await chooseDate('driver.licenceExpiresOn', '2031-06-30');
     await fireEvent.press(screen.getByTestId('driver-apply-submit'));
 
     expect(await screen.findByTestId('driver-progress')).toHaveTextContent(
@@ -156,7 +168,7 @@ describe('driver mode', () => {
     await fireEvent.changeText(screen.getByTestId('vehicle.year'), '2018');
     await fireEvent.changeText(screen.getByTestId('vehicle.colour'), 'Black');
     await fireEvent.changeText(screen.getByTestId('vehicle.plate'), 'kja-123-ab');
-    await fireEvent.changeText(screen.getByTestId('vehicle.insuranceExpiresOn'), '2030-12-31');
+    await chooseDate('vehicle.insuranceExpiresOn', '2030-12-31');
     await fireEvent.press(screen.getByTestId('vehicle-add'));
 
     expect(await screen.findByText('Black Toyota Camry (2018), KJA-123-AB')).toBeOnTheScreen();

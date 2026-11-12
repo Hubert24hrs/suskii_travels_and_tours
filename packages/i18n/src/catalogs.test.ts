@@ -86,6 +86,8 @@ const SAME_AS_ENGLISH: Record<string, ReadonlySet<string>> = {
     'Notifications',
     '{hours} h',
     'Halal',
+    // The minutes of a time (the date picker).
+    'Minutes',
   ]),
   sw: new Set(['Spa', 'GPS', 'Ask Suskii']),
   pt: new Set([
@@ -190,10 +192,8 @@ describe('translated catalogs', () => {
   });
 
   // The owner's house style (ADR-109): copy is written in plain words. English joins no two
-  // words with a hyphen, and no language uses a dash as punctuation. What stays is a format a
-  // field needs (a date typed as 2026-12-01) and the hyphens French and Portuguese spelling
-  // requires inside a word.
-  const FORMAT = /\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2})?/g;
+  // words with a hyphen, and no language uses a dash as punctuation. What stays is the hyphens
+  // French and Portuguese spelling requires inside a word.
   const textsOf = (leaf: Leaf): string[] =>
     typeof leaf === 'string' ? [leaf] : Object.values(leaf);
 
@@ -201,8 +201,17 @@ describe('translated catalogs', () => {
     const found: string[] = [];
     for (const [path, leaf] of leaves(getMessages(locale)))
       for (const text of textsOf(leaf))
-        if (/[\p{L}\p{N}}]-[\p{L}\p{N}{]/u.test(text.replace(FORMAT, '')))
-          found.push(`${path}: ${text}`);
+        if (/[\p{L}\p{N}}]-[\p{L}\p{N}{]/u.test(text)) found.push(`${path}: ${text}`);
+    expect(found).toEqual([]);
+  });
+
+  // Dates are chosen in pickers and shown in words (ADR-114): no string shows the form a
+  // machine reads, as a hint for typing one once did ("as in 2026-12-01T14:30").
+  it.each([...SUPPORTED_LOCALES])('%s shows no date in the form a machine reads', (locale) => {
+    const found: string[] = [];
+    for (const [path, leaf] of leaves(getMessages(locale)))
+      for (const text of textsOf(leaf))
+        if (/\d{4}-\d{2}-\d{2}/.test(text)) found.push(`${path}: ${text}`);
     expect(found).toEqual([]);
   });
 

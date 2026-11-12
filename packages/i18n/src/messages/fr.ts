@@ -1177,10 +1177,17 @@ export const fr: Messages = {
       clearFilters: 'Effacer les filtres',
       noResults: "Rien ne correspond à cette recherche. Essayez d'autres dates, lieux ou filtres.",
     },
+    datePicker: {
+      chooseDate: 'Choisissez une date',
+      chooseDateTime: 'Choisissez une date et une heure',
+      chooseYear: 'Choisissez une année',
+      chooseMonth: 'Choisissez un mois',
+      time: 'Heure, sur 24 heures',
+      hour: 'Heure',
+      minutes: 'Minutes',
+    },
     checkout: {
       title: 'Paiement',
-      dateHint: 'Année-mois-jour, par exemple 1990-04-21',
-      dateTimeHint: 'Date et heure locale sur 24 heures, par exemple 2026-12-01T14:30',
       payOnProvider:
         'Vous payez sur la page sécurisée du prestataire de paiement. Nous ne voyons jamais votre carte.',
       viewBooking: 'Voir la réservation',
@@ -1354,8 +1361,6 @@ export const fr: Messages = {
     cars: {
       title: 'Bus et voitures',
       busTripTitle: 'Choisir les places',
-      dateHint: 'Année-mois-jour, par exemple 2026-12-01',
-      dateTimeHint: 'Date et heure sur 24 heures, par exemple 2026-12-01T10:00',
       searchAgain: 'Modifier la recherche',
       rider: 'Qui voyage',
       renter: 'Qui loue (comme sur le permis de conduire)',

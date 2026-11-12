@@ -1,5 +1,6 @@
 import type { Schemas } from '@suskii/api-client';
 import { useFormatters } from '@suskii/i18n/react';
+import { earliestToday } from '@suskii/shared';
 import { Badge, Button, Card, Input } from '@suskii/ui-native';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
@@ -7,8 +8,15 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { Checkbox, ChoiceChips } from '../components/booking/form-controls';
+import { DateTimeField } from '../components/date-field';
 import { Loading, Notice } from '../components/states';
-import { driverAgeOf, LOCAL_DATE_TIME, routeParam } from '../lib/cars';
+import {
+  driverAgeOf,
+  LOCAL_DATE_TIME,
+  RENTAL_DEFAULT_TIME,
+  rentalDates,
+  routeParam,
+} from '../lib/cars';
 import { daysFromToday } from '../lib/dates';
 import { useApp, useT } from '../providers/app-provider';
 
@@ -142,8 +150,12 @@ export function RentalSearchScreen() {
   const { t } = useT();
   const params = useLocalSearchParams<{ city?: string; pickupAt?: string; returnAt?: string }>();
   const [prefill] = useState(() => prefilledSearch(params));
-  const [pickupAt, setPickupAt] = useState(() => prefill?.pickupAt ?? `${daysFromToday(5)}T10:00`);
-  const [returnAt, setReturnAt] = useState(() => prefill?.returnAt ?? `${daysFromToday(7)}T10:00`);
+  const [pickupAt, setPickupAt] = useState(
+    () => prefill?.pickupAt ?? `${daysFromToday(5)}T${RENTAL_DEFAULT_TIME}`,
+  );
+  const [returnAt, setReturnAt] = useState(
+    () => prefill?.returnAt ?? `${daysFromToday(7)}T${RENTAL_DEFAULT_TIME}`,
+  );
   const [category, setCategory] = useState<Category | 'any'>('any');
   const [transmission, setTransmission] = useState<Transmission | 'any'>('any');
   const [airport, setAirport] = useState(false);
@@ -177,6 +189,10 @@ export function RentalSearchScreen() {
     },
   });
 
+  // No car is chosen yet, so no place either: today on the earliest calendar on Earth closes no
+  // day that is still today where a car waits.
+  const dates = rentalDates(earliestToday(), pickupAt);
+
   const submit = () => {
     if (
       !LOCAL_DATE_TIME.test(pickupAt) ||
@@ -209,23 +225,21 @@ export function RentalSearchScreen() {
       <Stack.Screen options={{ title: t('cars.rentals.title') }} />
       <Text className="font-body text-body text-foreground">{t('cars.rentals.body')}</Text>
       <Card className="gap-4 p-4">
-        <Input
+        <DateTimeField
           testID="rental-pickup"
           label={t('cars.rentals.pickupAt')}
-          hint={t('mobile.cars.dateTimeHint')}
           value={pickupAt}
-          onChangeText={setPickupAt}
-          keyboardType="numbers-and-punctuation"
-          maxLength={16}
+          onChange={setPickupAt}
+          {...dates.pickup}
+          defaultTime={RENTAL_DEFAULT_TIME}
         />
-        <Input
+        <DateTimeField
           testID="rental-return"
           label={t('cars.rentals.returnAt')}
-          hint={t('mobile.cars.dateTimeHint')}
           value={returnAt}
-          onChangeText={setReturnAt}
-          keyboardType="numbers-and-punctuation"
-          maxLength={16}
+          onChange={setReturnAt}
+          {...dates.return}
+          defaultTime={RENTAL_DEFAULT_TIME}
         />
         <ChoiceChips
           testID="rental-category"

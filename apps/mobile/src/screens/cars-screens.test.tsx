@@ -7,7 +7,15 @@ import { Share } from 'react-native';
 
 import { openSecureCache, secureCache } from '../lib/cache';
 import { tripStore } from '../lib/trips';
-import { json, mockApi, offline, renderWithApp, signedInSession } from '../test/app';
+import {
+  chooseDate,
+  json,
+  mockApi,
+  offline,
+  pinClock,
+  renderWithApp,
+  signedInSession,
+} from '../test/app';
 import {
   BOOKING_ID,
   BUS_HOLD_ID,
@@ -365,6 +373,8 @@ describe('Cars on mobile', () => {
   });
 
   describe('rides', () => {
+    afterEach(() => jest.useRealTimers());
+
     it('asks a signed-out visitor to sign in first', async () => {
       mockApi({});
       await renderWithApp(<RideRequestScreen />);
@@ -391,6 +401,38 @@ describe('Cars on mobile', () => {
         dropoff: { label: 'Victoria Island', lat: 6.4281, lng: 3.4219 },
         scheduledFor: null,
         currency: 'NGN',
+      });
+    });
+
+    it('books a ride for later at a time on the 24 hour clock, from today to a week ahead', async () => {
+      pinClock('2026-11-01T09:00:00Z');
+      const { calls } = mockApi({
+        'GET /v1/rides/places': () => json(ridePlaces),
+        'POST /v1/inhouse-quotes': () => json(quoteCreated, 201),
+      });
+      await renderWithApp(<RideRequestScreen />, await signedInSession());
+
+      await choosePlaces();
+      await fireEvent.press(screen.getByRole('radio', { name: m.cars.rides.later }));
+      expect(screen.getByTestId('ride-at')).toHaveTextContent(m.mobile.datePicker.chooseDateTime);
+      await fireEvent.press(screen.getByTestId('ride-at'));
+      expect(
+        screen.getByRole('button', { name: m.search.datePicker.previousMonth }),
+      ).toBeDisabled();
+      expect(screen.getByTestId('ride-at-day-2026-11-01')).toBeEnabled();
+      expect(screen.getByTestId('ride-at-day-2026-11-08')).toBeEnabled();
+      expect(screen.getByTestId('ride-at-day-2026-11-09')).toBeDisabled();
+      await fireEvent.press(screen.getByTestId('ride-at-sheet-close'));
+
+      await chooseDate('ride-at', '2026-11-02T18:45');
+      expect(screen.getByTestId('ride-at')).toHaveTextContent('2 Nov 2026 18:45');
+      await fireEvent.press(screen.getByTestId('ride-quote'));
+
+      await waitFor(() => expect(router.push).toHaveBeenCalledWith(`/checkout/${QUOTE_ID}`));
+      const quote = calls.find((request) => request.url.endsWith('/v1/inhouse-quotes'));
+      // The phone's wall time as an instant, as when the time was typed.
+      expect(await quote?.json()).toMatchObject({
+        scheduledFor: new Date(2026, 10, 2, 18, 45).toISOString(),
       });
     });
 
@@ -534,6 +576,11 @@ describe('Cars on mobile', () => {
   });
 
   describe('car rental', () => {
+    // 10:00 in Lagos on 1 November: the periods below lie ahead, and pickers offer no day before
+    // today. The search form starts on the 6th to the 8th.
+    beforeEach(() => pinClock('2026-11-01T09:00:00Z'));
+    afterEach(() => jest.useRealTimers());
+
     it('searches free cars for the period and opens one with the same dates', async () => {
       const { calls } = mockApi({
         'GET /v1/rentals/vehicles': () =>
@@ -552,8 +599,10 @@ describe('Cars on mobile', () => {
           }),
       });
       await renderWithApp(<RentalSearchScreen />);
-      await fireEvent.changeText(screen.getByTestId('rental-pickup'), '2026-11-05T10:00');
-      await fireEvent.changeText(screen.getByTestId('rental-return'), '2026-11-07T10:00');
+      expect(screen.getByTestId('rental-pickup')).toHaveTextContent('6 Nov 2026 10:00');
+      await chooseDate('rental-pickup', '2026-11-05T10:00');
+      await chooseDate('rental-return', '2026-11-07T10:00');
+      expect(screen.getByTestId('rental-return')).toHaveTextContent('7 Nov 2026 10:00');
       await fireEvent.press(screen.getByTestId('rental-category-compact'));
       await fireEvent.press(screen.getByTestId('rental-search-submit'));
 
@@ -595,8 +644,8 @@ describe('Cars on mobile', () => {
           }),
       });
       await renderWithApp(<RentalSearchScreen />);
-      await fireEvent.changeText(screen.getByTestId('rental-pickup'), '2026-11-05T10:00');
-      await fireEvent.changeText(screen.getByTestId('rental-return'), '2026-11-15T10:00');
+      await chooseDate('rental-pickup', '2026-11-05T10:00');
+      await chooseDate('rental-return', '2026-11-15T10:00');
       await fireEvent.press(screen.getByTestId('rental-transmission-automatic'));
       await fireEvent.press(screen.getByTestId('rental-airport-only'));
       await fireEvent.changeText(screen.getByTestId('rental-driver-age'), '30');
@@ -621,11 +670,16 @@ describe('Cars on mobile', () => {
       );
     });
 
-    it('refuses a return before the pick-up without calling the API', async () => {
+    it('offers no return day before the pickup, and refuses an earlier time without calling the API', async () => {
       const { calls } = mockApi({});
       await renderWithApp(<RentalSearchScreen />);
-      await fireEvent.changeText(screen.getByTestId('rental-pickup'), '2026-11-07T10:00');
-      await fireEvent.changeText(screen.getByTestId('rental-return'), '2026-11-05T10:00');
+      await chooseDate('rental-pickup', '2026-11-07T10:00');
+      await fireEvent.press(screen.getByTestId('rental-return'));
+      expect(screen.getByTestId('rental-return-day-2026-11-06')).toBeDisabled();
+      expect(screen.getByTestId('rental-return-day-2026-11-07')).toBeEnabled();
+      await fireEvent.press(screen.getByTestId('rental-return-sheet-close'));
+
+      await chooseDate('rental-return', '2026-11-07T09:00');
       await fireEvent.press(screen.getByTestId('rental-search-submit'));
       expect(screen.getByRole('alert')).toHaveTextContent(m.cars.rentals.book.errors.period);
       expect(calls).toHaveLength(0);
@@ -643,7 +697,7 @@ describe('Cars on mobile', () => {
       });
       await renderWithApp(<RentalCarScreen />, await signedInSession());
 
-      expect(await screen.findByTestId('book-pickup')).toHaveDisplayValue('2026-11-05T10:00');
+      expect(await screen.findByTestId('book-pickup')).toHaveTextContent('5 Nov 2026 10:00');
       expect(screen.getByText(m.cars.rentals.detail.licenceNote)).toBeOnTheScreen();
       await fireEvent.press(screen.getByTestId('book-chauffeur'));
       await fireEvent.press(screen.getByTestId('book-rental'));
@@ -782,7 +836,7 @@ describe('Cars on mobile', () => {
       await renderWithApp(<TripScreen />, await signedInSession());
 
       await fireEvent.changeText(await screen.findByTestId('licence-number'), 'lag12345ab67');
-      await fireEvent.changeText(screen.getByTestId('licence-expiry'), '2029-03-31');
+      await chooseDate('licence-expiry', '2029-03-31');
       await fireEvent.press(screen.getByTestId('licence-save'));
       expect(await screen.findByTestId('licence-status')).toHaveTextContent(
         m.booking.cars.rental.licence.states.pending_upload,

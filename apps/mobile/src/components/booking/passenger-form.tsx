@@ -14,7 +14,9 @@ import {
 import { Card, Input } from '@suskii/ui-native';
 import { Text, View } from 'react-native';
 
+import { birthDates, EXPIRY_YEARS, expiryDates } from '../../lib/dates';
 import { useT } from '../../providers/app-provider';
+import { DateField } from '../date-field';
 
 import { ChoiceChips, CountryField } from './form-controls';
 
@@ -114,14 +116,12 @@ export function PassengerForm({
             {t('checkout.namePreview', { name: `${surname}/${given}`.toUpperCase() })}
           </Text>
         ) : null}
-        <Input
+        <DateField
           testID={`${prefix}.dateOfBirth`}
           label={t('checkout.fields.dateOfBirth')}
-          hint={t('mobile.checkout.dateHint')}
           value={passenger.dateOfBirth}
-          onChangeText={(dateOfBirth) => onChange({ dateOfBirth: dateOfBirth.trim() })}
-          keyboardType="numbers-and-punctuation"
-          maxLength={10}
+          onChange={(dateOfBirth) => onChange({ dateOfBirth })}
+          {...birthDates()}
           error={error('dateOfBirth')}
         />
         <CountryField
@@ -159,14 +159,12 @@ export function PassengerForm({
               onChange={(issuingCountry) => onChange({ issuingCountry })}
               error={error('issuingCountry')}
             />
-            <Input
+            <DateField
               testID={`${prefix}.passportExpiry`}
               label={t('checkout.fields.passportExpiry')}
-              hint={t('mobile.checkout.dateHint')}
               value={passenger.passportExpiry}
-              onChangeText={(passportExpiry) => onChange({ passportExpiry: passportExpiry.trim() })}
-              keyboardType="numbers-and-punctuation"
-              maxLength={10}
+              onChange={(passportExpiry) => onChange({ passportExpiry })}
+              {...expiryDates(EXPIRY_YEARS.passport)}
               error={error('passportExpiry') ?? issueText(t, warnings[`${prefix}.passportExpiry`])}
             />
           </>

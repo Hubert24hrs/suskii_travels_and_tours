@@ -8,6 +8,8 @@ export interface FieldButtonProps {
   value?: string | undefined;
   placeholder?: string | undefined;
   icon?: ReactNode;
+  /** Error message; shown under the field and announced, as `Input` does. */
+  error?: string | undefined;
   onPress: () => void;
   className?: string;
   testID?: string;
@@ -19,6 +21,7 @@ export function FieldButton({
   value,
   placeholder,
   icon,
+  error,
   onPress,
   className,
   testID,
@@ -36,8 +39,12 @@ export function FieldButton({
         testID={testID}
         accessibilityRole="button"
         accessibilityLabel={`${label}, ${value ?? placeholder ?? ''}`}
+        accessibilityHint={error}
         onPress={onPress}
-        className="h-12 flex-row items-center gap-3 rounded-md border border-border-strong bg-surface px-4 active:border-primary"
+        className={cn(
+          'h-12 flex-row items-center gap-3 rounded-md bg-surface px-4 active:border-primary',
+          error ? 'border-2 border-danger' : 'border border-border-strong',
+        )}
       >
         {icon}
         <Text
@@ -47,6 +54,11 @@ export function FieldButton({
           {value ?? placeholder}
         </Text>
       </Pressable>
+      {error ? (
+        <Text accessibilityLiveRegion="polite" className="font-body text-caption text-danger">
+          {error}
+        </Text>
+      ) : null}
     </View>
   );
 }
