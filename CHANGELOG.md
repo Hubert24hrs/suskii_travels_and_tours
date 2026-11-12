@@ -6,6 +6,51 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Ask Suskii answers with Gemini on Vertex AI, with no key (2026-11-12, ADR-112)
+
+The deployed assistant answered with the stand-in model until the owner created a Gemini key.
+It now calls Gemini on Vertex AI as the backend machine's own Google identity: no key exists.
+
+#### Added
+
+- **`AGENT_MODEL_PROVIDER=vertex`**: the Gemini adapter calls Vertex AI's `generateContent`
+  for `AGENT_VERTEX_PROJECT` in `AGENT_VERTEX_LOCATION` (London unless set), with a token of
+  the machine's identity from its metadata server (`metadataTokenSource()`: held in memory,
+  replaced five minutes before it ends, one request shared by concurrent calls).
+- **The machine**: `assistant_model` defaults to `vertex`; Terraform switches on Vertex AI and
+  gives the machine a role with one permission, calling a model
+  (`aiplatform.endpoints.predict`), only while that is the model. The deploy script no longer
+  asks for a Gemini key and retries its billing check.
+- **`infra/gcp/cloudbuild.agent-eval.yaml`**: the three agent evals against the model on Cloud
+  Build, as the build identity, with no key (about 2 US dollars a run at the list price).
+- **The staging machine's caps**: 2 US dollars a day in all, 1 per signed-in traveller and 20
+  cents per guest.
+- Vertex AI in the records of processing and the outbound hosts, with the metadata server.
+
+#### Fixed (found by the first runs against a real model)
+
+- **The evals tested a model that already knew the answer.** A real model resolves a place
+  before it searches and lists a traveller's bookings before it reads one; the cases answered
+  neither, so it apologised. The eval gateway now answers `catalog.places` from
+  `evals/places.json` (the catalog's own city ids), bookings cases answer `bookings.list`, the
+  past-date case names its year, and the two hand-off cases name the trip a model must find.
+- **Thinking ate the router's limit.** Gemini 3 counts its thoughts against `maxOutputTokens`:
+  the router's 128 tokens ran out before the answer on six cases in 98. The adapter adds room
+  for thinking above the limit the graph asks for.
+- **Markdown reached the traveller.** `plainAnswerText()` takes a draft to plain text before
+  the guard reads it, because the website, the app and WhatsApp draw text.
+- **The offer after a booking was held as the prompt read back.** The flights prompt listed the
+  rest of the trip in the words a traveller is asked them, so the guard (twelve words of the
+  instructions in a row) held Gemini's natural question and the traveller got a notice instead
+  of their prepared booking. The offers point at the tool's list now; flights, trip_builder and
+  bookings move to version 4.
+
+#### Changed
+
+- The Gemini defaults are `gemini-3.5-flash` for routing, answering and the fallback: Google
+  refused `gemini-2.5-flash` to the owner's new project, in London and globally. The API prices
+  it at the catalogue's list price (1.50 US dollars a million input tokens, 9 output).
+
 ### Fixed: the Ask Suskii button under the status bar on a translated build (2026-11-12)
 
 - The phone check of the first test APK with the button failed at its first step: the cross

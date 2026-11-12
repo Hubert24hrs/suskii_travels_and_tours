@@ -81,10 +81,10 @@ It prints what to do next. The console asks every admin to set up two step verif
 It is the right size for testing the app with real people. Before paying customers depend on
 it, move to the managed shape.
 
-The machine has 4 GB of memory and uses about 1.4 GB with everything running. A machine half
-the size (`e2-small`, 2 GB) would save about 15 US dollars a month and leave little room when
-traffic grows or a deploy runs. To change the size, run the deploy command below with
-`MACHINE_TYPE=e2-small` (or `e2-medium`) in front of it; the machine restarts once.
+**The machine's size stays as it is** (`e2-medium`, 4 GB). It uses about 1.4 GB with
+everything running, and a deploy needs room above that for a moment. Half the size (`e2-small`,
+2 GB) would save about 15 US dollars a month and run on its swap file. To change it anyway, run
+the deploy command below with `MACHINE_TYPE=e2-small` in front of it; the machine restarts once.
 
 ### Ask Suskii and the rest of the platform
 
@@ -93,16 +93,20 @@ and it has a ceiling on the memory and processor time it may use. If it is slow,
 down, searching, booking and paying carry on. A chat then ends with a short "unavailable"
 note.
 
-Until it has a model key it answers with a built-in stand-in.
+**It answers with Google's Gemini, and nothing was needed from you** (ADR-112). The machine
+calls Gemini on Google's Vertex AI as its own Google identity, so there is no key to create,
+paste or protect. The requests are processed in London, beside the machine.
 
-**To give it Google Gemini:**
-
-1. Create a key at <https://aistudio.google.com/apikey>.
-2. Open
-   <https://console.cloud.google.com/security/secret-manager/secret/LLM_API_KEY/versions?project=suskii-travels-staging>,
-   press **New version**, paste the key and save. This is the only place the key goes: not in
-   a chat, not in an email.
-3. Run the deploy command below with `ASSISTANT_MODEL=gemini` in front of it.
+- The model is **Gemini 3.5 Flash**. Google no longer gives Gemini 2.5 Flash to new projects:
+  it refused yours, in London and everywhere else, and gave 3.5 Flash, its current Flash model.
+- What it costs is capped on this machine: 2 US dollars a day in all, 1 dollar for one signed
+  in traveller and 20 cents for a guest. Past a cap, a new message is told the assistant has
+  reached today's limit, and the rest of the platform carries on.
+- Before a change to the assistant's prompts, tools or model reaches travellers, its three
+  evals run against the model, on Google Cloud, with no key. They passed on 2026-11-12 (routing
+  98 of 98, grounding 16 of 16 with nothing invented, safety 41 of 41). A run costs about 2 US
+  dollars; from Cloud Shell, in the repository:
+  `gcloud builds submit . --config=infra/gcp/cloudbuild.agent-eval.yaml --service-account=projects/suskii-travels-staging/serviceAccounts/suskii-build@suskii-travels-staging.iam.gserviceaccount.com`
 
 **To switch it off:** run the deploy command with `ASSISTANT_ENABLED=false` in front of it.
 The button disappears and new conversations are refused. Nothing else changes.
@@ -126,8 +130,10 @@ about 20 minutes and can be stopped and run again.
   The **SSH** button opens a terminal on it. `sudo docker ps` lists the containers and
   `sudo docker logs suskii-api-1` shows the API's log.
 - The backups: <https://console.cloud.google.com/storage/browser/suskii-travels-staging-backups>.
-- What it costs so far: <https://console.cloud.google.com/billing>. Set a budget alert there
-  for the project, at 50 US dollars a month.
+- What it costs so far: <https://console.cloud.google.com/billing>. **A budget alert is set**
+  for the project, `suskii-travels-staging-monthly`, at 50 US dollars a month: Google emails the
+  billing account's admins at half, 90% and all of it, and when the month's forecast passes it.
+  It warns and stops nothing. Change the amount under Budgets and alerts.
 
 ### Stop the costs
 
@@ -147,6 +153,10 @@ address still cost a few dollars a month. To remove everything, delete the proje
   <https://console.cloud.google.com/billing/linkedaccount?project=fast-delivery-d8d5c>.
 - Your `suskii-staging` and `suskii-prod` projects, which belong to your other Suskii app, were
   read and not changed.
+- In `suskii-travels-staging`, later the same day: the Vertex AI, Cloud Billing and Billing
+  Budgets services were switched on; a role with one permission, to call a Gemini model, was
+  made and given to the machine and to the identity that builds the images; and the budget
+  alert above was created on the "Suskii Errands" billing account, for this project only.
 
 ## The managed shape, for later
 

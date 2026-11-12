@@ -104,9 +104,10 @@ rehearsal, Terraform, the Helm chart and the release pipeline, a chat scenario i
 test, the security review, the guides and a cost estimate) are done
 (`docs/phases/ai-agent.md`). The website and the app offer the assistant only while
 `GET /v1/agent/status` says it is available. Nothing is deployed and Terraform is not applied.
-The vendor adapters wait for one run of `scrapers-sandbox.yml` with the owner's keys, and the
-agents for one run of `agent-eval.yml` with `LLM_API_KEY`: no eval has run against a model.
-Nothing of it runs in production until the owner sets `AGENT_ENABLED` and
+The vendor adapters wait for one run of `scrapers-sandbox.yml` with the owner's keys. The
+agents' three evals pass against Gemini 3.5 Flash on Vertex AI, run on Cloud Build with no key
+(ADR-112); a run from GitHub (`agent-eval.yml`) still needs `LLM_API_KEY`. Nothing of it runs
+in production until the owner sets `AGENT_ENABLED` and
 `PRICE_INTEL_ENABLED` and approves each web source.
 
 Owner's changes of 2026-11-12 (outside the numbered phases, ADR-108, `docs/phases/owner-changes-2026-11.md`):
@@ -121,14 +122,15 @@ phone model are needed if it happens again.
 
 Ask Suskii and plain copy (outside the numbered phases, ADR-109, the second part of the owner's
 changes of 2026-11-12): the assistant is named "Ask Suskii"; the agent service answers with
-Google's Gemini (`AGENT_MODEL_PROVIDER=gemini`, `gemini-2.5-flash` unless a model is named)
-beside the Anthropic adapter; one button leads to it and does not stay put (CSS only on the
+Google's Gemini beside the Anthropic adapter, through Vertex AI as the machine's own identity
+(`AGENT_MODEL_PROVIDER=vertex`, ADR-112) or with a key (`gemini`), and `gemini-3.5-flash`
+unless a model is named, because Google refused 2.5 Flash to the owner's new project; one button leads to it and does not stay put (CSS only on the
 website, a floating button in the app); three `propose` tools prepare a flight, a stay or a
 rental car as a quote and hand the traveller its checkout, and after a flight the assistant
 offers the rest of the trip once; `platform.guide` tells it how the platform works. No customer
-reads a hyphen or a dash. Built and tested on recorded answers; no eval has run against Gemini
-(it needs the owner's key as `GEMINI_API_KEY`), and Google serves the 2.5 models only to
-projects that have used them.
+reads a hyphen or a dash. Built and tested; the three evals pass against Gemini 3.5 Flash on
+Vertex AI (ADR-112), whose first runs fixed the eval cases, the thinking limit, Markdown in
+answers and the wording of the offer after a booking.
 
 The backend on Google Cloud (outside the numbered phases, ADR-110): the owner asked for the
 backend and the assistant's backend to be deployed on Google's services. Built:
@@ -144,8 +146,9 @@ one Compute Engine machine in London (project `suskii-travels-staging`) that run
 images of the API, the worker and the agent service in containers beside PostgreSQL, Redis
 and Caddy (`infra/gcp/vm/`), with keys in Secret Manager, data on a disk of its own and a
 nightly dump in a bucket. The API answers on `api.endpoints.suskii-travels-staging.cloud.goog`.
-It runs on the stand-ins for every provider; the assistant answers with the stand-in model
-until the owner puts a Gemini key in `LLM_API_KEY`. The website and the admin console run on
+It runs on the stand-ins for every provider but the assistant's model: Ask Suskii answers
+with Gemini 3.5 Flash on Vertex AI as the machine's own identity, with no key (ADR-112), under
+caps of 2 US dollars a day. The website and the admin console run on
 the same machine (`web.` and `admin.endpoints.suskii-travels-staging.cloud.goog`); the forms
 the website protects with Turnstile stay closed until the owner's widget exists. With
 `sample_catalogue` on (as it is there) the release and a nightly timer seed the sample
@@ -1277,6 +1280,25 @@ Tooling notes for agents:
   `config.ts`; a new model gets a price in the API's `DEFAULT_AGENT_MODEL_PRICES`. `MockAgentModel` replays scripted turns
   (`scripted()`), and unscripted says one fixed sentence (asked about the "status" it calls
   `platform.status` once).
+- Gemini on Vertex AI (ADR-112) is the Gemini adapter with a `vertex` target: its credential
+  comes only from `metadataTokenSource()` (the machine's own identity, a token held in memory),
+  never from a key, a file or a setting, and that identity holds only `suskiiModelCaller`
+  (`aiplatform.endpoints.predict`). The adapter adds room for thinking above the
+  `maxOutputTokens` the graph asks for (`THINKING_ROOM`): a Gemini 3 model counts its thoughts
+  against that limit, and the router's answer alone is a few tokens.
+- Answers are plain text: `plainAnswerText()` (`@suskii/shared`) takes Markdown out of a draft
+  before the guard reads it, because the website, the app and WhatsApp draw text. Never make a
+  client render Markdown from the assistant.
+- Instructions never hold a sentence a model would say (ADR-112): the guard holds an answer that
+  repeats `INSTRUCTION_LEAK_WORDS` (12) words of them in a row, so an offer a prompt asks for
+  names its parts briefly or points at the tool's own list (`alsoOffer`). `prompts.test.ts`
+  holds the questions a model wrote against each prompt that asks for one. Never lengthen the
+  run to let a prompt through.
+- An eval case answers every lookup a model makes on the way to what the case tests:
+  `catalog.places` comes from `evals/places.json` (the catalog's city ids) unless the case
+  answers it, a bookings case answers `bookings.list` with `bookings.get`, and a case about an
+  earlier search names the trip instead (the harness runs one turn). A fixture written for a
+  model that already knew an id tests nothing against a real one.
 - A run is for travellers or for staff (`context.audience`), never both: staff runs keep only
   staff agents, are routed by `STAFF_ROUTER_PROMPT` (never by the travellers' keyword rules in
   `pre-router.ts`) and fall back to the executive assistant. Staff agents work under
@@ -1284,7 +1306,8 @@ Tooling notes for agents:
 - A prompt is a versioned record (`src/prompts/prompts.ts`): change its text and its version
   together. A change to a prompt, a tool or a model keeps the three evals passing on recorded
   answers (`src/evals/*.test.ts`, fixtures in `evals/`) and is re-run against the model
-  (`agent-eval.yml`) before it answers travellers. A recorded answer that is wrong on purpose
+  before it answers travellers: `infra/gcp/cloudbuild.agent-eval.yaml` on Vertex AI with no
+  key (about 2 US dollars a run), or `agent-eval.yml` with a key. A recorded answer that is wrong on purpose
   stays wrong: the tests name them.
 - `apps/api/test/agent-service.e2e-spec.ts` starts this service from source (tsx) beside the
   API and runs the whole chain; it needs no build of this workspace.
@@ -1740,6 +1763,10 @@ Tooling notes for agents:
   outside production mode, with the API's keys, and Terraform refuses the setting in an
   environment named `production`. Never run the seed another way on a deployed database, and
   never switch rides on there (no demo drivers in production mode, ADR-056).
+- The assistant's model on the machine is the setting `assistant_model` (ADR-112): `vertex`,
+  the default, with no key (Terraform grants the machine `suskiiModelCaller` only then);
+  `gemini` or `anthropic` with a key in `LLM_API_KEY`; or `mock`. Its daily caps there are the
+  compose file's `AGENT_*_DAILY_MICROUSD`; production's come from the API's defaults.
 - Before a Terraform root is applied for the first time, plan it against the real project
   (`terraform plan` with a local backend override): `validate` cannot see a variable's
   validation that only a real value trips, and that is how the managed shape's ingress bug was
@@ -1896,6 +1923,7 @@ Tooling notes for agents:
 - [ADR-109: Ask Suskii: Gemini, one button that moves, bookings prepared for the traveller, and plain copy](docs/decisions/ADR-109-ask-suskii.md)
 - [ADR-110: The backend on Google Cloud before the domain and the edge exist](docs/decisions/ADR-110-backend-on-google-cloud-before-the-edge.md)
 - [ADR-111: The backend on one Compute Engine machine, the budget shape](docs/decisions/ADR-111-the-backend-on-one-machine.md)
+- [ADR-112: Ask Suskii on Gemini through Vertex AI, as the machine's own identity](docs/decisions/ADR-112-ask-suskii-on-vertex-ai.md)
 
 ## Open questions for the owner
 
@@ -2110,22 +2138,23 @@ assumes. Added with the sign-in card (ADR-108): the title of the Apple button be
 Store submission (Apple names the titles its button may carry; ours shows the mark and
 "Apple"); whether 24 hours is the right length for a sign-in that is not remembered; and, if
 the hotel form still ignores taps on the owner's phone with the new test app, the exact steps
-and the phone's model. Added with Ask Suskii (ADR-109): a Gemini API key on a project with
-billing (the repository secret `GEMINI_API_KEY`, and the agent service's `LLM_API_KEY` in Secret
-Manager), Google's terms for the API read with counsel (whether prompts may be used to improve
-its models on the owner's tier), one run of the Agent evals against Gemini, the model to name
-if `gemini-2.5-flash` is refused for a new project, whether the app's typed dates should become
+and the phone's model. Added with Ask Suskii (ADR-109): Google's terms for Gemini read with
+counsel (whether prompts may be used to improve its models), a Gemini API key only to run the
+Agent evals from GitHub (`GEMINI_API_KEY`), whether the app's typed dates should become
 date and time pickers (12 fields; today they are typed as `2026-12-01`), and whether the page
 addresses that hold a hyphen (`/travel-add-ons`) should change, which needs redirects. Added with the backend on Google Cloud (ADR-110): a Google Cloud project with
 billing and its id, one run of `scripts/gcp/deploy-backend.sh` in Cloud Shell, the four lines
 it prints, a budget alert on the project, and the domain with its Cloudflare zone when the
-website and the console should follow. Added with the backend on one machine (ADR-111): a
-Gemini key in the secret `LLM_API_KEY`, then one deploy with `ASSISTANT_MODEL=gemini`; a
-budget alert on `suskii-travels-staging`; whether `fast-delivery-d8d5c`, unlinked from billing
+website and the console should follow. Added with the backend on one machine (ADR-111):
+whether `fast-delivery-d8d5c`, unlinked from billing
 to make room, should get billing back (a freed place or a higher limit from Google); the
 owner's own domain for the API in place of Google's free name; a Turnstile widget for the
 website's name (its site key and secret), without which sign-up and guest checkout on the
-website stay closed; the first admin of the console; and when to move to the managed shape.
+website stay closed; the first admin of the console; and when to move to the managed shape. Added with Ask Suskii
+on Vertex AI (ADR-112): counsel's reading of Google's terms for Gemini on Vertex AI (where
+requests are processed and whether prompts are kept), a higher Vertex AI quota when the
+assistant gets busy (a new project's is small), and whether the staging caps (2 US dollars a
+day) and the budget alert (50 US dollars a month, which warns and stops nothing) are right.
 Every
 owner action is listed, step by step, in
 `docs/owner/launch-checklist.md`.
