@@ -12585,6 +12585,8 @@ export interface components {
              * @enum {string}
              */
             transport?: "cookie" | "token";
+            /** @default true */
+            remember?: boolean;
         };
         LogoutRequestInput: {
             refreshToken?: string;
@@ -12775,6 +12777,8 @@ export interface components {
              * @enum {string}
              */
             transport?: "cookie" | "token";
+            /** @default true */
+            remember?: boolean;
         };
         MockPayment: {
             reference: string;
@@ -13092,6 +13096,8 @@ export interface components {
              * @enum {string}
              */
             transport?: "cookie" | "token";
+            /** @default true */
+            remember?: boolean;
             referralCode?: string;
         };
         OwnReview: {
@@ -14936,6 +14942,8 @@ export interface components {
              * @enum {string}
              */
             transport?: "cookie" | "token";
+            /** @default true */
+            remember?: boolean;
             referralCode?: string;
         };
         SosResult: {

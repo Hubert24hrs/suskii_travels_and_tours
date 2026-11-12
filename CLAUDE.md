@@ -109,6 +109,16 @@ agents for one run of `agent-eval.yml` with `LLM_API_KEY`: no eval has run again
 Nothing of it runs in production until the owner sets `AGENT_ENABLED` and
 `PRICE_INTEL_ENABLED` and approves each web source.
 
+Owner's changes of 2026-11-12 (outside the numbered phases, ADR-108, `docs/phases/owner-changes-2026-11.md`):
+sign-in as one card on the website and in the app ("Welcome back", show password, a real
+"Remember me", Google and Apple side by side, fingerprint under Sign in); a search bar over the
+chips of the bus form's From and To and a ride's pick-up and drop-off; "Describe your trip"
+gone from both flight forms (the API route stays for older app builds); and two fixes behind
+the report that the hotel form stopped working after a search: seeded cities have the same id
+in every database, and the hotel form keeps what was typed when its tab is left. Built and
+tested; the emulator did not reproduce a form that ignores taps, so the owner's steps and
+phone model are needed if it happens again.
+
 Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
 hotel merging, affiliate partner offers with click and conversion tracking. Built; each partner
 needs the owner's account, then one run of `partner-sandbox.yml` (`docs/phases/partner-supply.md`). Own rides and the own fleet stay off
@@ -354,6 +364,15 @@ Tooling notes for agents:
 - Production refuses plaintext Postgres, Redis and worker-to-API hops unless the matching
   `*_ALLOW_PLAINTEXT` flag declares a private, otherwise encrypted path (ADR-038). Social sign-in
   needs a nonce from `POST /v1/auth/social/nonce`.
+- "Remember me" (ADR-108): every route that can finish a sign-in takes an optional `remember`
+  (true when left out) and passes it to `SessionService.start()`. Off, the session lasts
+  `UNREMEMBERED_SESSION_HOURS` at most and `setSessionCookies` sets cookies without a lifetime;
+  the choice lives on the session row (`remembered`), so a refresh keeps it. A new sign-in route
+  takes `remember` too, and nothing but `start()` decides a session's lifetime.
+- Seeded cities get their id from `stableCityId(countryCode, name)` (`catalog/reference-ids.ts`),
+  the same in every database: phones and browsers keep city ids. Never seed reference data that
+  a client keeps an id of with a random id, and never change that rule (ids already kept would
+  name nothing).
 - External providers sit behind abstract classes (`EmailProvider`, `SmsProvider`,
   `BreachedPasswordChecker`, `FxProvider`, `FlightSupplier`, `HotelSupplier`, `PaymentProvider`) with mock adapters for
   tests and local development. Production refuses mock adapters unless `ALLOW_MOCK_PROVIDERS=true`.
@@ -508,6 +527,11 @@ Tooling notes for agents:
 - Forms the API protects with Turnstile (sign-up, guest checkout, newsletter) render the widget
   on first focus (`useTurnstile`); without a site key they send a development token the API's mock
   accepts. The app sends a device attestation instead.
+- Sign in is one card (ADR-108, `SignInForm`): its own `h1`, the password's show and hide
+  button (`Input`'s `trailing`), "Remember me" beside "Forgot password?", then Google and Apple
+  side by side (`SocialSignIn`: the provider's mark from `/brand/providers`, a short visible
+  name, the full name as `aria-label`). Every call that can finish the sign-in sends the box as
+  `remember`, the provider redirect included (`PendingSocialSignIn.remember`).
 - Client components call the API with `browserApi()` (typed openapi-fetch, `lib/browser-api.ts`);
   documented headers such as `Idempotency-Key` go in `params.header`. Guest booking tokens live in
   session storage through `lib/booking-token.ts`.
@@ -548,6 +572,15 @@ Tooling notes for agents:
   give up after `READ_TIMEOUT_MS` (20 s) as a `NetworkError`, so screens fall back to saved
   copies; writes and uploads have no timeout (their Idempotency-Key covers a retry). The refresh is
   single flight (`SessionStore`) because the API revokes a session on refresh-token reuse.
+- "Remember me" (ADR-108): only a sign-in passes `remember` to `SessionStore.save()`; a refresh
+  never does and keeps what the sign-in chose. Unticked, nothing of the session is written to the
+  phone (tokens and profile stay in memory), and `takeEndedWithApp()` at the next start has
+  `AppProvider` clear the account's data as a sign-out would. `useAuth()`'s sign-in calls take
+  `remember` last and default to true; pass the screen's box to every one of them.
+- A choice among places we serve (bus cities, ride places) is `SearchableChips`: a search bar
+  (`{testID}-search`) that narrows the chips (`{testID}-{value}`); nothing typed is sent
+  anywhere (ADR-053). A Home search form keeps its values in memory when its tab is left (the
+  hotel form's `kept`), because Home shows one form at a time and takes the others down.
 - Secrets (tokens, guest booking tokens, cache key, App Attest key id) go in `secureStorage`
   (Keychain / Keystore, this device only). Personal data kept offline goes in `secureCache()`
   (AES-256 MMKV); `preferences` holds settings only. Never use AsyncStorage for either.
@@ -593,11 +626,12 @@ Tooling notes for agents:
 - Sheets are React Native modals (`Sheet` in ui-native); give pickers a `testID` (the field,
   `{testID}-sheet`, `{testID}-done`, days `{testID}-day-YYYY-MM-DD`, steppers
   `{testID}-{type}-add`).
-- Sign-in (ADR-067): registration signs straight in through `useAuth().register()`;
-  `SocialButtons` offers Google and Apple at the top of Sign in and Register (the mock on test
-  stacks, the system Apple sheet on iPhone, otherwise the website relay with a bound nonce). Only
-  the API's answer hides them; unknown shows both and a press asks again. Sign in always shows
-  the fingerprint button (a hint until it is set up); fingerprint sign-in keeps its device
+- Sign-in (ADR-067, ADR-108): registration signs straight in through `useAuth().register()`;
+  `SocialButtons` offers Google and Apple at the top of Register and, side by side under "or
+  continue with" (`layout="row"`), on the Sign in card (the mock on test stacks, the system
+  Apple sheet on iPhone, otherwise the website relay with a bound nonce). Only the API's answer
+  hides them; unknown shows both and a press asks again. Sign in always shows the fingerprint
+  button under Sign in (a hint until it is set up); fingerprint sign-in keeps its device
   credential only in `biometrics` (secure store behind the biometric prompt). Signing out keeps
   it; `forgetAccount()` (deletion) clears it.
 - Give interactive elements used by Maestro a stable `testID` (fields: the form path, such as
@@ -892,6 +926,9 @@ Tooling notes for agents:
 - "Continue your search" keeps the last hotel searches on the device only
   (`lib/recent-hotel-searches.ts` on both clients: checked again when read, dropped after
   check-in, cleared with the account's data in the app). Never send them to the API.
+- A search the API refuses with `unknown_city` (an id kept from another database, a retired
+  city) is not retried: the app drops that city's shortcuts (`recentHotelSearches.forgetCity`)
+  and says the place was not found, with the way back (ADR-108).
 - "Things to do" on a hotel page is `PartnerOffers` with the hotel's country and city (ADR-069);
   "Tonight in {city}" on the website's hotels page takes its instant from the browser's clock, so
   it renders there and sits under the destinations, where it moves nothing (ADR-075).
@@ -1475,9 +1512,10 @@ Tooling notes for agents:
 - Accuracy is measured by the 50-case eval, not assumed: a prompt, schema or model change must
   keep the e2e test at 50/50 (recorded answers) and be re-run against the model
   (`eval:natural-search`, `ai-eval.yml`) before it ships.
-- Both clients open the box from a button above the flight form; the website loads its code only
-  then (homepage budget). The button shows while `GET /v1/flights/natural-search` says the feature
-  is on, and hides when the API cannot say.
+- No client offers the box any more (ADR-108: the owner wants one assistant, Ask Suskii, in
+  its place). The routes stay for app builds already on phones, which show the button while
+  `GET /v1/flights/natural-search` says the feature is on; do not remove them or the eval
+  while such builds are in use.
 
 ### Accessibility (WCAG 2.2 AA, ADR-088)
 
@@ -1758,6 +1796,7 @@ Tooling notes for agents:
 - [ADR-105: The agent's data: conversations, memory, knowledge and retention](docs/decisions/ADR-105-agent-data-memory-and-knowledge.md)
 - [ADR-106: Agent models, prompts and evaluation](docs/decisions/ADR-106-agent-models-prompts-and-evaluation.md)
 - [ADR-107: What an agent may do: tool tiers, confirmations, approvals and autonomy](docs/decisions/ADR-107-agent-authority.md)
+- [ADR-108: The sign-in card, "Remember me", search bars over known places and stable city ids](docs/decisions/ADR-108-sign-in-card-and-remember-me.md)
 
 ## Open questions for the owner
 
@@ -1968,4 +2007,9 @@ people who may manage data sources, so a recipe proposal has an approver other t
 Google's current Cloud Run prices for London, which the cost estimate could not confirm
 (`docs/owner/assistant-cost-estimate.md`); each web-data vendor's plan and its monthly
 minimum; and the share of customers expected to use the assistant, which the estimate
-assumes. Every owner action is listed, step by step, in `docs/owner/launch-checklist.md`.
+assumes. Added with the sign-in card (ADR-108): the title of the Apple button before the App
+Store submission (Apple names the titles its button may carry; ours shows the mark and
+"Apple"); whether 24 hours is the right length for a sign-in that is not remembered; and, if
+the hotel form still ignores taps on the owner's phone with the new test app, the exact steps
+and the phone's model. Every owner action is listed, step by step, in
+`docs/owner/launch-checklist.md`.

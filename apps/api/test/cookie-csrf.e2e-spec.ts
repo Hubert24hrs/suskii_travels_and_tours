@@ -120,6 +120,56 @@ describe('auth: web cookie transport and CSRF (e2e)', () => {
     );
   });
 
+  it('without "Remember me", sets cookies that end with the browser and a session of a day', async () => {
+    // Remembered, as it always was: every cookie carries a lifetime.
+    const kept = await cookieLogin('kept@example.com');
+    for (const name of [AT, RT, CSRF]) {
+      expect(kept.cookies.get(name)?.attributes).toMatch(/Max-Age=\d+/);
+    }
+
+    await register(ctx, 'shared-pc@example.com');
+    const response = await ctx
+      .http()
+      .post('/v1/auth/login')
+      .send({
+        email: 'shared-pc@example.com',
+        password: 'correct horse battery staple',
+        transport: 'cookie',
+        remember: false,
+      })
+      .expect(200);
+    const cookies = parseSetCookies(response.headers['set-cookie']);
+    for (const name of [AT, RT, CSRF]) {
+      expect(cookies.get(name)?.value).toBeTruthy();
+      expect(cookies.get(name)?.attributes).not.toMatch(/Max-Age|Expires/i);
+    }
+    // The server ends it within a day, whether or not the browser was ever closed.
+    const session = await ctx.prisma.session.findUniqueOrThrow({
+      where: { id: response.body.sessionId as string },
+      include: { refreshTokens: true },
+    });
+    expect(session.remembered).toBe(false);
+    const day = 24 * 60 * 60_000;
+    expect(session.expiresAt.getTime() - session.createdAt.getTime()).toBeCloseTo(day, -4);
+    expect(session.refreshTokens[0]?.expiresAt.getTime()).toBeLessThanOrEqual(
+      session.expiresAt.getTime(),
+    );
+
+    // A refresh keeps the choice: the new cookies end with the browser too.
+    const refreshed = await ctx
+      .http()
+      .post('/v1/auth/refresh')
+      .set('Cookie', cookieHeader(cookies, [RT, CSRF]))
+      .set('X-CSRF-Token', response.body.csrfToken as string)
+      .send({})
+      .expect(200);
+    const rotated = parseSetCookies(refreshed.headers['set-cookie']);
+    for (const name of [AT, RT, CSRF]) {
+      expect(rotated.get(name)?.value).toBeTruthy();
+      expect(rotated.get(name)?.attributes).not.toMatch(/Max-Age|Expires/i);
+    }
+  });
+
   it('keeps the cookies when a refresh fails for an outage, not a dead session', async () => {
     const { body, cookies } = await cookieLogin('outage@example.com');
     const jar = cookieHeader(cookies, [RT, CSRF]);

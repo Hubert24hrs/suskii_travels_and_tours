@@ -52,6 +52,46 @@ describe('SessionStore', () => {
     expect(next.user?.email).toBe('ada@example.com');
   });
 
+  it('keeps a session that is not remembered in memory only, across a refresh too', async () => {
+    const store = new SessionStore(() => Promise.resolve(session('access-2', 'refresh-2')));
+    // An earlier, remembered sign-in on this phone: its stored tokens must not outlive this one.
+    await store.save(session('access-0', 'refresh-0'));
+    await store.save(session('access-1', 'refresh-1'), { remember: false });
+
+    expect(store.signedIn).toBe(true);
+    expect(store.accessToken()).toBe('access-1');
+    expect(await SecureStore.getItemAsync(SECURE_KEYS.accessToken)).toBeNull();
+    expect(await SecureStore.getItemAsync(SECURE_KEYS.refreshToken)).toBeNull();
+
+    // A refresh says nothing about remembering: it keeps what the sign-in chose.
+    expect(await store.refresh()).toBe('access-2');
+    expect(store.refreshToken()).toBe('refresh-2');
+    expect(await SecureStore.getItemAsync(SECURE_KEYS.refreshToken)).toBeNull();
+  });
+
+  it('finds, at the next start, that a session ended with the app, once', async () => {
+    const before = new SessionStore(() => Promise.resolve('unavailable'));
+    await before.save(session('access-1', 'refresh-1'), { remember: false });
+
+    // The app was closed: the next start has no session, and knows one ended that way.
+    const next = new SessionStore(() => Promise.resolve('unavailable'));
+    await next.load();
+    expect(next.signedIn).toBe(false);
+    expect(next.user).toBeNull();
+    expect(next.takeEndedWithApp()).toBe(true);
+    expect(next.takeEndedWithApp()).toBe(false);
+
+    // A start after that finds nothing to clear, and neither does one after a sign-out.
+    const later = new SessionStore(() => Promise.resolve('unavailable'));
+    await later.load();
+    expect(later.takeEndedWithApp()).toBe(false);
+    await later.save(session('access-3', 'refresh-3'), { remember: false });
+    await later.clear();
+    const afterSignOut = new SessionStore(() => Promise.resolve('unavailable'));
+    await afterSignOut.load();
+    expect(afterSignOut.takeEndedWithApp()).toBe(false);
+  });
+
   it('rotates the refresh token once for parallel callers', async () => {
     const answer = deferred<RefreshOutcome>();
     const refreshCall = jest.fn(() => answer.promise);

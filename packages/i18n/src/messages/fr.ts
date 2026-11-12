@@ -242,34 +242,6 @@ export const fr: Messages = {
       groupLink: '10 voyageurs ou plus ? Demandez un tarif de groupe',
       submit: 'Rechercher des vols',
     },
-    describe: {
-      open: 'Décrivez plutôt votre voyage',
-      label: 'Décrivez votre voyage',
-      placeholder:
-        'Par exemple : Lagos à Londres vendredi prochain, 2 adultes, retour une semaine plus tard',
-      submit: 'Remplir le formulaire',
-      working: 'Lecture de votre voyage',
-      privacy:
-        "N'indiquez ni noms, ni numéros, ni autres données personnelles. Nous envoyons le texte à notre prestataire d'IA pour remplir le formulaire et ne le conservons pas.",
-      tooShort: 'Décrivez votre voyage en quelques mots',
-      filled:
-        'Nous avons rempli le formulaire à partir de votre description. Vérifiez-le, puis lancez la recherche.',
-      missing: 'Ajoutez ce que nous n’avons pas pu déterminer : {fields}.',
-      month: 'Vous avez indiqué {month} : choisissez une date dans ce mois.',
-      fields: {
-        origin: "l'aéroport de départ",
-        destination: 'la destination',
-        departureDate: 'la date de départ',
-        returnDate: 'la date de retour',
-        legs: 'les vols',
-      },
-      notUnderstood:
-        "Nous n'avons pas pu en faire une recherche de vol. Indiquez d'où vous partez et où vous allez, ou utilisez le formulaire ci-dessous.",
-      overLimit:
-        "Vous avez décrit beaucoup de voyages aujourd'hui. Utilisez plutôt le formulaire ci-dessous.",
-      unavailable:
-        'La description de voyage n’est pas disponible pour le moment. Utilisez plutôt le formulaire ci-dessous.',
-    },
     hotels: {
       destination: 'Destination',
       destinationPlaceholder: 'Où allez-vous ?',
@@ -869,6 +841,7 @@ export const fr: Messages = {
       none: 'Aucun hôtel trouvé à ces dates. Essayez d’autres dates ou une ville proche.',
       loadMore: "Afficher plus d'hôtels",
       seeRooms: 'Voir les chambres',
+      placeGone: 'Nous ne trouvons plus ce lieu. Recherchez-le à nouveau.',
       seeRoomsLabel: 'Voir les chambres de {hotel}',
       stars: { one: 'Hôtel {count} étoile', other: 'Hôtel {count} étoiles' },
       review: { one: '{score}/10 sur {count} avis', other: '{score}/10 sur {count} avis' },
@@ -1333,6 +1306,8 @@ export const fr: Messages = {
         'Si cet e-mail a déjà un compte, connectez-vous plutôt avec son mot de passe.',
       orSignIn: 'ou connectez-vous avec votre e-mail ou votre téléphone',
       orRegister: 'ou inscrivez-vous avec votre e-mail',
+      rememberOff:
+        "Vous serez déconnecté à la fermeture de l'application, et au plus tard après un jour.",
       fingerprint: {
         signIn: 'Se connecter avec l’empreinte',
         prompt: 'Se connecter à SUSKII T&T',
@@ -1696,6 +1671,8 @@ export const fr: Messages = {
       date: 'Date',
       seats: 'Places',
       anyCity: 'Choisir une ville',
+      typeCity: 'Saisir une ville',
+      noCityMatch: "Aucune ville ne correspond à votre saisie. Vérifiez l'orthographe.",
       search: 'Rechercher des bus',
       noCities: "Aucune ligne de bus n'est encore ouverte. Revenez bientôt.",
       results: { one: '{count} départ', other: '{count} départs' },
@@ -1771,6 +1748,8 @@ export const fr: Messages = {
       quote: 'Voir le prix',
       quoting: 'Calcul du prix',
       noPlaces: 'Les courses ne sont pas encore disponibles dans cette ville.',
+      typePlace: 'Saisir un lieu',
+      noPlaceMatch: "Aucun lieu ne correspond à votre saisie. Vérifiez l'orthographe.",
       errors: {
         samePlace: 'La prise en charge et la dépose doivent être différentes.',
         outsideArea: 'Ce trajet est hors de la zone desservie.',
@@ -2561,6 +2540,18 @@ export const fr: Messages = {
       password: 'Mot de passe',
       submit: 'Se connecter',
       forgot: 'Mot de passe oublié ?',
+      welcome: 'Bon retour',
+      welcomeBody: 'Connectez-vous pour continuer sur {brand}',
+      emailPlaceholder: 'vous@exemple.com',
+      remember: 'Se souvenir de moi',
+      rememberOff:
+        'Vous serez déconnecté à la fermeture du navigateur, et au plus tard après un jour.',
+      showPassword: 'Afficher le mot de passe',
+      hidePassword: 'Masquer le mot de passe',
+      newHere: 'Nouveau sur {brand} ?',
+      createAccount: 'Créer un compte',
+      usePhone: 'Utiliser plutôt votre numéro de mobile',
+      useEmail: 'Utiliser plutôt votre e-mail',
       toRegister: 'Nouveau sur Suskii ? Créez un compte',
       phone: 'Numéro de mobile',
       phoneHint: "Indiquez l'indicatif pays, par exemple +234 801 234 5678.",
@@ -2612,6 +2603,9 @@ export const fr: Messages = {
       or: 'ou',
       google: 'Continuer avec Google',
       apple: 'Continuer avec Apple',
+      orContinue: 'ou continuer avec',
+      googleShort: 'Google',
+      appleShort: 'Apple',
       failed: "Cette connexion n'a pas fonctionné. Réessayez ou utilisez votre e-mail.",
       mockTitle: 'Choisissez un compte de test',
       mockIntro:

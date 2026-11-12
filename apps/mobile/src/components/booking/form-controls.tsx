@@ -1,7 +1,7 @@
 import { color } from '@suskii/design-tokens';
-import { Combobox, iconSize } from '@suskii/ui-native';
+import { Combobox, Input, iconColor, iconSize } from '@suskii/ui-native';
 import { useQuery } from '@tanstack/react-query';
-import { Check } from 'lucide-react-native';
+import { Check, Search } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
@@ -51,6 +51,62 @@ export function Checkbox({
   );
 }
 
+interface ChipOption<T extends string> {
+  value: T;
+  label: string;
+}
+
+/** The chips of a single choice: a radio group named by `label` (`{testID}-{value}`). */
+function Chips<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+  testID,
+}: {
+  label: string;
+  options: readonly ChipOption<T>[];
+  value: T | '';
+  onChange: (value: T) => void;
+  testID?: string | undefined;
+}) {
+  return (
+    <View
+      accessibilityRole="radiogroup"
+      accessibilityLabel={label}
+      className="flex-row flex-wrap gap-2"
+    >
+      {options.map((option) => {
+        const checked = option.value === value;
+        return (
+          <Pressable
+            key={option.value}
+            testID={testID ? `${testID}-${option.value}` : undefined}
+            accessibilityRole="radio"
+            accessibilityState={{ checked }}
+            onPress={() => onChange(option.value)}
+            className={
+              checked
+                ? 'min-h-12 justify-center rounded-pill bg-primary px-4'
+                : 'min-h-12 justify-center rounded-pill border border-border-strong px-4'
+            }
+          >
+            <Text
+              className={
+                checked
+                  ? 'font-body-bold text-body-sm text-on-primary'
+                  : 'font-body text-body-sm text-foreground'
+              }
+            >
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 /** Single choice among a few options (title, gender), as a row of chips (`{testID}-{value}`). */
 export function ChoiceChips<T extends string>({
   label,
@@ -61,7 +117,7 @@ export function ChoiceChips<T extends string>({
   testID,
 }: {
   label: string;
-  options: readonly { value: T; label: string }[];
+  options: readonly ChipOption<T>[];
   value: T | '';
   onChange: (value: T) => void;
   error?: string | undefined;
@@ -70,40 +126,96 @@ export function ChoiceChips<T extends string>({
   return (
     <View className="gap-1">
       <Text className="font-body-medium text-body-sm text-foreground">{label}</Text>
-      <View
-        accessibilityRole="radiogroup"
-        accessibilityLabel={label}
-        className="flex-row flex-wrap gap-2"
-      >
-        {options.map((option) => {
-          const checked = option.value === value;
-          return (
-            <Pressable
-              key={option.value}
-              testID={testID ? `${testID}-${option.value}` : undefined}
-              accessibilityRole="radio"
-              accessibilityState={{ checked }}
-              onPress={() => onChange(option.value)}
-              className={
-                checked
-                  ? 'min-h-12 justify-center rounded-pill bg-primary px-4'
-                  : 'min-h-12 justify-center rounded-pill border border-border-strong px-4'
-              }
-            >
-              <Text
-                className={
-                  checked
-                    ? 'font-body-bold text-body-sm text-on-primary'
-                    : 'font-body text-body-sm text-foreground'
-                }
-              >
-                {option.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <Chips label={label} options={options} value={value} onChange={onChange} testID={testID} />
       {error ? <Text className="font-body text-caption text-danger">{error}</Text> : null}
+    </View>
+  );
+}
+
+/** "Abéòkúta " and "abeokuta" are the same place to someone typing on a phone. */
+const searchKey = (text: string): string =>
+  text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/**
+ * A choice among known places (bus cities, ride pick-up points) with a search bar over the
+ * chips: typing narrows the chips, a name typed in full chooses it, and a chip fills the bar.
+ * The list stays the places we serve: nothing typed is looked up anywhere (ADR-053). The bar is
+ * `{testID}-search`; the chips keep `{testID}-{value}`.
+ */
+export function SearchableChips<T extends string>({
+  label,
+  placeholder,
+  emptyLabel,
+  options,
+  value,
+  onChange,
+  testID,
+}: {
+  label: string;
+  placeholder: string;
+  /** Shown when nothing matches what was typed. */
+  emptyLabel: string;
+  options: readonly ChipOption<T>[];
+  value: T | '';
+  onChange: (value: T | '') => void;
+  testID?: string;
+}) {
+  // What was typed; null while the bar shows the chosen place's own name.
+  const [typed, setTyped] = useState<string | null>(null);
+  const chosen = options.find((option) => option.value === value);
+  const text = typed ?? chosen?.label ?? '';
+  const needle = searchKey(text);
+  const shown =
+    needle.length === 0 || (chosen && searchKey(chosen.label) === needle)
+      ? options
+      : options.filter((option) => searchKey(option.label).includes(needle));
+
+  const type = (next: string) => {
+    setTyped(next);
+    const key = searchKey(next);
+    const exact = key.length > 0 ? options.find((option) => searchKey(option.label) === key) : null;
+    if (exact) onChange(exact.value);
+    else if (value !== '') onChange('');
+  };
+  const choose = (next: T) => {
+    setTyped(null);
+    onChange(next);
+  };
+
+  return (
+    <View className="gap-2">
+      <Input
+        testID={testID ? `${testID}-search` : undefined}
+        label={label}
+        placeholder={placeholder}
+        value={text}
+        onChangeText={type}
+        // The keyboard's own button takes the only place left, as a tap on its chip would.
+        onSubmitEditing={() => {
+          const only = shown.length === 1 ? shown[0] : undefined;
+          if (only) choose(only.value);
+        }}
+        autoCorrect={false}
+        autoCapitalize="words"
+        returnKeyType="search"
+        icon={<Search color={iconColor.muted} size={iconSize.md} />}
+      />
+      {shown.length === 0 ? (
+        <Text
+          testID={testID ? `${testID}-empty` : undefined}
+          accessibilityLiveRegion="polite"
+          className="font-body text-body-sm text-muted"
+        >
+          {emptyLabel}
+        </Text>
+      ) : (
+        <Chips label={label} options={shown} value={value} onChange={choose} testID={testID} />
+      )}
     </View>
   );
 }

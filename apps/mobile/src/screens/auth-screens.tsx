@@ -1,12 +1,25 @@
 import type { Schemas } from '@suskii/api-client';
-import { normalisePhone, parseReferralCode, phoneSchema } from '@suskii/shared';
-import { Button, Input } from '@suskii/ui-native';
+import { BRAND, normalisePhone, parseReferralCode, phoneSchema } from '@suskii/shared';
+import { Button, Card, Input, iconColor, iconSize } from '@suskii/ui-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { openBrowserAsync } from 'expo-web-browser';
+import { Eye, EyeOff, Fingerprint } from 'lucide-react-native';
 import { useEffect, useState, type ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, Text } from 'react-native';
+import {
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 
+import logo from '../../assets/logo.png';
 import { FingerprintOffer } from '../components/auth/fingerprint-offer';
 import { SocialButtons } from '../components/auth/social-buttons';
+import { Checkbox } from '../components/booking/form-controls';
+import { appConfig } from '../config';
 import { biometrics } from '../lib/biometric';
 import { useT } from '../providers/app-provider';
 import {
@@ -97,6 +110,9 @@ export function SignInScreen() {
   const [codeSentTo, setCodeSentTo] = useState<string | null>(null);
   const [code, setCode] = useState('');
   const [mfaCode, setMfaCode] = useState('');
+  // "Remember me" (ADR-108): on unless unticked; off, the session ends when the app closes.
+  const [remember, setRemember] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
   // A second factor started on Register (by password, Google or Apple) continues here.
   const [challenge, setChallenge] = useState<Schemas['MfaChallenge'] | null>(mfaHandOff);
   useEffect(clearMfaHandOff, []);
@@ -148,9 +164,10 @@ export function SignInScreen() {
 
   const submit = () =>
     run(async () => {
-      if (challenge) finish(await verifyMfa(challenge.mfaToken, mfaCode.trim()));
-      else if (method === 'password') finish(await signIn(email.trim(), password));
-      else if (codeSentTo) finish(await verifyCode(codeSentTo, code.trim(), referral || undefined));
+      if (challenge) finish(await verifyMfa(challenge.mfaToken, mfaCode.trim(), remember));
+      else if (method === 'password') finish(await signIn(email.trim(), password, remember));
+      else if (codeSentTo)
+        finish(await verifyCode(codeSentTo, code.trim(), referral || undefined, remember));
     });
 
   const withFingerprint = () =>
@@ -162,7 +179,7 @@ export function SignInScreen() {
         );
         return;
       }
-      const outcome = await fingerprintSignIn(t('mobile.auth.fingerprint.prompt'));
+      const outcome = await fingerprintSignIn(t('mobile.auth.fingerprint.prompt'), remember);
       if (outcome.status === 'cancelled') return;
       if (outcome.status === 'expired') {
         setError(t('mobile.auth.fingerprint.expired'));
@@ -214,116 +231,215 @@ export function SignInScreen() {
     );
   }
 
+  const rememberRow = (
+    <View className="gap-1">
+      <View className="flex-row items-center justify-between gap-3">
+        <View className="flex-1">
+          <Checkbox
+            testID="sign-in-remember"
+            label={t('auth.signIn.remember')}
+            checked={remember}
+            onChange={setRemember}
+          />
+        </View>
+        {method === 'password' ? (
+          <Pressable
+            testID="sign-in-forgot"
+            accessibilityRole="link"
+            // The reset link is emailed and opens on the website, so the request starts there too.
+            onPress={() => void openBrowserAsync(`${appConfig.webBaseUrl}/forgot-password`)}
+            className="min-h-12 justify-center"
+          >
+            <Text className="font-body-medium text-body-sm text-primary">
+              {t('auth.signIn.forgot')}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+      {remember ? null : (
+        <Text
+          testID="sign-in-remember-off"
+          accessibilityLiveRegion="polite"
+          className="font-body text-caption text-muted"
+        >
+          {t('mobile.auth.rememberOff')}
+        </Text>
+      )}
+    </View>
+  );
+
   return (
     <Form>
-      <Button
-        testID="sign-in-fingerprint"
-        variant={fingerprint ? 'primary' : 'secondary'}
-        fullWidth
-        loading={busy && fingerprint}
-        onPress={() => void withFingerprint()}
-      >
-        {t('mobile.auth.fingerprint.signIn')}
-      </Button>
-      {fingerprintHint ? (
-        <Text
-          testID="fingerprint-hint"
-          accessibilityLiveRegion="polite"
-          className="font-body text-body-sm text-foreground"
+      <Card className="gap-5 p-6">
+        <View className="gap-4">
+          {/* Decorative: the line under the heading names the brand. */}
+          <Image
+            source={logo}
+            accessibilityIgnoresInvertColors
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+            className="size-12 rounded-md"
+          />
+          <View className="gap-1">
+            <Text
+              accessibilityRole="header"
+              className="font-heading-extrabold text-h2 text-heading"
+            >
+              {t('auth.signIn.welcome')}
+            </Text>
+            <Text className="font-body text-body text-muted">
+              {t('auth.signIn.welcomeBody', { brand: BRAND.shortName })}
+            </Text>
+          </View>
+        </View>
+        {method === 'password' ? (
+          <>
+            <Input
+              testID="sign-in-email"
+              label={t('mobile.auth.email')}
+              placeholder={t('auth.signIn.emailPlaceholder')}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+              textContentType="username"
+            />
+            <Input
+              testID="sign-in-password"
+              label={t('mobile.auth.password')}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoComplete="current-password"
+              textContentType="password"
+              trailing={
+                <Pressable
+                  testID="sign-in-show-password"
+                  accessibilityRole="button"
+                  accessibilityLabel={t(
+                    showPassword ? 'auth.signIn.hidePassword' : 'auth.signIn.showPassword',
+                  )}
+                  onPress={() => setShowPassword((shown) => !shown)}
+                  hitSlop={8}
+                  className="size-10 items-center justify-center"
+                >
+                  {showPassword ? (
+                    <EyeOff color={iconColor.muted} size={iconSize.md} />
+                  ) : (
+                    <Eye color={iconColor.muted} size={iconSize.md} />
+                  )}
+                </Pressable>
+              }
+            />
+          </>
+        ) : (
+          <>
+            <Input
+              testID="sign-in-phone"
+              label={t('auth.signIn.phone')}
+              hint={t('auth.signIn.phoneHint')}
+              value={phone}
+              onChangeText={(value) => {
+                setPhone(value);
+                setCodeSentTo(null);
+              }}
+              keyboardType="phone-pad"
+              autoComplete="tel"
+              textContentType="telephoneNumber"
+            />
+            <Text className="font-body text-body-sm text-muted">{t('auth.signIn.smsNote')}</Text>
+            {codeSentTo ? (
+              <>
+                <Text
+                  accessibilityLiveRegion="polite"
+                  className="font-body text-body-sm text-foreground"
+                >
+                  {t('auth.signIn.codeSent', { phone: codeSentTo })}
+                </Text>
+                <Input
+                  testID="sign-in-code"
+                  label={t('auth.signIn.code')}
+                  value={code}
+                  onChangeText={setCode}
+                  keyboardType="number-pad"
+                  autoComplete="one-time-code"
+                  textContentType="oneTimeCode"
+                  maxLength={6}
+                />
+              </>
+            ) : null}
+          </>
+        )}
+        {rememberRow}
+        <ErrorText message={error} />
+        {method === 'code' && !codeSentTo ? (
+          <Button
+            testID="sign-in-send-code"
+            fullWidth
+            loading={busy}
+            onPress={() => void sendCode()}
+          >
+            {t('auth.signIn.sendCode')}
+          </Button>
+        ) : (
+          <Button testID="sign-in-submit" fullWidth loading={busy} onPress={() => void submit()}>
+            {method === 'code' ? t('auth.signIn.verifyCode') : t('mobile.auth.submitSignIn')}
+          </Button>
+        )}
+        {method === 'code' && codeSentTo ? (
+          <Button variant="ghost" disabled={busy} onPress={() => void sendCode()}>
+            {t('auth.signIn.resend')}
+          </Button>
+        ) : null}
+        {/* Fingerprint sign-in (ADR-067): always shown; until it is set up, a press says how. */}
+        <Button
+          testID="sign-in-fingerprint"
+          variant="ghost"
+          fullWidth
+          loading={busy && fingerprint}
+          icon={<Fingerprint color={iconColor.primary} size={iconSize.md} />}
+          onPress={() => void withFingerprint()}
+          className="border border-primary"
         >
-          {fingerprintHint}
-        </Text>
-      ) : null}
-      <SocialButtons
-        referralCode={referral || undefined}
-        divider={t('mobile.auth.orSignIn')}
-        onOutcome={finish}
-      />
-      {method === 'password' ? (
-        <>
-          <Input
-            testID="sign-in-email"
-            label={t('mobile.auth.email')}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoComplete="email"
-            textContentType="username"
-          />
-          <Input
-            testID="sign-in-password"
-            label={t('mobile.auth.password')}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoComplete="current-password"
-            textContentType="password"
-          />
-        </>
-      ) : (
-        <>
-          <Input
-            testID="sign-in-phone"
-            label={t('auth.signIn.phone')}
-            hint={t('auth.signIn.phoneHint')}
-            value={phone}
-            onChangeText={(value) => {
-              setPhone(value);
-              setCodeSentTo(null);
-            }}
-            keyboardType="phone-pad"
-            autoComplete="tel"
-            textContentType="telephoneNumber"
-          />
-          <Text className="font-body text-body-sm text-muted">{t('auth.signIn.smsNote')}</Text>
-          {codeSentTo ? (
-            <>
-              <Text
-                accessibilityLiveRegion="polite"
-                className="font-body text-body-sm text-foreground"
-              >
-                {t('auth.signIn.codeSent', { phone: codeSentTo })}
-              </Text>
-              <Input
-                testID="sign-in-code"
-                label={t('auth.signIn.code')}
-                value={code}
-                onChangeText={setCode}
-                keyboardType="number-pad"
-                autoComplete="one-time-code"
-                textContentType="oneTimeCode"
-                maxLength={6}
-              />
-            </>
-          ) : null}
-        </>
-      )}
-      <ErrorText message={error} />
-      {method === 'code' && !codeSentTo ? (
-        <Button testID="sign-in-send-code" fullWidth loading={busy} onPress={() => void sendCode()}>
-          {t('auth.signIn.sendCode')}
+          {t('mobile.auth.fingerprint.signIn')}
         </Button>
-      ) : (
-        <Button testID="sign-in-submit" fullWidth loading={busy} onPress={() => void submit()}>
-          {method === 'code' ? t('auth.signIn.verifyCode') : t('mobile.auth.submitSignIn')}
+        {fingerprintHint ? (
+          <Text
+            testID="fingerprint-hint"
+            accessibilityLiveRegion="polite"
+            className="font-body text-body-sm text-foreground"
+          >
+            {fingerprintHint}
+          </Text>
+        ) : null}
+        <SocialButtons
+          layout="row"
+          referralCode={referral || undefined}
+          remember={remember}
+          divider={t('auth.social.orContinue')}
+          onOutcome={finish}
+        />
+        <View className="flex-row flex-wrap items-center justify-center gap-1">
+          <Text className="font-body text-body-sm text-muted">
+            {t('auth.signIn.newHere', { brand: BRAND.shortName })}
+          </Text>
+          <Pressable
+            testID="sign-in-to-register"
+            accessibilityRole="link"
+            onPress={() => router.replace('/register')}
+            className="min-h-12 justify-center"
+          >
+            <Text className="font-body-bold text-body-sm text-primary">
+              {t('auth.signIn.createAccount')}
+            </Text>
+          </Pressable>
+        </View>
+        <Button testID="sign-in-switch" variant="ghost" onPress={switchMethod}>
+          {method === 'password' ? t('mobile.auth.usePhone') : t('mobile.auth.useEmail')}
         </Button>
-      )}
-      {method === 'code' && codeSentTo ? (
-        <Button variant="ghost" disabled={busy} onPress={() => void sendCode()}>
-          {t('auth.signIn.resend')}
-        </Button>
-      ) : null}
-      <Button testID="sign-in-switch" variant="ghost" onPress={switchMethod}>
-        {method === 'password' ? t('mobile.auth.usePhone') : t('mobile.auth.useEmail')}
-      </Button>
-      <Button
-        testID="sign-in-to-register"
-        variant="ghost"
-        onPress={() => router.replace('/register')}
-      >
-        {t('mobile.auth.toRegister')}
-      </Button>
+      </Card>
     </Form>
   );
 }

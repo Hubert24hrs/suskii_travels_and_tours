@@ -1,7 +1,9 @@
 # Google sign-up, sign-out and Google sign-in again into the same account, on an Android emulator
 # against the e2e stack, whose API stands in for Google with its mock provider (ADR-067). The
-# Google and Apple buttons sit at the top of Register and Sign in, and Sign in always shows the
-# fingerprint button (it explains how to turn it on until this phone has a credential).
+# Google and Apple buttons sit at the top of Register. Sign in is one card (ADR-108): "Welcome
+# back", the email and password, "Remember me" beside "Forgot password?", Sign in, the
+# fingerprint button (it explains how to turn it on until this phone has a credential), then
+# Google and Apple side by side. The card is taller than a small screen, so the flow scrolls.
 appId: com.suskii.travels.e2e
 name: Sign in with Google
 tags:
@@ -66,12 +68,24 @@ tags:
     id: account-sign-in
 - extendedWaitUntil:
     visible:
-      id: sign-in-fingerprint
+      id: sign-in-email
     timeout: 15000
+- assertVisible: 'Welcome back'
+- assertVisible:
+    id: sign-in-remember
+- assertVisible:
+    id: sign-in-forgot
+- scrollUntilVisible:
+    element:
+      id: sign-in-fingerprint
 - tapOn:
     id: sign-in-fingerprint
-- assertVisible:
-    id: fingerprint-hint
+- scrollUntilVisible:
+    element:
+      id: fingerprint-hint
+- scrollUntilVisible:
+    element:
+      id: social-google
 - assertVisible:
     id: social-apple
 - tapOn:
