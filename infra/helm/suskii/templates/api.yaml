@@ -43,12 +43,15 @@ spec:
             - { name: CORS_ORIGINS, value: {{ printf "%s,%s" .Values.global.urls.web .Values.global.urls.admin | quote }} }
             - { name: ADMIN_ORIGINS, value: {{ .Values.global.urls.admin | quote }} }
             - { name: COOKIE_SECURE, value: 'true' }
+            {{- with .Values.global.cookieDomain }}
+            - { name: COOKIE_DOMAIN, value: {{ . | quote }} }
+            {{- end }}
             {{- if .Values.api.clientIpHeader }}
             - { name: CLIENT_IP_HEADER, value: {{ .Values.api.clientIpHeader | quote }} }
             {{- else }}
             - { name: TRUST_PROXY_HOPS, value: {{ .Values.api.trustProxyHops | quote }} }
             {{- end }}
-            {{- include "suskii.plainEnv" (list "api.env" .Values.api.env (list "NODE_ENV" "API_PORT" "SENTRY_ENVIRONMENT" "WEB_APP_URL" "CORS_ORIGINS" "ADMIN_ORIGINS" "COOKIE_SECURE" "CLIENT_IP_HEADER" "TRUST_PROXY_HOPS")) | nindent 12 }}
+            {{- include "suskii.plainEnv" (list "api.env" .Values.api.env (list "NODE_ENV" "API_PORT" "SENTRY_ENVIRONMENT" "WEB_APP_URL" "CORS_ORIGINS" "ADMIN_ORIGINS" "COOKIE_SECURE" "COOKIE_DOMAIN" "CLIENT_IP_HEADER" "TRUST_PROXY_HOPS")) | nindent 12 }}
           envFrom:
             - secretRef: { name: {{ .Values.secrets.api }} }
           startupProbe:

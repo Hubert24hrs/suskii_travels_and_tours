@@ -145,6 +145,8 @@ write(
         "SUSKII_API_HOST": settings["api_host"],
         "SUSKII_WEB_HOST": settings["web_host"],
         "SUSKII_ADMIN_HOST": settings["admin_host"],
+        # The parent the API sets its session cookies on (ADR-115); empty without the sites.
+        "SUSKII_COOKIE_DOMAIN": settings.get("cookie_domain") or "",
         "SUSKII_DOCUMENTS_BUCKET": settings["documents_bucket"],
         "SUSKII_ASSISTANT_ENABLED": "true" if settings["assistant_enabled"] else "false",
         "SUSKII_SAMPLE_CATALOGUE": "true" if settings.get("sample_catalogue") else "false",

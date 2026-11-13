@@ -20,6 +20,8 @@ x-api-env: &api-env
   REDIS_URL: redis://redis:6379
   REDIS_ALLOW_PLAINTEXT: 'true'
   COOKIE_SECURE: 'true'
+  # No COOKIE_DOMAIN (ADR-115): the website and the API share the name 127.0.0.1 here, and a
+  # cookie ignores the port. Where their names differ (infra/gcp/vm), it is the shared parent.
   WEB_APP_URL: http://127.0.0.1:13000
   CORS_ORIGINS: http://127.0.0.1:13000,https://admin.rehearsal.invalid
   ADMIN_ORIGINS: https://admin.rehearsal.invalid

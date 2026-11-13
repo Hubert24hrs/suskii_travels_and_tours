@@ -111,6 +111,10 @@ resource "google_compute_security_policy" "edge" {
       condition     = var.origin_auth_secret != ""
       error_message = "origin_auth_secret is required behind the edge (TF_VAR_origin_auth_secret)."
     }
+    precondition {
+      condition     = local.cookie_domain != ""
+      error_message = "The website keeps a traveller signed in only when hosts.web, hosts.admin and hosts.api share a parent domain (suskii.com for suskii.com, admin.suskii.com and api.suskii.com, ADR-115)."
+    }
   }
 
   depends_on = [google_project_service.apis]

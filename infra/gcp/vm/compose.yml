@@ -80,6 +80,9 @@ services:
       OTEL_SERVICE_NAME: suskii-api
       SENTRY_ENVIRONMENT: ${SUSKII_ENVIRONMENT:?}
       COOKIE_SECURE: 'true'
+      # The website and the console read the session cookies, so they go on the parent of the
+      # three names (ADR-033, ADR-115). Empty without the sites: the API's own name.
+      COOKIE_DOMAIN: ${SUSKII_COOKIE_DOMAIN:-}
       # Caddy is the one proxy in front: the caller's address is the last one it adds.
       TRUST_PROXY_HOPS: '1'
       WEB_APP_URL: https://${SUSKII_WEB_HOST:?}
