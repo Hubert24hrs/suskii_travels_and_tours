@@ -543,6 +543,13 @@ test.describe('trip builder (ADR-099)', () => {
     await contactAndTerms(page);
     await page.getByTestId('trip-details-submit').click();
     await page.waitForURL(new RegExp(`/trips/${tripId}$`));
+    // The trip page has loaded the trip again: nothing waits for details any more.
+    await expect(
+      page.getByRole('heading', {
+        level: 1,
+        name: t('trips.route', { from: 'Lagos', to: 'London' }),
+      }),
+    ).toBeVisible();
     await expect(page.getByTestId('trip-details-open')).toHaveCount(0);
 
     expect(sent).toMatchObject({
@@ -565,5 +572,7 @@ test.describe('trip builder (ADR-099)', () => {
       termsVersion: flight.termsVersion,
       acceptTerms: true,
     });
+    // A read the page still has on its way must not outlive the test.
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
   });
 });
