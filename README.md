@@ -1,15 +1,40 @@
 # Suskii Travels and Tour
 
-Your one-stop travel shop: flights, hotels, packages, tours, visa assistance and travel add-ons with
-honest prices and flexible payment. One NestJS API serves a Next.js website, an Expo mobile app (iOS
-and Android) and a Next.js admin console.
+Your one-stop travel shop: flights, hotels, packages, tours, visa assistance, buses, car rental and
+travel add-ons with honest prices and flexible payment, a whole trip booked and paid once, and an
+assistant, Ask Suskii, that plans it with the traveller. One NestJS API serves a Next.js website,
+an Expo mobile app (iOS and Android) and a Next.js admin console.
 
 - Product and engineering spec: [`PROJECT_SPEC.json`](./PROJECT_SPEC.json)
 - Working guide for contributors and Claude Code: [`CLAUDE.md`](./CLAUDE.md)
-- Architecture decisions: [`docs/decisions/`](./docs/decisions)
+- Architecture decisions: [`docs/decisions/`](./docs/decisions) (ADR-001 to ADR-118)
 - Phase plans: [`docs/phases/`](./docs/phases)
 - What the owner still has to do (accounts, keys, legal), step by step: [`docs/owner/launch-checklist.md`](./docs/owner/launch-checklist.md)
+- Every stand-in (mock provider, sample data, test switch) to replace before the public launch: [`docs/owner/going-live.md`](./docs/owner/going-live.md)
+- The testing backend on Google Cloud and how to redeploy it: [`docs/owner/deploy-backend-on-google-cloud.md`](./docs/owner/deploy-backend-on-google-cloud.md)
 - Guides for developers: [`docs/guides/`](./docs/guides) (adding an agent, a tool or a prompt version; adding a web-data vendor or a site to read)
+
+## What is built
+
+Every area below is built and tested on the API, the website and the app (the console where
+staff act). Most wait only for the owner's accounts and keys; `CLAUDE.md` holds the status of
+each, and the owner's open questions.
+
+| Area                          | What travellers and staff get                                                                                                                                                                  | Where to read more                                       |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Flights                       | Search (one way, return, multi city), flexible dates, nearby airports, bags, seats, meal and group requests, holds, online cancellation, airline changes with a full refund offer, live status | ADR-009, ADR-063 to ADR-065, ADR-073, ADR-093 to ADR-095 |
+| Hotels                        | Duffel Stays, Hotelbeds and Expedia adapters merged into one list; photos, room details, filters, collections and deals, a pin map, recent searches                                            | ADR-062, ADR-071, ADR-086, ADR-096, ADR-097              |
+| Packages, tours, visa, extras | Suskii's own products with seats, vouchers, visa documents behind signed links, add-ons on their own or linked to a booking                                                                    | ADR-025 to ADR-028                                       |
+| Cars                          | Intercity buses with seat maps and QR boarding passes (offline too), car rental by day, week and month; rides are built and stay off in production                                             | `docs/phases/cars.md`, ADR-049 to ADR-056, ADR-098       |
+| Combined trips                | A flight, hotel, car, transfer and insurance as one trip with one total and one payment; one details form for every part                                                                       | ADR-099, ADR-117, ADR-118                                |
+| Payments                      | Hosted checkout (Paystack, Flutterwave, Stripe) by method, a double entry ledger, holds, installments, refunds with a second approver, risk review                                             | ADR-014 to ADR-019, ADR-040, ADR-074                     |
+| Accounts                      | Sign in with a password, Google, Apple or a fingerprint, "Remember me", saved travellers, data export and deletion, Suskii Prime, referrals, alerts                                            | ADR-007, ADR-029 to ADR-032, ADR-067, ADR-108            |
+| Companies                     | Members in roles, a travel policy, approval before payment, spend reports, a prepaid company wallet                                                                                            | ADR-078, ADR-090                                         |
+| Ask Suskii                    | An assistant on the website, in the app and on WhatsApp that searches, prepares every product, sums up the whole trip and hands over to a person                                               | ADR-101 to ADR-109, ADR-112, ADR-117                     |
+| Staff console                 | Roles with MFA, bookings, refunds, catalog, prices, content, support inbox, reviews, the assistant's switches, approvals and assisted quotes                                                   | ADR-033 to ADR-037, ADR-104                              |
+| Support and reviews           | Conversations tied to bookings with reply targets, WhatsApp, an after hours assistant; verified reviews of finished trips with moderation                                                      | ADR-077, ADR-083 to ADR-085                              |
+| Reach and trust               | Seven languages (Arabic right to left), all-in prices with tax per country, SEO pages from fare history, metasearch, ads with consent, a status page                                           | ADR-072, ADR-075, ADR-076, ADR-079 to ADR-082, ADR-087   |
+| Hardening and compliance      | WCAG 2.2 AA, PCI DSS SAQ A payment pages, privacy registers and records of processing, load tests, alerts and runbooks                                                                         | ADR-037 to ADR-048, ADR-088, ADR-089                     |
 
 ## Repository layout
 
@@ -268,15 +293,25 @@ switches it on, and search, booking and payment never depend on it
 - **How it is built.** `apps/agent` is a separate service with no route to the platform but
   the API's tool gateway (`/v1/internal/agent-tools`), where every call is checked against the
   sealed grant of its run. Its working state lives in a database schema of its own.
+- **What travellers see.** It is called Ask Suskii and is reached from one button that moves
+  around the screen (ADR-109). It searches every product, prepares a booking as a quote and
+  hands the traveller its checkout; after a flight it offers the rest of the trip, and when the
+  traveller has what they want it sums everything up with one total and, for a signed-in
+  traveller, puts the parts on a combined trip that is filled in with one details form and paid
+  once (ADR-117, ADR-118). It never books, holds a seat or takes a name, a document or money.
 - **Trying it.** `pnpm dev` starts the agent service beside the API with a mock model that
   says one fixed sentence; `AGENT_SERVICE=mock` answers inside the API without the service.
-  A real model needs `AGENT_MODEL_PROVIDER=anthropic` and `LLM_API_KEY`. The website's chat is
-  on `/assistant`, the app's under Account, the staff chat in the console under "Ask the
-  assistant".
+  A real model is Google's Gemini: through Vertex AI as the machine's own identity, with no key
+  (`AGENT_MODEL_PROVIDER=vertex`, ADR-112, as on the testing backend), or with a key
+  (`gemini`, or `anthropic` for Claude) in `LLM_API_KEY`. The website's chat is on
+  `/assistant`, the app's behind the same button and under Account, the staff chat in the
+  console under "Ask the assistant".
 - **Measuring it.** Three evals run on every change with recorded answers and need no key:
   `pnpm --filter @suskii/agent eval:agent-routing --recorded` (also `-grounding`, `-safety`).
-  Against a model: Actions, Agent evals, with the owner's key. None has run against a model
-  yet.
+  Against the real model: `infra/gcp/cloudbuild.agent-eval.yaml` on Cloud Build with no key
+  (about 2 US dollars a run; the command is in `docs/owner/going-live.md`), or Actions, Agent
+  evals, with a key. They passed against Gemini 3.5 Flash on Vertex AI (ADR-112); the prompts
+  of ADR-117 wait for their run.
 - **Prices from other websites** (price intelligence, ADR-102) are observations, never offers:
   shown as indicative with when and where they were seen, and sold only after a person
   verified the price with a supplier (an assisted quote, ADR-104). Every site starts closed and
@@ -289,9 +324,35 @@ switches it on, and search, booking and payment never depend on it
 - **Extending it.** `docs/guides/adding-an-agent.md` and
   `docs/guides/adding-a-scrape-provider-or-source.md`.
 
+## The testing backend
+
+What runs online today is a testing backend on one Compute Engine machine in London (project
+`suskii-travels-staging`, ADR-111): the API, the worker, Ask Suskii, the website and the
+console in containers beside PostgreSQL, Redis and Caddy.
+
+| Address                                                     | What                                                  |
+| ----------------------------------------------------------- | ----------------------------------------------------- |
+| `https://web.endpoints.suskii-travels-staging.cloud.goog`   | The website                                           |
+| `https://admin.endpoints.suskii-travels-staging.cloud.goog` | The staff console                                     |
+| `https://api.endpoints.suskii-travels-staging.cloud.goog`   | The API (the app's test build talks to it)            |
+| `https://mail.endpoints.suskii-travels-staging.cloud.goog`  | The mailbox that keeps every email it sends (ADR-113) |
+
+- **Redeploying** is one command in Cloud Shell, from the repository folder:
+  `git pull && bash scripts/gcp/deploy-vm.sh suskii-travels-staging`. It builds the images on
+  Cloud Build and releases them through the machine's metadata; settings given once (such as
+  `FLIGHT_SUPPLIERS=duffel`) are remembered.
+- **What is real there**: Ask Suskii answers with Gemini on Vertex AI under a cap of 2 US
+  dollars a day, and flights come from Duffel's test mode. Everything else is a stand-in:
+  payments approve on a test page, exchange rates are made up, the catalogue is samples, and
+  email stays in the mailbox. `docs/owner/going-live.md` lists each one and what replaces it.
+- **The phone**: the `Mobile test APK` workflow, started with the testing backend's API and
+  website addresses, publishes a test build that talks to it.
+
 ## Deploying and releasing
 
-GCP Cloud Run behind Cloudflare is the default platform (ADR-059); the pipeline is ADR-060.
+What runs online today is the testing backend above (ADR-111). The managed shapes are built and
+not applied: Cloud Run behind Cloudflare (ADR-059, the pipeline in ADR-060) and the backend
+alone on Cloud Run (ADR-110); they wait for the owner's domains, budget and GitHub environments.
 
 - **Images.** `apps/<app>/Dockerfile`, built from the repository root, for example
   `docker build -f apps/api/Dockerfile --target runtime -t suskii-api:local .` (`--target migrate`
@@ -302,8 +363,9 @@ GCP Cloud Run behind Cloudflare is the default platform (ADR-059); the pipeline 
   broken release and rolls back.
 - **A new environment.** `infra/terraform/README.md` covers the GCP project, Cloudflare zone,
   secrets, GitHub environment and the first super admin (`staff:bootstrap`).
-- **Releases.** Merging to main deploys staging. A `v*` tag on main deploys staging, then
-  production after approval, with a canary and automatic rollback. Watching and rolling back:
+- **Releases** (once `DEPLOY_ENABLED` and the GitHub environments exist). Merging to main
+  deploys staging. A `v*` tag on main deploys staging, then production after approval, with a
+  canary and automatic rollback. Watching and rolling back:
   `docs/runbooks/deploy-and-rollback.md`.
 - **Mobile.** `mobile-v*` tags build on EAS and submit to TestFlight and the Play internal track.
   Store listing and privacy form content is in `docs/release/`.

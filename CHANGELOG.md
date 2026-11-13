@@ -6,6 +6,29 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### The go-live list, a documentation index and a field button fix (2026-11-14)
+
+#### Added
+
+- **`docs/owner/going-live.md`**: every stand-in the testing backend runs on (mock providers,
+  the sample catalogue and placeholder data, test builds and switches), what replaces each for
+  the public and where it is set, and the assistant's eval run to do before travellers talk to
+  it. The launch checklist, the README and CLAUDE.md link to it, and CLAUDE.md asks for a row
+  there with every new stand-in.
+- **`docs/README.md`**: an index of the documentation.
+
+#### Changed
+
+- The README says what is built, describes the testing backend and how to redeploy it, and
+  brings Ask Suskii (Gemini, the whole trip, one details form) and the deployment shapes up to
+  date.
+
+#### Fixed
+
+- A field button's value (the dates, travellers and rooms pickers) wraps and the button grows
+  instead of widening its column: with wider text spacing at 360 px, the hotel search form ran
+  3 px past the screen on some dates (WCAG 1.4.12).
+
 ### One details form for the whole trip (2026-11-13, ADR-118)
 
 The owner asked for one details form for a trip Ask Suskii put together. Each prepared part

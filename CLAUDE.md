@@ -258,9 +258,10 @@ infra/        terraform/ (GCP platform + Cloudflare edge, applied per environmen
               observability/ (Grafana dashboards, Prometheus alert rules)
 load/         k6 load test (load/k6/api.js), run in CI against the e2e stack
 scripts/      Repo-level tools: security-checklist.mjs (ASVS/MASVS checklist generator)
-docs/         decisions/ (ADRs), phases/ (plans), security/ (threat model, checklist, inventories), runbooks/,
-              guides/ (adding an agent, a web-data vendor or a site), owner/ (launch checklist, cost
-              estimate), release/ (store listing, privacy forms), deployment/ (AWS mapping)
+docs/         README.md (the index), decisions/ (ADRs), phases/ (plans), security/ (threat model, checklist,
+              inventories), runbooks/, guides/ (adding an agent, a web-data vendor or a site), owner/
+              (launch checklist, going live, the backend on Google Cloud, cost estimate), release/
+              (store listing, privacy forms), deployment/ (AWS mapping)
 ```
 
 ## Commands
@@ -449,6 +450,9 @@ Tooling notes for agents:
 - External providers sit behind abstract classes (`EmailProvider`, `SmsProvider`,
   `BreachedPasswordChecker`, `FxProvider`, `FlightSupplier`, `HotelSupplier`, `PaymentProvider`) with mock adapters for
   tests and local development. Production refuses mock adapters unless `ALLOW_MOCK_PROVIDERS=true`.
+- Every stand-in (a mock adapter, sample or placeholder data, a test-only switch) has a row in
+  `docs/owner/going-live.md`, the owner's list of what to replace before the public launch. A
+  new one gets its row in the same change, with where it is set and what replaces it.
 
 ### Money, pricing and search (apps/api, packages/shared)
 
@@ -2264,4 +2268,6 @@ become parts of a combined trip. Added with the details form (ADR-118): whether 
 and seats should move into the trip's one form (today they stay on the flight's own checkout).
 Every
 owner action is listed, step by step, in
-`docs/owner/launch-checklist.md`.
+`docs/owner/launch-checklist.md`, and every stand-in to replace before the public launch (with
+the assistant's eval run to do first) in `docs/owner/going-live.md`. `docs/README.md` is the
+index of the documentation.
