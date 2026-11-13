@@ -1739,7 +1739,9 @@ Tooling notes for agents:
 - Images are built from the repository root with `apps/<app>/Dockerfile`; the base image is
   pinned by digest (Dependabot updates it). Never run migrations at start-up: the API image's
   `migrate` target runs `scripts/release-database.mjs` (migrations as the schema owner, the
-  seed, then the app role) as a job or Helm hook before new revisions start.
+  seed, then the app role) as a job or Helm hook before new revisions start. A Next.js
+  standalone image copies `.next/static` and `public/` itself (the build leaves both out); the
+  smoke check `web logo` fails without the second.
 - Migrations are expand/contract: the revision still serving must work against the new schema.
   `pnpm check:migrations` (CI) refuses drops, renames, type changes, new NOT NULL without a
   default and TRUNCATE unless the file says why on an `-- expand-contract:` line.

@@ -6,6 +6,25 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### The website's own pictures on deployed machines (2026-11-13)
+
+On the testing website the header's logo showed as a broken picture. The website's image is
+Next.js's standalone server, which leaves `public/` out as it leaves `.next/static`; the
+Dockerfile copied only the second. Everything in `public/` answered 404: the logo, the app icon
+and the Google and Apple marks on the sign-in card. Local runs and the hosted test server use
+`next start`, which serves the folder, so no test met it.
+
+#### Fixed
+
+- **The website's image copies `public/`** beside `.next/static`.
+
+#### Tests
+
+- **A smoke check, `web logo`**: the post-deploy smoke tests fetch `/brand/logo-mark.png` and
+  expect a PNG. The release rehearsal runs them against the images CI builds, and every deploy
+  of the machine runs them at its end. Checked against a site that serves the file and one that
+  does not.
+
 ### Signing in on the testing website keeps you signed in (2026-11-13, ADR-115)
 
 The owner signed in on the testing website and was sent back to the sign-in page, with no
