@@ -6,6 +6,49 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Ask Suskii prepares every product and puts the whole trip together (2026-11-13, ADR-117)
+
+The owner asked for the assistant to check out every service: after a flight, a hotel there if
+the traveller wants one, a car and the other services, then a summary with the price added up.
+It could prepare a flight, a stay or a rental car, each paid on its own.
+
+#### Added
+
+- **Prepare tools for packages, tours, add-ons and visa assistance**: a package or tour
+  departure the search listed, an airport transfer, insurance, an eSIM or lounge access, or
+  Suskii's visa assistance, each quoted as the traveller and handed to its ordinary checkout.
+  The searches return the departure, add-on and product ids these take.
+- **A bus trip handed over at its seat map** (`buses.prepare_booking`): the departure is
+  checked for the seats asked for, and the traveller picks the seats, enters the details and
+  pays there. No seat is held.
+- **One summary with one total** (`trips.prepare_checkout`): each part prepared in the
+  conversation with its price, and the total. For a signed-in traveller with a flight, the
+  flight, stay, car, transfer and insurance go on one combined trip, paid once. The model
+  passes no ids: the prepare tools note their quotes for the conversation (Redis, ids only).
+- **Prepared parts on the trip page**, on the website and in the app: each with its price, a
+  badge and "Enter details", which opens its checkout and adds the booking to the trip; the
+  total with the prepared parts. The trip answer's `prepared` and `totalWithPrepared` are
+  optional, for app builds already on phones.
+- **Four notes** in every language and on WhatsApp: `choose_seats`, `trip_handoff`,
+  `trip_sign_in` and `trip_separate`.
+- In the app, the assistant's cards for a combined trip, a bus seat map, a package and a tour
+  open the app's own screens.
+
+#### Changed
+
+- The specialists offer the rest of the trip and sum it up when the traveller has what they
+  want or asks for the total (prompt versions: concierge 4, flights 5, hotels 4, cars 4,
+  tours 4, trip builder 5, payments 4). The platform guide says what the assistant prepares.
+- A refusal's own reason reaches the assistant beside its slug (`not_available_there`,
+  `children_not_allowed`), where the service gives one.
+
+#### Tests
+
+- API end to end: every new prepare tool, the seat map with no seat held, a whole trip for a
+  signed-in traveller and a guest's summary; the agent's prompt tests and three new recorded
+  safety cases; the app's trip screen and card routing. The evals against the real model are
+  the owner's run on Cloud Build.
+
 ### Real flights from Duffel's test mode on the testing backend (2026-11-13, ADR-116)
 
 The owner asked for real flight content on the testing backend, with payments left for last.
