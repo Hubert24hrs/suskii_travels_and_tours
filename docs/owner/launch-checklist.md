@@ -60,7 +60,9 @@ Check: `pnpm smoke --api https://<api host> --web https://<web host> --admin htt
 
 1. Open a **Duffel** account; create a **test token** (`duffel_test_...`).
 2. Add it as the repository secret `DUFFEL_API_TOKEN`; run **Duffel sandbox check**
-   (`duffel-sandbox.yml`).
+   (`duffel-sandbox.yml`). To see Duffel's test flights on the testing backend, put the same
+   test token in its Secret Manager and deploy with `FLIGHT_SUPPLIERS=duffel` (ADR-116; the
+   steps are in `docs/owner/deploy-backend-on-google-cloud.md`).
 3. Ask Duffel to enable **Stays** (hotels) on the account; run the workflow again.
 4. Put the **live** token in production's Secret Manager (`DUFFEL_API_TOKEN` in
    `extra_secrets`); `FLIGHT_SUPPLIERS` and `HOTEL_SUPPLIERS` are already `duffel` in the example.
