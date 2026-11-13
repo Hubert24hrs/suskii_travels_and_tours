@@ -15353,6 +15353,17 @@ export interface components {
             missing: ("flight" | "hotel" | "car" | "transfer" | "insurance")[];
             total: components["schemas"]["Money"];
             due: components["schemas"]["Money"];
+            prepared?: {
+                /** @enum {string} */
+                component: "flight" | "hotel" | "car" | "transfer" | "insurance";
+                /** Format: uuid */
+                quoteId: string;
+                title: string;
+                price: components["schemas"]["Money"];
+                /** Format: date-time */
+                expiresAt: string;
+            }[];
+            totalWithPrepared?: components["schemas"]["Money"];
             payment: {
                 providers: components["schemas"]["PaymentProviderOption"][];
                 methods: components["schemas"]["PaymentMethodOption"][];

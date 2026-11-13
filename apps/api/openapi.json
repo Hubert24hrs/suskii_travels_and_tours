@@ -71075,6 +71075,51 @@
           "due": {
             "$ref": "#/components/schemas/Money"
           },
+          "prepared": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "component": {
+                  "type": "string",
+                  "enum": [
+                    "flight",
+                    "hotel",
+                    "car",
+                    "transfer",
+                    "insurance"
+                  ]
+                },
+                "quoteId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "price": {
+                  "$ref": "#/components/schemas/Money"
+                },
+                "expiresAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "component",
+                "quoteId",
+                "title",
+                "price",
+                "expiresAt"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "totalWithPrepared": {
+            "$ref": "#/components/schemas/Money"
+          },
           "payment": {
             "type": "object",
             "properties": {

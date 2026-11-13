@@ -65,6 +65,20 @@ export const startTripPaymentSchema = named(
 );
 export type StartTripPaymentRequest = z.output<typeof startTripPaymentSchema>;
 
+/**
+ * A part Ask Suskii prepared (ADR-117): a quote that waits for the travellers' details. Its
+ * checkout adds the booking to the trip, which then drops this entry; an expired one is not
+ * shown. The price is the quote's, as it was quoted.
+ */
+export const tripPreparedPartSchema = z.object({
+  component: z.enum(TRIP_COMPONENTS),
+  quoteId: z.uuid(),
+  title: z.string().min(1).max(200),
+  price: moneySchema,
+  expiresAt: timestamp,
+});
+export type TripPreparedPart = z.infer<typeof tripPreparedPartSchema>;
+
 const tripPartSchema = z.object({
   component: z.enum(TRIP_COMPONENTS),
   state: z.enum(TRIP_PART_STATES).meta({
@@ -99,6 +113,14 @@ export const tripSchema = named(
       description: 'The sum of every live part: a price per part and one total for the trip.',
     }),
     due: moneySchema.meta({ description: 'What one payment would charge now.' }),
+    prepared: z.array(tripPreparedPartSchema).optional().meta({
+      description:
+        'Parts Ask Suskii prepared that no live booking fills yet (ADR-117): each opens its checkout (`/checkout/{quoteId}`), which adds the booking to this trip. Unexpired quotes only. Absent from older answers.',
+    }),
+    totalWithPrepared: moneySchema.optional().meta({
+      description:
+        '`total` plus the quoted price of every part in `prepared`: what the trip comes to once each prepared part is booked at that price. Absent from older answers.',
+    }),
     payment: z.object({
       providers: z.array(paymentProviderOptionSchema),
       methods: z.array(paymentMethodOptionSchema),
