@@ -3227,7 +3227,7 @@ export const en = {
       choose_seats:
         'Nothing is booked or held yet. Open the card to choose your seats on the seat map, then enter the travellers’ details and pay.',
       trip_handoff:
-        'Nothing is booked or paid yet. Open the trip to enter the travellers’ details for each part, then pay for all of them at once. Prices are checked again before you pay.',
+        'Nothing is booked or paid yet. Open the trip to enter the travellers’ details once for every part, then pay for all of them at once. Prices are checked again before you pay.',
       trip_sign_in:
         'To pay for all of this at once, sign in and ask again. You can also book each part from its own card.',
       trip_separate:

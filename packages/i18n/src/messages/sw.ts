@@ -3308,7 +3308,7 @@ export const sw: Messages = {
       choose_seats:
         'Hakuna kilichowekwa wala kushikiliwa bado. Fungua kadi ili kuchagua viti vyako kwenye ramani ya viti, kisha uweke taarifa za wasafiri na ulipe.',
       trip_handoff:
-        'Hakuna kilichowekwa wala kulipwa bado. Fungua safari ili kuweka taarifa za wasafiri kwa kila sehemu, kisha ulipie zote kwa mara moja. Bei hukaguliwa tena kabla hujalipa.',
+        'Hakuna kilichowekwa wala kulipwa bado. Fungua safari ili kuweka taarifa za wasafiri mara moja kwa sehemu zote, kisha ulipie zote kwa mara moja. Bei hukaguliwa tena kabla hujalipa.',
       trip_sign_in:
         'Ili kulipia vyote kwa mara moja, ingia kwenye akaunti yako na uulize tena. Unaweza pia kuweka kila sehemu kutoka kwenye kadi yake.',
       trip_separate:

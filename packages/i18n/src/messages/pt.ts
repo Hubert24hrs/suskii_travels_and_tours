@@ -3320,7 +3320,7 @@ export const pt: Messages = {
       choose_seats:
         'Ainda nada está reservado nem guardado. Abra o cartão para escolher os seus lugares no mapa de lugares e depois introduza os dados dos viajantes e pague.',
       trip_handoff:
-        'Ainda nada está reservado nem pago. Abra a viagem para introduzir os dados dos viajantes de cada parte e depois pague tudo de uma só vez. Os preços são verificados de novo antes do pagamento.',
+        'Ainda nada está reservado nem pago. Abra a viagem para introduzir uma só vez os dados dos viajantes de todas as partes e depois pague tudo de uma só vez. Os preços são verificados de novo antes do pagamento.',
       trip_sign_in:
         'Para pagar tudo de uma só vez, inicie sessão e peça de novo. Também pode reservar cada parte a partir do seu próprio cartão.',
       trip_separate:

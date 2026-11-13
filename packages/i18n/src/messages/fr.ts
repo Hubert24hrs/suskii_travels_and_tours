@@ -3350,7 +3350,7 @@ export const fr: Messages = {
       choose_seats:
         'Rien n’est encore réservé ni bloqué. Ouvrez la carte pour choisir vos places sur le plan, puis saisissez les informations des voyageurs et payez.',
       trip_handoff:
-        'Rien n’est encore réservé ni payé. Ouvrez le voyage pour saisir les informations des voyageurs de chaque partie, puis payez le tout en une seule fois. Les prix sont vérifiés à nouveau avant le paiement.',
+        'Rien n’est encore réservé ni payé. Ouvrez le voyage pour saisir une seule fois les informations des voyageurs pour toutes les parties, puis payez le tout en une seule fois. Les prix sont vérifiés à nouveau avant le paiement.',
       trip_sign_in:
         'Pour tout payer en une seule fois, connectez-vous et demandez à nouveau. Vous pouvez aussi réserver chaque partie depuis sa propre carte.',
       trip_separate:
