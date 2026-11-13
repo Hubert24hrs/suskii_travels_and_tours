@@ -12,6 +12,18 @@ locals {
   }
   origins = { for name, host in var.hosts : name => "https://${host}" }
 
+  # The website and the console read the API's session cookies (ADR-033, ADR-115), so behind the
+  # edge the API sets them on the closest parent the three names share (lb.tf refuses names that
+  # share none). The same rule as infra/terraform/vm/main.tf. Without the edge there is no
+  # website or console, and the cookies stay on the API's own name.
+  cookie_labels = [for host in [var.hosts.api, var.hosts.web, var.hosts.admin] : reverse(split(".", lower(host)))]
+  # How many labels, counted from the top, every name shares before the first that differs.
+  cookie_depth = length([
+    for i in range(min([for labels in local.cookie_labels : length(labels)]...)) : i
+    if alltrue([for j in range(i + 1) : length(toset([for labels in local.cookie_labels : labels[j]])) == 1])
+  ])
+  cookie_domain = local.cookie_depth >= 2 ? join(".", reverse(slice(local.cookie_labels[0], 0, local.cookie_depth))) : ""
+
   # Few instances by default: a run is a long streamed request and one instance takes twenty.
   agent_scaling = lookup(var.scaling, "agent", { min = 0, max = 3 })
 
@@ -38,6 +50,7 @@ locals {
       OBJECT_STORAGE_PATH_STYLE = "true"
       OBJECT_STORAGE_BUCKET     = google_storage_bucket.documents.name
     },
+    local.edged ? { COOKIE_DOMAIN = local.cookie_domain } : {},
     # Who the caller is. Behind the edge Cloudflare says so in its own headers. Without it the
     # API is reached through Google's front end alone, which appends the caller's address to
     # X-Forwarded-For: one trusted hop, and no country.

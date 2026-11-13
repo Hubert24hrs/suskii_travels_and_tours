@@ -82,6 +82,15 @@ phone is cleared at the next start). The choice is stored on the session
 (`sessions.remembered`), so a refresh keeps it. It never lengthens a session: staff keep their
 own, shorter limits.
 
+**Which names see the cookies (ADR-033, ADR-115).** The API sets the session cookies on the
+parent domain that the website's, the console's and the API's names share (`COOKIE_DOMAIN`), so
+the pages can read the CSRF cookie and send it back. Each deployment derives it from its three
+names, and refuses names that share none, whose website could never keep anyone signed in. With
+it set, every sign-in, refresh and sign-out also expires copies left on the API's own name: a
+browser sends the older cookie of a name first, and an old refresh token presented again would
+end the session as a reuse. Every name under the parent receives the cookies, so none of them is
+ever given to a third party; admin routes take a cookie session only from the console's origin.
+
 **Why traveller sessions are long.** NIST SP 800-63B AAL1 allows sessions of up to 30 days
 before re-authentication. We allow 30 days idle and 90 days absolute, like comparable travel
 and retail apps. This is safe enough because:

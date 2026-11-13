@@ -7,6 +7,7 @@ global:
     web: https://web.rehearsal.invalid
     api: https://api.rehearsal.invalid
     admin: https://admin.rehearsal.invalid
+  cookieDomain: rehearsal.invalid
 
 meshMtls: true # declared for the rehearsal only: kind has no mesh
 

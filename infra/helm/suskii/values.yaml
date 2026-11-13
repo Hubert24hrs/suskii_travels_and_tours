@@ -10,6 +10,10 @@ global:
     web: https://staging.example.com
     api: https://api.staging.example.com
     admin: https://admin.staging.example.com
+  # The parent domain the three names above share (ADR-115). The API sets its session cookies
+  # on it, so the website and the console can read them and keep someone signed in. Empty: the
+  # API's own name, right only where the website and the API share one name.
+  cookieDomain: staging.example.com
 
 images:
   api: { repository: suskii-api, tag: local, digest: '' }

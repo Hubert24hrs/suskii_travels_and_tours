@@ -26,6 +26,18 @@ locals {
   )
   # A testing backend's mailbox (ADR-113) has a name of its own, and only Google's free one.
   mail_host = "mail.endpoints.${var.project_id}.cloud.goog"
+  # The website and the console read the API's session cookies (ADR-033, ADR-115), so the API
+  # sets them on the closest parent the three names share: endpoints.<project>.cloud.goog for
+  # Google's free names, the owner's domain for names under it. With the sites off nothing else
+  # reads them, and they stay on the API's own name.
+  cookie_hosts  = var.sites ? [local.api_host, local.web_host, local.admin_host] : []
+  cookie_labels = [for host in local.cookie_hosts : reverse(split(".", lower(host)))]
+  # How many labels, counted from the top, every name shares before the first that differs.
+  cookie_depth = length(local.cookie_hosts) == 0 ? 0 : length([
+    for i in range(min([for labels in local.cookie_labels : length(labels)]...)) : i
+    if alltrue([for j in range(i + 1) : length(toset([for labels in local.cookie_labels : labels[j]])) == 1])
+  ])
+  cookie_domain = local.cookie_depth >= 2 ? join(".", reverse(slice(local.cookie_labels[0], 0, local.cookie_depth))) : ""
   # Google's free names for the address, one for each name the owner has not given.
   free_names = merge(
     var.sites && var.web_host == "" ? { web = local.web_host } : {},
@@ -441,6 +453,7 @@ resource "google_compute_instance" "backend" {
       sites              = var.sites
       web_host           = local.web_host
       admin_host         = local.admin_host
+      cookie_domain      = local.cookie_domain
       documents_bucket   = google_storage_bucket.documents.name
       backups_bucket     = google_storage_bucket.backups.name
       assistant_enabled  = var.assistant_enabled
@@ -460,6 +473,10 @@ resource "google_compute_instance" "backend" {
     precondition {
       condition     = !(var.mailbox && var.environment == "production")
       error_message = "Production's email goes to travellers, never to a mailbox: turn mailbox off."
+    }
+    precondition {
+      condition     = !var.sites || local.cookie_domain != ""
+      error_message = "The website keeps a traveller signed in only when its name, the console's and the API's share a parent domain (suskii.com for suskii.com, admin.suskii.com and api.suskii.com): give web_host, admin_host and api_host under one domain."
     }
     ignore_changes = [
       metadata["suskii-release"],

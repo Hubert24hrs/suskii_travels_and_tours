@@ -1,6 +1,6 @@
 # ADR-033: Admin console, staff sessions and origin isolation
 
-- Status: Accepted
+- Status: Accepted; ADR-115 sets `COOKIE_DOMAIN` in every deployment, as this record assumed
 - Date: 2026-10-06
 - Deciders: Claude Code (implementer), pending owner review
 

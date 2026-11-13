@@ -106,6 +106,13 @@ if (values.web) {
     const response = await get(`${web}/robots.txt`);
     expect(response.status === 200, `status ${response.status}`);
   });
+  // A file from public/, which a standalone build leaves out unless the image copies it.
+  await check('web logo', async () => {
+    const response = await get(`${web}/brand/logo-mark.png`);
+    expect(response.status === 200, `status ${response.status}`);
+    const type = response.headers.get('content-type') ?? '';
+    expect(type.startsWith('image/png'), `content type ${type || 'missing'}`);
+  });
 }
 
 if (values.admin) {

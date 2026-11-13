@@ -6,6 +6,52 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### The website's own pictures on deployed machines (2026-11-13)
+
+On the testing website the header's logo showed as a broken picture. The website's image is
+Next.js's standalone server, which leaves `public/` out as it leaves `.next/static`; the
+Dockerfile copied only the second. Everything in `public/` answered 404: the logo, the app icon
+and the Google and Apple marks on the sign-in card. Local runs and the hosted test server use
+`next start`, which serves the folder, so no test met it.
+
+#### Fixed
+
+- **The website's image copies `public/`** beside `.next/static`.
+
+#### Tests
+
+- **A smoke check, `web logo`**: the post-deploy smoke tests fetch `/brand/logo-mark.png` and
+  expect a PNG. The release rehearsal runs them against the images CI builds, and every deploy
+  of the machine runs them at its end. Checked against a site that serves the file and one that
+  does not.
+
+### Signing in on the testing website keeps you signed in (2026-11-13, ADR-115)
+
+The owner signed in on the testing website and was sent back to the sign-in page, with no
+error. Sign-in had worked: the API set its cookies on its own name
+(`api.endpoints.suskii-travels-staging.cloud.goog`), where the website, on another name, could
+not read the one that tells it someone is signed in. ADR-033 says the cookies go on the parent
+domain (`COOKIE_DOMAIN`); no deployment set it. Locally and in the rehearsals everything runs on
+one name, and a cookie ignores the port, so no test met it. The console had the same fault.
+
+#### Fixed
+
+- **Every deployment sets `COOKIE_DOMAIN`** to the parent its website's, console's and API's
+  names share: the machine (`endpoints.<project>.cloud.goog` with Google's free names, through
+  its settings and `compose.yml`), the platform module behind the edge (from `hosts`), and the
+  Helm chart (`global.cookieDomain`). Terraform refuses names that share no parent. Without a
+  website (the machine's sites off, the platform without the edge) nothing changes.
+- **The API expires the copies on its own name** whenever it sets or clears the session, while
+  `COOKIE_DOMAIN` is set. A browser sends the older cookie of a name first, so an old refresh
+  token would otherwise come back, look reused and end each new session.
+
+#### Tests
+
+- `cookies.spec.ts`: where the session cookies go with and without `COOKIE_DOMAIN`, and which
+  copies sign-in and sign-out expire. The Terraform rule was evaluated for Google's free names,
+  the owner's own domain, names under no shared parent and both platform shapes; the chart was
+  linted and rendered with both values files.
+
 ### Date and time pickers in the app (2026-11-12, ADR-114)
 
 Twelve fields in the app took a date or a date and time as typed text, under a hint that showed

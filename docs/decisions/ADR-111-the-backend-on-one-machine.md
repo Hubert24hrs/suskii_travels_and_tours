@@ -1,7 +1,9 @@
 # ADR-111: The backend on one Compute Engine machine, the budget shape
 
 - Status: Accepted; amended by ADR-112 (the assistant on the machine answers with Gemini on
-  Vertex AI as the machine's own identity, with no key, under its own daily caps)
+  Vertex AI as the machine's own identity, with no key, under its own daily caps) and ADR-115
+  (the API's session cookies on the parent of the machine's names, so the website and the
+  console keep someone signed in)
 - Date: 2026-11-12
 - Deciders: the owner (chose this shape over the managed one when the costs were laid out),
   Claude Code (implementer)

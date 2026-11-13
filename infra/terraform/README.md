@@ -68,6 +68,11 @@ bash scripts/gcp/deploy-vm.sh <project id> [region] [zone]
 - The website and the admin console run there too (`sites`, on by default), on
   `web.endpoints.<project>.cloud.goog` and `admin.endpoints.<project>.cloud.goog`. Their
   images are built for those addresses (`infra/gcp/cloudbuild.sites.yaml`).
+- The API sets its session cookies on the parent the three names share
+  (`endpoints.<project>.cloud.goog`, or the owner's domain), so the website and the console
+  keep someone signed in (ADR-115). With `web_host`, `admin_host` or `api_host` given, all three
+  must sit under one domain: Terraform refuses names that share none. The same rule holds
+  behind the edge, for `hosts` in `live/`.
 - `sample_catalogue` (`SAMPLE_CATALOGUE=true`, a testing backend only) seeds the sample
   inventory at each release and every night, and switches buses and car rental on. Terraform
   refuses it in an environment named `production`. `MACHINE_TYPE` changes the machine's size.
