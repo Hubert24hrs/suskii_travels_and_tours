@@ -31,7 +31,10 @@ jobs:
     # mirrors, before any test ran. Move to a newer image deliberately, with the screenshot
     # baselines (visual-baselines.yml uses the same image).
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    # A pull request into the working branch starts without a Turborepo cache (CI saves one on
+    # main only), and the job then takes 37 to 46 minutes: at 45 it was stopped after its last
+    # step had passed. The limit is for a hung job, not a slow runner.
+    timeout-minutes: 60
     # Throwaway services for the web and admin e2e stacks and the worker's BullMQ test. The API
     # e2e suite starts its own containers (Testcontainers). Credentials are CI-only, never real.
     services:

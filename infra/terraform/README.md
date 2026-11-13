@@ -73,6 +73,9 @@ bash scripts/gcp/deploy-vm.sh <project id> [region] [zone]
   keep someone signed in (ADR-115). With `web_host`, `admin_host` or `api_host` given, all three
   must sit under one domain: Terraform refuses names that share none. The same rule holds
   behind the edge, for `hosts` in `live/`.
+- `flight_suppliers` and `hotel_suppliers` (`FLIGHT_SUPPLIERS=duffel`, ADR-116) take flights
+  and hotels from Duffel with the owner's token in the secret `DUFFEL_API_TOKEN`; beside the
+  stand-in payment page only a test token (`duffel_test_`) is accepted.
 - `sample_catalogue` (`SAMPLE_CATALOGUE=true`, a testing backend only) seeds the sample
   inventory at each release and every night, and switches buses and car rental on. Terraform
   refuses it in an environment named `production`. `MACHINE_TYPE` changes the machine's size.

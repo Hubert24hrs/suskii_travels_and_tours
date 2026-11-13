@@ -88,6 +88,35 @@ describe('parseEnv', () => {
     ).toThrow(/SUPPLIER_TIMEOUT_MS/);
   });
 
+  it('takes only a Duffel test token beside the mock payment page (ADR-116)', () => {
+    const live = { ...base, FLIGHT_SUPPLIERS: 'duffel', DUFFEL_API_TOKEN: 'duffel_live_x' };
+    // The mock page completes every payment: Duffel would issue tickets that nobody paid for.
+    expect(() => parseEnv(live)).toThrow(/duffel_test_/);
+    expect(() =>
+      parseEnv({ ...live, FLIGHT_SUPPLIERS: 'mock', HOTEL_SUPPLIERS: 'duffel' }),
+    ).toThrow(/duffel_test_/);
+    expect(() =>
+      parseEnv({
+        ...live,
+        PAYMENT_PROVIDERS: 'paystack,mock',
+        PAYSTACK_SECRET_KEY: 'sk_test_0123456789abcdef',
+      }),
+    ).toThrow(/duffel_test_/);
+    expect(parseEnv({ ...live, DUFFEL_API_TOKEN: 'duffel_test_x' }).DUFFEL_API_TOKEN).toBe(
+      'duffel_test_x',
+    );
+    // With real payments only, a live token is the point.
+    expect(
+      parseEnv({
+        ...live,
+        PAYMENT_PROVIDERS: 'paystack',
+        PAYSTACK_SECRET_KEY: 'sk_test_0123456789abcdef',
+      }).DUFFEL_API_TOKEN,
+    ).toBe('duffel_live_x');
+    // Without Duffel among the suppliers nothing is booked with the token.
+    expect(parseEnv({ ...live, FLIGHT_SUPPLIERS: 'mock' }).FLIGHT_SUPPLIERS).toEqual(['mock']);
+  });
+
   it('keeps access tokens between 10 and 15 minutes', () => {
     expect(() => parseEnv({ ...base, ACCESS_TOKEN_TTL_SECONDS: '3600' })).toThrow(
       /ACCESS_TOKEN_TTL_SECONDS/,

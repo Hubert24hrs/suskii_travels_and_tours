@@ -68,6 +68,8 @@ locals {
     "AGENT_RUN_TOKEN",
     "AGENT_TOOLS_TOKEN",
     "CARS_TICKET_SIGNING_KEY",
+    # The owner's own (ADR-116): read only while flights or hotels come from Duffel.
+    "DUFFEL_API_TOKEN",
     "FIELD_ENCRYPTION_KEY",
     "HMAC_SECRET",
     "INTERNAL_API_TOKEN",
@@ -460,6 +462,8 @@ resource "google_compute_instance" "backend" {
       assistant_model    = var.assistant_model
       assistant_location = var.assistant_location != "" ? var.assistant_location : var.region
       sample_catalogue   = var.sample_catalogue
+      flight_suppliers   = var.flight_suppliers
+      hotel_suppliers    = var.hotel_suppliers
       mailbox            = var.mailbox
       mail_host          = local.mail_host
     })

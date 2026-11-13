@@ -6,6 +6,27 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Real flights from Duffel's test mode on the testing backend (2026-11-13, ADR-116)
+
+The owner asked for real flight content on the testing backend, with payments left for last.
+Its flights and hotels came from the stand-ins, fixed in the machine's compose file.
+
+#### Added
+
+- **`FLIGHT_SUPPLIERS` and `HOTEL_SUPPLIERS` on the machine's deploy** (`mock` or `duffel`,
+  remembered like the other settings). Duffel's token is the owner's: Terraform creates the
+  secret `DUFFEL_API_TOKEN` empty, the deploy stops before building anything when Duffel is
+  chosen and the secret is empty, and says where to paste it.
+- **No live Duffel token beside the mock payment page.** The API refuses to start when Duffel
+  is a supplier, payments include the mock and the token is not a `duffel_test_` one: the mock
+  page completes every payment, so Duffel would issue real tickets nobody paid for. The
+  machine refuses such a token before the API sees it.
+
+#### Tests
+
+- The env schema's cases for test, live and absent tokens beside mock and real payments; the
+  machine's settings, compose file and deploy script checked with and without Duffel.
+
 ### The website's own pictures on deployed machines (2026-11-13)
 
 On the testing website the header's logo showed as a broken picture. The website's image is

@@ -163,7 +163,9 @@ off. Its email lands in a mailbox on the machine and goes no further (ADR-113,
 `mail.endpoints.suskii-travels-staging.cloud.goog`, user `suskii`, the password in
 `MAILBOX_PASSWORD`), which is how its first admin confirms an address. The API's session
 cookies go on `endpoints.suskii-travels-staging.cloud.goog`, the parent of the machine's names,
-so the website and the console keep someone signed in (ADR-115). The owner's
+so the website and the console keep someone signed in (ADR-115). Its flights (and hotels)
+can come from Duffel's test mode with the owner's test token (`FLIGHT_SUPPLIERS=duffel` on
+the deploy, ADR-116); payments stay on the stand-in. The owner's
 guide is `docs/owner/deploy-backend-on-google-cloud.md`.
 
 Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
@@ -1802,6 +1804,11 @@ Tooling notes for agents:
   outside production mode, with the API's keys, and Terraform refuses the setting in an
   environment named `production`. Never run the seed another way on a deployed database, and
   never switch rides on there (no demo drivers in production mode, ADR-056).
+- The machine's suppliers are the settings `flight_suppliers` and `hotel_suppliers` (`mock` or
+  `duffel`, ADR-116). Duffel's token is the owner's, in the secret `DUFFEL_API_TOKEN`, read
+  only while Duffel is chosen. Beside the mock payment page the API takes only a `duffel_test_`
+  token (the env schema refuses any other): never weaken that rule, which keeps a testing
+  backend from booking real tickets nobody paid for.
 - The assistant's model on the machine is the setting `assistant_model` (ADR-112): `vertex`,
   the default, with no key (Terraform grants the machine `suskiiModelCaller` only then);
   `gemini` or `anthropic` with a key in `LLM_API_KEY`; or `mock`. Its daily caps there are the
@@ -1973,6 +1980,7 @@ Tooling notes for agents:
 - [ADR-113: A mailbox on the testing backend, so its first admin can confirm an address](docs/decisions/ADR-113-a-mailbox-on-the-testing-backend.md)
 - [ADR-114: Date and time pickers in the app](docs/decisions/ADR-114-date-and-time-pickers-in-the-app.md)
 - [ADR-115: Session cookies on the parent domain the website, the console and the API share](docs/decisions/ADR-115-session-cookies-on-the-shared-parent-domain.md)
+- [ADR-116: Duffel's test mode on the testing backend, and no live token beside the mock payment page](docs/decisions/ADR-116-duffel-test-mode-on-the-testing-backend.md)
 
 ## Open questions for the owner
 

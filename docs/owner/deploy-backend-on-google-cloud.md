@@ -88,6 +88,37 @@ password and your authenticator. It takes about five minutes:
 
 The bootstrap works once: after it, roles are given in the console, with the authenticator.
 
+### Real flights from Duffel's test mode
+
+The machine can take its flights from Duffel instead of the stand-in (ADR-116). Duffel's test
+mode answers with test copies of real airlines' offers and with its own test airline, Duffel
+Airways, and a booking makes a Duffel test order: no money moves anywhere. Payments stay on
+the stand-in page.
+
+1. In Duffel's dashboard (<https://app.duffel.com>), switch to **Test mode**, open
+   **Developers**, **Access tokens**, and copy a test token. It starts with `duffel_test_`. The
+   one in GitHub cannot be read back, so create a new one if you no longer have it.
+2. In Cloud Shell, deploy with flights from Duffel:
+
+   ```bash
+   cd ~/suskii_travels_and_tours && git pull && FLIGHT_SUPPLIERS=duffel bash scripts/gcp/deploy-vm.sh suskii-travels-staging
+   ```
+
+   The first time, it stops after a minute or two: it has made an empty secret for the token
+   and prints the page to paste it on,
+   <https://console.cloud.google.com/security/secret-manager/secret/DUFFEL_API_TOKEN/versions?project=suskii-travels-staging>.
+
+3. On that page press **New version**, paste the token and save. Never paste it anywhere else.
+   Then run the same command again; it takes about 20 minutes.
+4. Search **London (LHR) to New York (JFK)** to see several airlines. Routes from Lagos may
+   show only Duffel Airways in test mode, and a Duffel Airways fare is the most predictable to
+   book. Use made-up traveller names: they go to Duffel's test environment.
+
+The machine refuses any token but a test one while payments are the stand-in: a live token
+would book real tickets that nobody paid for. To go back to the stand-in, deploy with
+`FLIGHT_SUPPLIERS=mock`. Hotels follow the same way (`HOTEL_SUPPLIERS=duffel`) once Duffel has
+switched Stays on for your account.
+
 ### What this shape does not give you
 
 - It is one machine. When Google restarts it, or it is updated, the backend is down for about

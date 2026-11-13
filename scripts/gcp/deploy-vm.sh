@@ -29,6 +29,9 @@
 #   MAILBOX=true|false                      a testing backend's mailbox: every email the API
 #                                           sends lands there and goes no further (ADR-113)
 #   MACHINE_TYPE=e2-medium|e2-small         the machine's size (a change restarts it)
+#   FLIGHT_SUPPLIERS=mock|duffel            where flights come from: duffel needs Duffel's test
+#                                           token in the secret DUFFEL_API_TOKEN (ADR-116)
+#   HOTEL_SUPPLIERS=mock|duffel             the same for hotels, once Duffel Stays is on
 # And for one run only:
 #   SUSKII_TAG=<tag>                        release images that are built already
 set -euo pipefail
@@ -143,6 +146,13 @@ case "${MACHINE_TYPE:-}" in
   e2-medium | e2-small) set_setting machine_type "\"$MACHINE_TYPE\"" ;;
   *) stop "MACHINE_TYPE must be e2-medium or e2-small." ;;
 esac
+for supplier in FLIGHT_SUPPLIERS HOTEL_SUPPLIERS; do
+  case "${!supplier:-}" in
+    "") ;;
+    mock | duffel) set_setting "${supplier,,}" "\"${!supplier}\"" ;;
+    *) stop "$supplier must be mock or duffel." ;;
+  esac
+done
 if [ -n "${TURNSTILE_SITE_KEY:-}" ]; then
   [[ "$TURNSTILE_SITE_KEY" =~ ^[A-Za-z0-9_-]+$ ]] || stop "TURNSTILE_SITE_KEY does not look like a Turnstile site key."
   set_setting turnstile_site_key "\"$TURNSTILE_SITE_KEY\""
@@ -184,6 +194,10 @@ has_value() {
 # A model key is read only with ASSISTANT_MODEL=gemini or anthropic; vertex needs none (ADR-112).
 # The secret exists for those two, so it must hold something.
 has_value LLM_API_KEY || printf 'not-set' | gcloud secrets versions add LLM_API_KEY --data-file=- --quiet >/dev/null
+# Flights or hotels from Duffel (ADR-116) need its test token, which only the owner can give.
+if [ "$(setting flight_suppliers)" = "duffel" ] || [ "$(setting hotel_suppliers)" = "duffel" ]; then
+  has_value DUFFEL_API_TOKEN || stop "flights or hotels come from Duffel, and the secret DUFFEL_API_TOKEN is empty. Open https://console.cloud.google.com/security/secret-manager/secret/DUFFEL_API_TOKEN/versions?project=$PROJECT, press New version, paste Duffel's test token (it starts with duffel_test_), save, and run this again. To go back to the stand-in: FLIGHT_SUPPLIERS=mock HOTEL_SUPPLIERS=mock."
+fi
 
 # --- 5. Images, built by Cloud Build from this checkout ---------------------------------------
 REGISTRY="$(terraform output -raw artifact_registry)"
@@ -309,6 +323,8 @@ $(if [ "$SITES_ON" = "true" ]; then printf '  Website              %s\n  Admin c
   Machine              $INSTANCE, $(terraform output -raw address)
   Assistant's model    $(setting assistant_model)
   Sample catalogue     $(if [ "$(setting sample_catalogue)" = "true" ]; then echo on; else echo off; fi)
+  Flights from         $(if [ "$(setting flight_suppliers)" = "duffel" ]; then echo "Duffel (test mode)"; else echo "the stand-in"; fi)
+  Hotels from          $(if [ "$(setting hotel_suppliers)" = "duffel" ]; then echo "Duffel (test mode)"; else echo "the stand-in"; fi)
   Mailbox              $(if [ -n "$(terraform output -raw mailbox_url)" ]; then echo "$(terraform output -raw mailbox_url) (user suskii, password in the secret MAILBOX_PASSWORD)"; else echo off; fi)
   Last release         $outcome
 
@@ -321,6 +337,8 @@ To take the assistant out of the picture (nothing else on the platform changes):
 To open the website's sign-up and guest forms: create a Turnstile widget for the website's
   name, add its secret as a version of the secret TURNSTILE_SECRET_KEY, then run:
   TURNSTILE_SITE_KEY=<its site key> bash scripts/gcp/deploy-vm.sh $PROJECT $REGION $ZONE
+To take flights from Duffel's test mode (its test token in the secret DUFFEL_API_TOKEN first):
+  FLIGHT_SUPPLIERS=duffel bash scripts/gcp/deploy-vm.sh $PROJECT $REGION $ZONE
 To show sample packages, tours, buses and rental cars on this testing backend (or to stop):
   SAMPLE_CATALOGUE=true bash scripts/gcp/deploy-vm.sh $PROJECT $REGION $ZONE
 To keep every email the API sends in a mailbox on the machine, on a testing backend:

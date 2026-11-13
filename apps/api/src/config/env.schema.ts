@@ -1068,6 +1068,16 @@ export const envSchema = z
     ) {
       require('DUFFEL_API_TOKEN', 'is required when FLIGHT_SUPPLIERS or HOTEL_SUPPLIERS includes duffel');
     }
+    // The mock payment page completes every payment, so beside it Duffel may only book test
+    // orders: a live token would issue real tickets that nobody paid for (ADR-116).
+    if (
+      (env.FLIGHT_SUPPLIERS.includes('duffel') || env.HOTEL_SUPPLIERS.includes('duffel')) &&
+      env.PAYMENT_PROVIDERS.includes('mock') &&
+      env.DUFFEL_API_TOKEN &&
+      !env.DUFFEL_API_TOKEN.startsWith('duffel_test_')
+    ) {
+      require('DUFFEL_API_TOKEN', 'must be a Duffel test token (duffel_test_) while PAYMENT_PROVIDERS includes mock');
+    }
     if (env.WHATSAPP_SUPPORT_PROVIDER !== 'none') {
       // Every delivery is checked against the app secret; the handshake needs the verify token.
       if (!env.WHATSAPP_APP_SECRET)
