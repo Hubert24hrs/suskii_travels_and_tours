@@ -34,7 +34,7 @@ export function FieldButton({
       type="button"
       aria-labelledby={`${labelId} ${valueId}`}
       className={cn(
-        'flex h-12 w-full items-center gap-3 rounded-md border border-border-strong bg-surface px-4 text-start font-body text-body text-foreground',
+        'flex min-h-12 w-full items-center gap-3 rounded-md border border-border-strong bg-surface px-4 py-2 text-start font-body text-body text-foreground',
         'transition-colors duration-fast ease-standard hover:border-primary focus-visible:focus-ring',
         className,
       )}
@@ -47,12 +47,10 @@ export function FieldButton({
       ) : null}
       {/* Values are localised by the app (dates via Intl), and Node and the browser can ship
           different CLDR data, so the text may legitimately differ during hydration. React then
-          keeps the server's text until the value changes. */}
-      <span
-        id={valueId}
-        className={cn('truncate', !value && 'text-muted')}
-        suppressHydrationWarning
-      >
+          keeps the server's text until the value changes. A value that does not fit wraps and
+          the button grows: never cut off, and never wider than its column (WCAG 1.4.10, 1.4.12),
+          which a value that cannot wrap would push past a narrow screen. */}
+      <span id={valueId} className={cn('min-w-0', !value && 'text-muted')} suppressHydrationWarning>
         {value ?? placeholder}
       </span>
     </button>
