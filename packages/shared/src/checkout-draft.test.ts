@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  arrivingFlight,
   emptyPassenger,
   FLIGHT_NUMBER_PATTERN,
   flightFacts,
@@ -8,6 +9,8 @@ import {
   normalisePassport,
   normalisePhone,
   passengerDrafts,
+  tripFacts,
+  tripPartFacts,
   validateCheckout,
   type CheckoutDraft,
   type FlightFactsInput,
@@ -260,5 +263,97 @@ describe('in-house checkout helpers', () => {
     for (const value of ['flight', 'P4-7121', 'P4 71215', 'p4 7121']) {
       expect(FLIGHT_NUMBER_PATTERN.test(value)).toBe(false);
     }
+  });
+});
+
+describe('the facts of a whole trip (ADR-118)', () => {
+  const flight = {
+    passengers: { adults: 2, children: 1, infants: 1 },
+    slices: [
+      {
+        departureLocal: '2026-12-10T07:15',
+        segments: [
+          {
+            origin: { countryCode: 'NG' },
+            destination: { countryCode: 'GB' },
+            marketingCarrier: { code: 'P4' },
+            flightNumber: '7302',
+            arrivalLocal: '2026-12-10T12:55',
+          },
+        ],
+      },
+      {
+        departureLocal: '2026-12-17T21:40',
+        segments: [
+          {
+            origin: { countryCode: 'GB' },
+            destination: { countryCode: 'NG' },
+            marketingCarrier: { code: 'P4' },
+            flightNumber: '7303',
+            arrivalLocal: '2026-12-18T05:10',
+          },
+        ],
+      },
+    ],
+  };
+
+  it('reads each part: a flight, a stay by its rooms, a rental by its renter, an add-on', () => {
+    expect(tripPartFacts({ flight: { offer: flight } })).toMatchObject({
+      counts: { adults: 2, children: 1, infants: 1 },
+      international: true,
+    });
+    expect(
+      tripPartFacts({
+        hotel: { request: { checkIn: '2026-12-10', checkOut: '2026-12-17', rooms: [{}, {}] } },
+      }),
+    ).toEqual({
+      counts: { adults: 2, children: 0, infants: 0 },
+      firstTravelDate: '2026-12-10',
+      lastTravelDate: '2026-12-17',
+      international: false,
+    });
+    expect(
+      tripPartFacts({
+        rental: { pickupAtLocal: '2026-12-10T10:00', returnAtLocal: '2026-12-16T10:00' },
+      }),
+    ).toMatchObject({
+      counts: { adults: 1, children: 0, infants: 0 },
+      lastTravelDate: '2026-12-16',
+    });
+    expect(
+      tripPartFacts({
+        addon: {
+          startDate: '2026-12-10',
+          endDate: '2026-12-17',
+          travellers: { adults: 2, children: 1, infants: 0 },
+        },
+      }),
+    ).toMatchObject({ counts: { adults: 2, children: 1, infants: 0 } });
+  });
+
+  it('names each person once: the most of each kind, the whole span, a passport if any part goes abroad', () => {
+    expect(
+      tripFacts([
+        tripPartFacts({ flight: { offer: flight } }),
+        tripPartFacts({
+          hotel: { request: { checkIn: '2026-12-10', checkOut: '2026-12-17', rooms: [{}] } },
+        }),
+        null,
+      ]),
+    ).toEqual({
+      counts: { adults: 2, children: 1, infants: 1 },
+      firstTravelDate: '2026-12-10',
+      lastTravelDate: '2026-12-17',
+      international: true,
+    });
+    expect(tripFacts([null])).toBeNull();
+  });
+
+  it('prefills a transfer with the flight the trip arrives on', () => {
+    expect(arrivingFlight(flight)).toEqual({
+      flightNumber: 'P4 7302',
+      arrivalTime: '2026-12-10T12:55',
+    });
+    expect(arrivingFlight({ slices: [] })).toBeNull();
   });
 });

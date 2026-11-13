@@ -301,5 +301,84 @@ export function inhouseFacts(item: InhouseFactsInput): ItineraryFacts | null {
   return null;
 }
 
+/** What `tripPartFacts` reads from a quote (the API's Quote satisfies it). */
+export interface TripPartFactsInput extends InhouseFactsInput {
+  flight?: { offer: FlightFactsInput } | null;
+  hotel?: { request: { checkIn: string; checkOut: string; rooms: readonly unknown[] } } | null;
+  rental?: { pickupAtLocal: string; returnAtLocal: string } | null;
+}
+
+/**
+ * The facts one part of a combined trip checks its travellers against (ADR-118): a flight's or
+ * an add-on's own; a hotel needs only its lead guests, one adult per room; a rental its renter.
+ */
+export function tripPartFacts(quote: TripPartFactsInput): ItineraryFacts | null {
+  if (quote.flight) return flightFacts(quote.flight.offer);
+  if (quote.hotel)
+    return {
+      counts: { adults: quote.hotel.request.rooms.length, children: 0, infants: 0 },
+      firstTravelDate: quote.hotel.request.checkIn,
+      lastTravelDate: quote.hotel.request.checkOut,
+      international: false,
+    };
+  if (quote.rental)
+    return {
+      counts: { adults: 1, children: 0, infants: 0 },
+      firstTravelDate: quote.rental.pickupAtLocal.slice(0, 10),
+      lastTravelDate: quote.rental.returnAtLocal.slice(0, 10),
+      international: false,
+    };
+  return inhouseFacts(quote);
+}
+
+/**
+ * The facts a whole trip's one details form is checked against (ADR-118): the most travellers
+ * of each kind any part was priced for (the form names each person once), the first and last
+ * travel days of all the parts, and passports when any part crosses a border.
+ */
+export function tripFacts(parts: readonly (ItineraryFacts | null)[]): ItineraryFacts | null {
+  const known = parts.filter((part): part is ItineraryFacts => part !== null);
+  if (known.length === 0) return null;
+  const most = (pick: (counts: TravellerCounts) => number): number =>
+    Math.max(...known.map((part) => pick(part.counts)));
+  const days = known.flatMap((part) => [part.firstTravelDate, part.lastTravelDate]).sort();
+  return {
+    counts: {
+      adults: most((counts) => counts.adults),
+      children: most((counts) => counts.children),
+      infants: most((counts) => counts.infants),
+    },
+    firstTravelDate: days[0] ?? '',
+    lastTravelDate: days.at(-1) ?? '',
+    international: known.some((part) => part.international),
+  };
+}
+
+/** What `arrivingFlight` reads from a flight offer (the API's FlightOffer satisfies it). */
+export interface ArrivingFlightInput {
+  slices: readonly {
+    segments: readonly {
+      marketingCarrier: { code: string };
+      flightNumber: string;
+      arrivalLocal: string;
+    }[];
+  }[];
+}
+
+/**
+ * The flight a trip arrives on, for an airport transfer's details (ADR-118): the last flight of
+ * the outbound journey, as `P4 7121` and its local arrival time. The traveller can change both.
+ */
+export function arrivingFlight(
+  offer: ArrivingFlightInput,
+): { flightNumber: string; arrivalTime: string } | null {
+  const segment = offer.slices[0]?.segments.at(-1);
+  if (!segment) return null;
+  return {
+    flightNumber: `${segment.marketingCarrier.code} ${segment.flightNumber}`,
+    arrivalTime: segment.arrivalLocal.slice(0, 16),
+  };
+}
+
 /** An airline flight number as the API accepts it for transfers (`P4 7121`, `BA75`). */
 export const FLIGHT_NUMBER_PATTERN = /^[A-Z0-9]{2}\s?\d{1,4}[A-Z]?$/;
