@@ -713,6 +713,23 @@ export const extraSelectionSchema = named(
   }),
 );
 
+/** What an add-on may ask for at checkout (`requiredDetails`): an arriving flight, a pickup. */
+export const addonDetailsInputSchema = z.object({
+  flightNumber: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(FLIGHT_NUMBER_PATTERN, 'Use the flight number, for example P4 7121')
+    .nullable()
+    .default(null),
+  arrivalTime: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, 'Use local time YYYY-MM-DDTHH:mm')
+    .nullable()
+    .default(null),
+  pickupAddress: z.string().trim().min(5).max(300).nullable().default(null),
+});
+
 export const createBookingRequestSchema = named(
   'CreateBookingRequest',
   z.object({
@@ -732,22 +749,7 @@ export const createBookingRequestSchema = named(
       description:
         "Seats chosen from `getQuoteSeatMaps` (ADR-094): at most one per traveller with a seat on each flight. Checked against the airline's map again; 422 `seats-invalid` names the first problem. Like paid extras, not with a hold or installments.",
     }),
-    addonDetails: z
-      .object({
-        flightNumber: z
-          .string()
-          .trim()
-          .toUpperCase()
-          .regex(FLIGHT_NUMBER_PATTERN, 'Use the flight number, for example P4 7121')
-          .nullable()
-          .default(null),
-        arrivalTime: z
-          .string()
-          .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, 'Use local time YYYY-MM-DDTHH:mm')
-          .nullable()
-          .default(null),
-        pickupAddress: z.string().trim().min(5).max(300).nullable().default(null),
-      })
+    addonDetails: addonDetailsInputSchema
       .nullable()
       .default(null)
       .meta({ description: 'Add-ons: the details the product asks for (`requiredDetails`).' }),

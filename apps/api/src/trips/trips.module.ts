@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { BookingsModule } from '../bookings/bookings.module';
 import { PaymentsModule } from '../payments/payments.module';
 
+import { TripBookingService } from './trip-booking.service';
 import { TripCheckoutService } from './trip-checkout.service';
 import { TripsController } from './trips.controller';
 import { TripsService } from './trips.service';
@@ -15,7 +16,7 @@ import { TripsService } from './trips.service';
 @Module({
   imports: [BookingsModule, PaymentsModule],
   controllers: [TripsController],
-  providers: [TripsService, TripCheckoutService],
+  providers: [TripsService, TripCheckoutService, TripBookingService],
   exports: [TripsService],
 })
 export class TripsModule {}

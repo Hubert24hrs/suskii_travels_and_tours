@@ -54,3 +54,21 @@ export const tooManyTrips = (): ProblemDetailsException =>
     'You have too many unpaid trips',
     'Pay or finish one of your trips before starting another.',
   );
+
+export const tripNothingPrepared = (): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.CONFLICT,
+    'trip-nothing-prepared',
+    'No part of this trip is waiting for details',
+    'Every part is booked already, or what Ask Suskii prepared has expired. Choose the parts again from the trip page.',
+  );
+
+/** The travellers given do not cover a part: `part` names it (ADR-118). */
+export const tripTravellersShort = (part: string): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.UNPROCESSABLE_ENTITY,
+    'trip-travellers-short',
+    'Some travellers are missing',
+    'A part of the trip was priced for more travellers of a kind than the form names.',
+    { part },
+  );

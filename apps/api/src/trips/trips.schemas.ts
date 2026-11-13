@@ -2,8 +2,12 @@ import { z } from 'zod';
 
 import {
   BOOKING_STATUSES,
+  contactDetailsSchema,
   currencyCodeSchema,
   DEFAULT_CURRENCY,
+  localeCodeSchema,
+  marketingAttributionSchema,
+  passengerInputSchema,
   PAYMENT_PROVIDER_NAMES,
   TRIP_COMPONENTS,
   TRIP_PART_STATES,
@@ -12,6 +16,7 @@ import {
 } from '@suskii/shared';
 
 import {
+  addonDetailsInputSchema,
   bookingPriceChangeSchema,
   bookingSummarySchema,
   PAYMENT_METHODS,
@@ -47,6 +52,35 @@ export const addTripPartSchema = named(
     }),
   }),
 );
+
+/**
+ * Every part a trip still has to book, with one set of details (ADR-118): the contact once and
+ * each traveller once. Each part takes the travellers its own quote was priced for.
+ */
+export const bookTripSchema = named(
+  'BookTripRequest',
+  z
+    .object({
+      contact: contactDetailsSchema,
+      travellers: z.array(passengerInputSchema).min(1).max(9).meta({
+        description:
+          'Everyone on the trip, once: adults, children and lap infants. A flight, a transfer or insurance takes the travellers of each kind its quote was priced for, in this order; a hotel takes the adults as lead guests, one per room; a rental car the first adult as its renter, who shows the licence at pickup. Give a passport when any part goes abroad.',
+      }),
+      addonDetails: addonDetailsInputSchema.nullable().default(null).meta({
+        description:
+          "The airport transfer's details, when the trip has one that asks for them (`requiredDetails`).",
+      }),
+      termsVersion: z.string().min(1).max(32),
+      acceptTerms: z.literal(true),
+      locale: localeCodeSchema.default('en-NG'),
+      marketing: marketingAttributionSchema.optional(),
+    })
+    .refine((input) => input.travellers.some((traveller) => traveller.type === 'adult'), {
+      path: ['travellers'],
+      message: 'adult_required',
+    }),
+);
+export type BookTripRequest = z.output<typeof bookTripSchema>;
 
 export const startTripPaymentSchema = named(
   'StartTripPaymentRequest',
