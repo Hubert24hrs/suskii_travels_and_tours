@@ -38,11 +38,29 @@ function base(config: AppConfig): CookieOptions {
   };
 }
 
+/**
+ * With `COOKIE_DOMAIN` set, a browser may still hold the session cookies an earlier setting left
+ * on the API's own name. A browser sends the older cookie of a name first and the API reads the
+ * first, so they would shadow the new ones: a refresh token rotated once would come back, look
+ * reused and end the session.
+ * Every response that sets or clears the session expires them (ADR-115). A cookie without a
+ * domain is another cookie than one with it, so this never touches the shared ones.
+ */
+function expireHostOnlyCopies(response: Response, config: AppConfig): void {
+  if (!config.COOKIE_DOMAIN) return;
+  const names = sessionCookieNames(config);
+  const hostOnly: CookieOptions = { secure: config.COOKIE_SECURE };
+  response.clearCookie(names.access, { ...hostOnly, path: '/' });
+  response.clearCookie(names.refresh, { ...hostOnly, path: REFRESH_COOKIE_PATH });
+  response.clearCookie(names.csrf, { ...hostOnly, path: '/' });
+}
+
 export function setSessionCookies(
   response: Response,
   config: AppConfig,
   session: CookieSession,
 ): void {
+  expireHostOnlyCopies(response, config);
   const names = sessionCookieNames(config);
   const now = Date.now();
   // Without "Remember me" the cookies carry no lifetime, so the browser drops them when it
@@ -74,6 +92,7 @@ export function setSessionCookies(
 }
 
 export function clearSessionCookies(response: Response, config: AppConfig): void {
+  expireHostOnlyCopies(response, config);
   const names = sessionCookieNames(config);
   response.clearCookie(names.access, { ...base(config), path: '/' });
   response.clearCookie(names.refresh, { ...base(config), path: REFRESH_COOKIE_PATH });
