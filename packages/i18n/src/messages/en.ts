@@ -3443,6 +3443,30 @@ export const en = {
     intro:
       'Put a flight, a hotel, a rental car, an airport transfer and travel insurance together, or only the parts you want. You see a price for each part and one total, and you pay once.',
     pdf: 'Save this plan as a PDF',
+    details: {
+      title: 'Your trip’s details',
+      heading: 'Enter everyone’s details once',
+      intro:
+        'One form for every part Ask Suskii prepared. Each part takes the travellers it needs: the flight everyone, the hotel a lead guest per room, the rental car its driver, who shows the licence at pickup.',
+      open: 'Enter everyone’s details once',
+      partsHeading: 'What you are booking',
+      travellersHeading: 'Travellers',
+      bagsNote:
+        'Bags and seats are chosen on the flight’s own checkout. To add them, enter the flight’s details from the trip page instead.',
+      submit: 'Book every part',
+      booking: 'Booking your trip',
+      back: 'Back to the trip',
+      nothing: 'Nothing on this trip is waiting for details.',
+      errors: {
+        part: 'This part could not be booked: {part}. Nothing was booked. Check the details and try again.',
+        short:
+          'This part was priced for more travellers than the form names: {part}. Go back to the trip and choose it again.',
+        expired:
+          'A price on this trip has run out: {part}. Go back to the trip and choose that part again.',
+        nothing: 'Nothing on this trip is waiting for details any more.',
+        generic: 'Something went wrong. Nothing was booked. Try again.',
+      },
+    },
     components: {
       flight: 'Flight',
       hotel: 'Hotel',

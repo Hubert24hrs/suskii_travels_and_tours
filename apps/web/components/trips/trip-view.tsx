@@ -521,12 +521,19 @@ export function TripView({
                 </dl>
               )}
               {prepared.length > 0 ? (
-                <p
-                  className="font-body text-caption text-foreground"
-                  data-testid="trip-prepared-note"
-                >
-                  {t('trips.page.preparedNote')}
-                </p>
+                <>
+                  <Button asChild fullWidth>
+                    <AppLink href={`/trips/${trip.id}/details`} data-testid="trip-details-open">
+                      {t('trips.details.open')}
+                    </AppLink>
+                  </Button>
+                  <p
+                    className="font-body text-caption text-foreground"
+                    data-testid="trip-prepared-note"
+                  >
+                    {t('trips.page.preparedNote')}
+                  </p>
+                </>
               ) : null}
               {trip.payment.open ? (
                 <>

@@ -3536,6 +3536,30 @@ export const pt: Messages = {
     intro:
       'Junte um voo, um hotel, um carro de aluguer, um transfer do aeroporto e um seguro de viagem, ou só as partes que quiser. Vê um preço por cada parte e um total, e paga uma única vez.',
     pdf: 'Guardar este plano em PDF',
+    details: {
+      title: 'Os dados da sua viagem',
+      heading: 'Introduza os dados de todos uma só vez',
+      intro:
+        'Um só formulário para todas as partes que o Ask Suskii preparou. Cada parte leva os viajantes de que precisa: o voo todos, o hotel um hóspede principal por quarto, o carro alugado o seu condutor, que mostra a carta de condução no levantamento.',
+      open: 'Introduzir os dados de todos uma só vez',
+      partsHeading: 'O que está a reservar',
+      travellersHeading: 'Viajantes',
+      bagsNote:
+        'A bagagem e os lugares escolhem-se no pagamento do próprio voo. Para os acrescentar, introduza antes os dados do voo a partir da página da viagem.',
+      submit: 'Reservar todas as partes',
+      booking: 'A reservar a sua viagem',
+      back: 'Voltar à viagem',
+      nothing: 'Nenhuma parte desta viagem está à espera de dados.',
+      errors: {
+        part: 'Não foi possível reservar esta parte: {part}. Nada foi reservado. Verifique os dados e tente de novo.',
+        short:
+          'Esta parte foi cotada para mais viajantes do que os que o formulário indica: {part}. Volte à viagem e escolha-a de novo.',
+        expired:
+          'Um preço desta viagem expirou: {part}. Volte à viagem e escolha essa parte de novo.',
+        nothing: 'Já nenhuma parte desta viagem está à espera de dados.',
+        generic: 'Algo correu mal. Nada foi reservado. Tente de novo.',
+      },
+    },
     components: {
       flight: 'Voo',
       hotel: 'Hotel',

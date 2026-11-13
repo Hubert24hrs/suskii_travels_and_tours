@@ -3524,6 +3524,30 @@ export const sw: Messages = {
     intro:
       'Unganisha ndege, hoteli, gari la kukodi, usafiri wa uwanja wa ndege na bima ya safari, au sehemu unazotaka tu. Unaona bei ya kila sehemu na jumla moja, kisha unalipa mara moja.',
     pdf: 'Hifadhi mpango huu kama PDF',
+    details: {
+      title: 'Taarifa za safari yako',
+      heading: 'Weka taarifa za kila mtu mara moja',
+      intro:
+        'Fomu moja kwa sehemu zote zilizoandaliwa na Ask Suskii. Kila sehemu inachukua wasafiri inaowahitaji: ndege kila mtu, hoteli mgeni mkuu kwa kila chumba, gari la kukodi dereva wake, atakayeonyesha leseni wakati wa kulichukua.',
+      open: 'Weka taarifa za kila mtu mara moja',
+      partsHeading: 'Unachoweka',
+      travellersHeading: 'Wasafiri',
+      bagsNote:
+        'Mizigo na viti huchaguliwa kwenye malipo ya ndege yenyewe. Ili kuviongeza, weka taarifa za ndege kutoka kwenye ukurasa wa safari badala yake.',
+      submit: 'Weka sehemu zote',
+      booking: 'Tunaweka safari yako',
+      back: 'Rudi kwenye safari',
+      nothing: 'Hakuna sehemu ya safari hii inayosubiri taarifa.',
+      errors: {
+        part: 'Sehemu hii haikuweza kuwekwa: {part}. Hakuna kilichowekwa. Kagua taarifa na ujaribu tena.',
+        short:
+          'Sehemu hii iliwekewa bei ya wasafiri wengi kuliko waliotajwa kwenye fomu: {part}. Rudi kwenye safari na uichague tena.',
+        expired:
+          'Bei ya sehemu ya safari hii imeisha muda: {part}. Rudi kwenye safari na uchague sehemu hiyo tena.',
+        nothing: 'Hakuna tena sehemu ya safari hii inayosubiri taarifa.',
+        generic: 'Hitilafu imetokea. Hakuna kilichowekwa. Jaribu tena.',
+      },
+    },
     components: {
       flight: 'Ndege',
       hotel: 'Hoteli',

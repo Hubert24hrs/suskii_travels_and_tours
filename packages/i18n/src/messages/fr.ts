@@ -3568,6 +3568,30 @@ export const fr: Messages = {
     intro:
       'Réunissez un vol, un hôtel, une voiture de location, un transfert aéroport et une assurance voyage, ou seulement ce dont vous avez besoin. Vous voyez un prix pour chaque élément et un total, et vous payez une seule fois.',
     pdf: 'Enregistrer ce programme en PDF',
+    details: {
+      title: 'Les informations de votre voyage',
+      heading: 'Saisissez les informations de chacun une seule fois',
+      intro:
+        'Un seul formulaire pour toutes les parties préparées par Ask Suskii. Chaque partie prend les voyageurs dont elle a besoin : le vol tout le monde, l’hôtel un client principal par chambre, la voiture de location son conducteur, qui présente son permis au retrait.',
+      open: 'Saisir les informations de chacun une seule fois',
+      partsHeading: 'Ce que vous réservez',
+      travellersHeading: 'Voyageurs',
+      bagsNote:
+        'Les bagages et les sièges se choisissent au paiement du vol lui-même. Pour les ajouter, saisissez plutôt les informations du vol depuis la page du voyage.',
+      submit: 'Réserver toutes les parties',
+      booking: 'Réservation de votre voyage en cours',
+      back: 'Retour au voyage',
+      nothing: 'Aucune partie de ce voyage n’attend d’informations.',
+      errors: {
+        part: 'Cette partie n’a pas pu être réservée : {part}. Rien n’a été réservé. Vérifiez les informations et réessayez.',
+        short:
+          'Cette partie a été chiffrée pour plus de voyageurs que le formulaire n’en nomme : {part}. Revenez au voyage et choisissez-la à nouveau.',
+        expired:
+          'Un prix de ce voyage a expiré : {part}. Revenez au voyage et choisissez à nouveau cette partie.',
+        nothing: 'Plus aucune partie de ce voyage n’attend d’informations.',
+        generic: 'Une erreur s’est produite. Rien n’a été réservé. Réessayez.',
+      },
+    },
     components: {
       flight: 'Vol',
       hotel: 'Hôtel',
