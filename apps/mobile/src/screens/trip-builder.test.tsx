@@ -348,6 +348,52 @@ describe('BuiltTripScreen', () => {
     });
   });
 
+  it("shows the parts Ask Suskii prepared with their prices, and opens each one's checkout (ADR-117)", async () => {
+    const HOTEL_QUOTE = '0192d3a0-7c1e-7b2a-9f00-00000000d007';
+    mockApi({
+      [`GET /v1/trips/${TRIP_ID}`]: () =>
+        json(
+          trip({
+            parts: [],
+            missing: ['flight', 'hotel'],
+            total: ngn(0),
+            due: ngn(0),
+            prepared: [
+              {
+                component: 'hotel',
+                quoteId: HOTEL_QUOTE,
+                title: 'Paddington Court, London',
+                price: ngn(60_000_000),
+                expiresAt: '2026-11-13T22:00:00.000Z',
+              },
+            ],
+            totalWithPrepared: ngn(60_000_000),
+          }),
+        ),
+    });
+    await renderWithApp(<BuiltTripScreen />, await signedInSession());
+
+    expect(await screen.findByTestId('trip-prepared-hotel')).toHaveTextContent(
+      'Paddington Court, London',
+    );
+    expect(screen.getByTestId('trip-prepared-price-hotel')).toHaveTextContent(/600,000/);
+    expect(screen.getByTestId('trip-part-hotel')).toHaveTextContent(
+      new RegExp(m.trips.page.prepared),
+    );
+    // The summary counts it, says the total is with prepared parts and how they join the payment.
+    expect(screen.getByTestId('trip-review-prepared-hotel')).toHaveTextContent(/600,000/);
+    expect(screen.getByTestId('trip-total')).toHaveTextContent(/600,000/);
+    expect(screen.getByText(m.trips.page.totalWithPrepared)).toBeOnTheScreen();
+    expect(screen.getByTestId('trip-prepared-note')).toHaveTextContent(m.trips.page.preparedNote);
+    // A part nobody prepared keeps its ordinary way in.
+    expect(screen.getByTestId('trip-choose-flight')).toHaveTextContent(m.trips.page.choose.flight);
+
+    // Entering the details opens that quote's checkout, which adds the booking to this trip.
+    await fireEvent.press(screen.getByTestId('trip-enter-details-hotel'));
+    expect(router.push).toHaveBeenCalledWith(`/checkout/${HOTEL_QUOTE}`);
+    expect(activeTrip.get()).toEqual({ id: TRIP_ID, reference: 'T-AB12CD', component: 'hotel' });
+  });
+
   it('pays for every part with one hosted checkout', async () => {
     const { calls } = mockApi({
       [`GET /v1/trips/${TRIP_ID}`]: () => json(twoParts()),

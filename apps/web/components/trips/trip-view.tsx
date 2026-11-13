@@ -121,6 +121,10 @@ export function TripView({
     trip.parts.find((part) => part.component === component);
   const live = trip.parts.filter((part) => part.state !== 'closed');
   const settled = live.some((part) => part.state === 'paid' || part.state === 'confirmed');
+  /** Parts Ask Suskii prepared (ADR-117): quotes waiting for the travellers' details. */
+  const prepared = trip.prepared ?? [];
+  const preparedFor = (component: TripComponent) =>
+    prepared.find((entry) => entry.component === component);
 
   /** Remembers the part being chosen, then goes to its ordinary search. */
   const choose = (component: TripComponent) => {
@@ -313,9 +317,12 @@ export function TripView({
           </h2>
           <ol className="flex flex-col gap-3">
             {plan.components.map((component) => {
-              const part = partOf(component);
+              const found = partOf(component);
               const label = t(`trips.components.${component}`);
-              const open = !part || part.state === 'closed';
+              const open = !found || found.state === 'closed';
+              // A prepared part stands in for a part that was never added or has closed.
+              const ready = open ? preparedFor(component) : undefined;
+              const part = ready ? undefined : found;
               return (
                 <li key={component} data-testid={`trip-part-${component}`}>
                   <Card className="flex flex-col gap-3 p-4">
@@ -334,12 +341,25 @@ export function TripView({
                                 : format.date(part.booking.startsOn)}
                             </p>
                           </>
+                        ) : ready ? (
+                          <p className="font-body text-body text-foreground">{ready.title}</p>
                         ) : (
                           <p className="font-body text-body-sm text-muted">
                             {t('trips.page.notAdded')}
                           </p>
                         )}
                       </div>
+                      {ready ? (
+                        <div className="flex flex-col items-end gap-2">
+                          <span
+                            className="font-body text-body font-bold text-heading"
+                            data-testid={`trip-prepared-price-${component}`}
+                          >
+                            {format.money(ready.price)}
+                          </span>
+                          <Badge variant="info">{t('trips.page.prepared')}</Badge>
+                        </div>
+                      ) : null}
                       {part ? (
                         <div className="flex flex-col items-end gap-2">
                           <span
@@ -374,7 +394,29 @@ export function TripView({
                       </div>
                     ) : null}
                     <div className="flex flex-wrap items-center gap-2">
-                      {open ? (
+                      {ready ? (
+                        <>
+                          <Button asChild>
+                            <AppLink
+                              href={`/checkout/${ready.quoteId}`}
+                              onClick={() => choose(component)}
+                              aria-label={t('trips.page.enterDetailsLabel', { part: label })}
+                              data-testid={`trip-enter-details-${component}`}
+                            >
+                              {t('trips.page.enterDetails')}
+                            </AppLink>
+                          </Button>
+                          <Button asChild variant="ghost">
+                            <AppLink
+                              href={tripSearchHref(plan, component)}
+                              onClick={() => choose(component)}
+                              aria-label={t('trips.page.chooseAnotherLabel', { part: label })}
+                            >
+                              {t('trips.page.chooseAnother')}
+                            </AppLink>
+                          </Button>
+                        </>
+                      ) : open ? (
                         <Button asChild>
                           <AppLink
                             href={tripSearchHref(plan, component)}
@@ -431,7 +473,7 @@ export function TripView({
               <h2 id="trip-review" className="font-heading text-h3 font-bold text-heading">
                 {t('trips.page.reviewHeading')}
               </h2>
-              {live.length === 0 ? (
+              {live.length === 0 && prepared.length === 0 ? (
                 <p className="font-body text-body-sm text-foreground">
                   {t('trips.page.nothingYet')}
                 </p>
@@ -443,9 +485,32 @@ export function TripView({
                       <dd>{format.money(part.booking.total)}</dd>
                     </div>
                   ))}
+                  {prepared.map((entry) => (
+                    <div
+                      key={entry.quoteId}
+                      className="flex justify-between gap-4"
+                      data-testid={`trip-review-prepared-${entry.component}`}
+                    >
+                      <dt>
+                        {t(`trips.components.${entry.component}`)}
+                        <span className="block text-caption text-muted">
+                          {t('trips.page.prepared')}
+                        </span>
+                      </dt>
+                      <dd>{format.money(entry.price)}</dd>
+                    </div>
+                  ))}
                   <div className="flex justify-between gap-4 border-t border-border pt-2 text-body font-bold text-heading">
-                    <dt>{t('trips.page.total')}</dt>
-                    <dd data-testid="trip-total">{format.money(trip.total)}</dd>
+                    <dt>
+                      {prepared.length > 0
+                        ? t('trips.page.totalWithPrepared')
+                        : t('trips.page.total')}
+                    </dt>
+                    <dd data-testid="trip-total">
+                      {format.money(
+                        prepared.length > 0 ? (trip.totalWithPrepared ?? trip.total) : trip.total,
+                      )}
+                    </dd>
                   </div>
                   {settled && trip.due.amountMinor > 0 ? (
                     <div className="flex justify-between gap-4 font-bold">
@@ -455,6 +520,14 @@ export function TripView({
                   ) : null}
                 </dl>
               )}
+              {prepared.length > 0 ? (
+                <p
+                  className="font-body text-caption text-foreground"
+                  data-testid="trip-prepared-note"
+                >
+                  {t('trips.page.preparedNote')}
+                </p>
+              ) : null}
               {trip.payment.open ? (
                 <>
                   <p role="status" className="font-body text-body-sm text-foreground">
