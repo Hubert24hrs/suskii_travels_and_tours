@@ -35,7 +35,7 @@ stop() { printf '\n\033[31mStopped: %s\033[0m\n' "$*" >&2; exit 1; }
 command -v gcloud >/dev/null || stop "gcloud is not installed. Run this in Google Cloud Shell: https://shell.cloud.google.com"
 command -v node >/dev/null || stop "node is not installed. Run this in Google Cloud Shell."
 [ -n "$(gcloud auth list --filter=status:ACTIVE --format='value(account)' 2>/dev/null)" ] ||
-  stop "no Google account is signed in. In Cloud Shell you are signed in already; elsewhere run: gcloud auth login"
+  stop "no Google account is signed in here. Run gcloud auth login (a new Cloud Shell session can need it too), then run this again."
 
 STATE_BUCKET="$PROJECT-tfstate"
 BUILD_BUCKET="$PROJECT-build-source"
