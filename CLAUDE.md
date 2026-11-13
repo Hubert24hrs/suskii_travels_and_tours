@@ -141,6 +141,13 @@ for a signed-in traveller with a flight, the flight, stay, car, transfer and ins
 combined trip, whose page shows each prepared part with "Enter details" and takes one payment.
 Built and tested; the evals against the real model wait for the owner's Cloud Build run.
 
+One details form for the whole trip (outside the numbered phases, ADR-118,
+`docs/phases/trip-details-form.md`): the trip page's "Enter everyone's details once" opens one
+form (website `/trips/{id}/details`, app `/trips/built/{id}/details`) that takes the contact
+and every traveller once and books every prepared part through `POST /v1/trips/{tripId}/book`,
+all or nothing; the trip is then paid once. Bags and seats stay on the flight's own checkout.
+Built and tested.
+
 Date and time pickers (outside the numbered phases, ADR-114, `docs/phases/date-pickers.md`): the
 app's twelve typed dates (dates of birth, expiry dates, a rental's pickup and return, a ride for
 later, a transfer's arrival) are pickers: `DatePicker` in ui-native, with years, months and days,
@@ -1068,6 +1075,15 @@ Tooling notes for agents:
   by `TripsService.prepare()` and dropped by `addPart` when the part's booking joins. They are
   shown with their quoted price and "Enter details" (the ordinary checkout in trip mode) and
   counted in `totalWithPrepared`, never in `due` or a payment: only bookings are paid.
+- The details form (ADR-118) books prepared parts only through `TripBookingService.book()`:
+  each part is the ordinary `BookingsService.create()` request with the travellers its quote
+  was priced for (a flight and an add-on by their counts, a lead guest per room from the
+  adults, the first adult for a car), in `TRIP_COMPONENTS` order; when one refuses, what the
+  request booked is cancelled again (`cancel(..., 'trip_booking_failed')`), and only then do
+  the parts join through `addPart`. A part's problem carries `part`, and a traveller's issue
+  the form's index. Never book a part with travellers it was not priced for, and never keep
+  part of a trip the form did not finish. The clients take the travellers from `tripFacts()`
+  over `tripPartFacts()` and send one `Idempotency-Key` per body.
 - The booking answer's `trip` field is additive; fields added to a trip answer stay optional for
   older app builds.
 
@@ -2006,6 +2022,7 @@ Tooling notes for agents:
 - [ADR-115: Session cookies on the parent domain the website, the console and the API share](docs/decisions/ADR-115-session-cookies-on-the-shared-parent-domain.md)
 - [ADR-116: Duffel's test mode on the testing backend, and no live token beside the mock payment page](docs/decisions/ADR-116-duffel-test-mode-on-the-testing-backend.md)
 - [ADR-117: Ask Suskii prepares every product and puts the whole trip together](docs/decisions/ADR-117-ask-suskii-prepares-the-whole-trip.md)
+- [ADR-118: One details form for the whole trip](docs/decisions/ADR-118-one-details-form-for-the-whole-trip.md)
 
 ## Open questions for the owner
 
@@ -2242,8 +2259,9 @@ Added with the mailbox (ADR-113): the email provider production will send throug
 and terms only the owner can take out), and who besides the owner may read the testing
 backend's mailbox. Added with the whole trip in Ask Suskii (ADR-117): one run of the agent evals against
 the real model (`infra/gcp/cloudbuild.agent-eval.yaml`) before the new prompts answer
-travellers; whether one details form should cover every part of a trip; and whether tours,
-packages, visa assistance, eSIMs and lounge access should become parts of a combined trip.
+travellers; and whether tours, packages, visa assistance, eSIMs and lounge access should
+become parts of a combined trip. Added with the details form (ADR-118): whether checked bags
+and seats should move into the trip's one form (today they stay on the flight's own checkout).
 Every
 owner action is listed, step by step, in
 `docs/owner/launch-checklist.md`.

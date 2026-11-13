@@ -6,6 +6,37 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### One details form for the whole trip (2026-11-13, ADR-118)
+
+The owner asked for one details form for a trip Ask Suskii put together. Each prepared part
+had its own checkout, so the same travellers were typed into every one before the payment.
+
+#### Added
+
+- **`POST /v1/trips/{tripId}/book`**: the contact, every traveller and the transfer details
+  once, for every part prepared on the caller's trip. Each part is an ordinary booking with the
+  travellers its quote was priced for (a flight and an add-on by their counts, a lead guest per
+  room, the first adult for a car), then joins the trip, which is paid once as before. All or
+  nothing: when a part refuses, what the request booked is cancelled again, and the problem
+  names the part and the traveller's place in the form.
+- **The form on the website and in the app** (`/trips/{id}/details`, `/trips/built/{id}/details`),
+  from the trip page's "Enter everyone's details once": the travellers from the trip's facts
+  (the most of each kind any part takes, passports when any part goes abroad), the transfer
+  started from the flight it meets, the parts with one total, and the checks of a single
+  checkout before anything is sent.
+- `tripPartFacts()`, `tripFacts()` and `arrivingFlight()` in `@suskii/shared`.
+- Problems `trip-nothing-prepared` and `trip-travellers-short`, and the strings of the form in
+  every language.
+
+#### Changed
+
+- The `trip_handoff` note says the details are entered once for every part, in every language
+  and on WhatsApp, and `platform.guide` describes the form. No prompt or tool changed.
+- The website's and the app's checkouts read the API's issues and the transfer details through
+  one shared module each (`booking-form.ts`), which the new form uses too.
+- `BookingsService.cancel()` records why a booking is cancelled (`trip_booking_failed` for a
+  trip whose form did not go through).
+
 ### Ask Suskii prepares every product and puts the whole trip together (2026-11-13, ADR-117)
 
 The owner asked for the assistant to check out every service: after a flight, a hotel there if
