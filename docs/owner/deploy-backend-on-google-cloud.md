@@ -71,8 +71,10 @@ without it, and the app is not affected: it proves itself another way.
 **2. The first admin of the console.** Only you can do this, because it is your account, your
 password and your authenticator. It takes about five minutes:
 
-1. Sign up in the test app (pointed at this backend as above) with the address that should be
-   the admin.
+1. Sign up on the website (or in the test app pointed at this backend as above) with the
+   address that should be the admin. If the website sends you back to the sign-in page after
+   you sign in, the machine runs code from before 13 November 2026: deploy again (below), then
+   sign in once more (ADR-115).
 2. Open the mailbox (above), find the email that confirms your address and open its link. The
    website says the address is confirmed.
 3. Open the machine's **SSH** button (see "Look at it" below) and run, with that address:

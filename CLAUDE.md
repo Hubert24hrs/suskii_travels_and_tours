@@ -161,7 +161,9 @@ the website protects with Turnstile stay closed until the owner's widget exists.
 inventory and buses and car rental are on; rides, partner offers and price requests stay
 off. Its email lands in a mailbox on the machine and goes no further (ADR-113,
 `mail.endpoints.suskii-travels-staging.cloud.goog`, user `suskii`, the password in
-`MAILBOX_PASSWORD`), which is how its first admin confirms an address. The owner's
+`MAILBOX_PASSWORD`), which is how its first admin confirms an address. The API's session
+cookies go on `endpoints.suskii-travels-staging.cloud.goog`, the parent of the machine's names,
+so the website and the console keep someone signed in (ADR-115). The owner's
 guide is `docs/owner/deploy-backend-on-google-cloud.md`.
 
 Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
@@ -419,6 +421,9 @@ Tooling notes for agents:
   `UNREMEMBERED_SESSION_HOURS` at most and `setSessionCookies` sets cookies without a lifetime;
   the choice lives on the session row (`remembered`), so a refresh keeps it. A new sign-in route
   takes `remember` too, and nothing but `start()` decides a session's lifetime.
+- Session cookies are written only by `setSessionCookies` and `clearSessionCookies`
+  (`auth/cookies.ts`). With `COOKIE_DOMAIN` set they go on that parent and also expire copies
+  left on the API's own name, which a browser would send first (ADR-115); keep both in one place.
 - Seeded cities get their id from `stableCityId(countryCode, name)` (`catalog/reference-ids.ts`),
   the same in every database: phones and browsers keep city ids. Never seed reference data that
   a client keeps an id of with a random id, and never change that rule (ids already kept would
@@ -1745,6 +1750,11 @@ Tooling notes for agents:
   settings that look like secrets are rejected by both. Settings are not part of images.
 - Deployed environments set `CLIENT_IP_HEADER=cf-connecting-ip` (never with `TRUST_PROXY_HOPS`);
   only Cloudflare traffic carrying the origin secret reaches the origin.
+- The API's session cookies go on the parent that the website's, the console's and the API's
+  names share (`COOKIE_DOMAIN`, ADR-115), or the website cannot tell that someone is signed in.
+  Terraform derives it from the names (`vm/main.tf`, the platform module behind the edge) and
+  refuses names that share none; the chart takes `global.cookieDomain`. Every name under that
+  parent receives the cookies: never point one at a third party.
 - A new route prefix that must never be public (like `/v1/internal`) also gets an edge block in
   `infra/terraform/modules/edge`. A new public host goes in `hosts` for both modules.
 - Operator scripts that change data run as the `ops` Cloud Run job, never from a laptop against
@@ -1960,6 +1970,7 @@ Tooling notes for agents:
 - [ADR-112: Ask Suskii on Gemini through Vertex AI, as the machine's own identity](docs/decisions/ADR-112-ask-suskii-on-vertex-ai.md)
 - [ADR-113: A mailbox on the testing backend, so its first admin can confirm an address](docs/decisions/ADR-113-a-mailbox-on-the-testing-backend.md)
 - [ADR-114: Date and time pickers in the app](docs/decisions/ADR-114-date-and-time-pickers-in-the-app.md)
+- [ADR-115: Session cookies on the parent domain the website, the console and the API share](docs/decisions/ADR-115-session-cookies-on-the-shared-parent-domain.md)
 
 ## Open questions for the owner
 
