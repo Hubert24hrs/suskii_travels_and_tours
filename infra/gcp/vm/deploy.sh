@@ -97,14 +97,20 @@ api_keys = (
     "INTERNAL_API_TOKEN AGENT_RUN_TOKEN AGENT_TOOLS_TOKEN TURNSTILE_SECRET_KEY "
     "OBJECT_STORAGE_ACCESS_KEY_ID OBJECT_STORAGE_SECRET_ACCESS_KEY"
 ).split()
-write(
-    "api.env",
-    {
-        "DATABASE_URL": f"postgresql://suskii_app:{app}@{database}",
-        "REDIS_URL": redis_url,
-        **{name: secret(name) for name in api_keys},
-    },
-)
+api = {
+    "DATABASE_URL": f"postgresql://suskii_app:{app}@{database}",
+    "REDIS_URL": redis_url,
+    **{name: secret(name) for name in api_keys},
+}
+# Flights and hotels from Duffel (ADR-116): its token only while one of them comes from Duffel,
+# and only a test token, because payments here are the stand-in: a live token would book real
+# tickets that nobody paid for. The token itself is never printed.
+if "duffel" in (settings.get("flight_suppliers"), settings.get("hotel_suppliers")):
+    duffel = secret("DUFFEL_API_TOKEN")
+    if not duffel.startswith("duffel_test_"):
+        raise SystemExit("suskii-deploy: DUFFEL_API_TOKEN must be a Duffel test token (duffel_test_...)")
+    api["DUFFEL_API_TOKEN"] = duffel
+write("api.env", api)
 write("worker.env", {"REDIS_URL": redis_url, "INTERNAL_API_TOKEN": secret("INTERNAL_API_TOKEN")})
 
 # The mailbox's password, for the next step to hash (ADR-113): a file only root reads, in
@@ -150,6 +156,8 @@ write(
         "SUSKII_DOCUMENTS_BUCKET": settings["documents_bucket"],
         "SUSKII_ASSISTANT_ENABLED": "true" if settings["assistant_enabled"] else "false",
         "SUSKII_SAMPLE_CATALOGUE": "true" if settings.get("sample_catalogue") else "false",
+        "SUSKII_FLIGHT_SUPPLIERS": settings.get("flight_suppliers") or "mock",
+        "SUSKII_HOTEL_SUPPLIERS": settings.get("hotel_suppliers") or "mock",
         "SUSKII_EMAIL_PROVIDER": "smtp" if mailbox else "mock",
         "SUSKII_MAIL_HOST": settings.get("mail_host") or "mail.suskii.example",
     },

@@ -101,10 +101,11 @@ services:
       OBJECT_STORAGE_REGION: auto
       OBJECT_STORAGE_BUCKET: ${SUSKII_DOCUMENTS_BUCKET:?}
       # The stand-ins for every supplier, payment and message provider, until the owner connects
-      # real accounts: each is a setting here and a key in Secret Manager away.
+      # real accounts: each is a setting here and a key in Secret Manager away. Flights and
+      # hotels can come from Duffel's test mode (ADR-116, FLIGHT_SUPPLIERS=duffel on the deploy).
       ALLOW_MOCK_PROVIDERS: 'true'
-      FLIGHT_SUPPLIERS: mock
-      HOTEL_SUPPLIERS: mock
+      FLIGHT_SUPPLIERS: ${SUSKII_FLIGHT_SUPPLIERS:-mock}
+      HOTEL_SUPPLIERS: ${SUSKII_HOTEL_SUPPLIERS:-mock}
       PAYMENT_PROVIDERS: mock
       TAX_SELLER_COUNTRY: NG
       # Email (ADR-113): with the mailbox, every message goes to it over the private network and

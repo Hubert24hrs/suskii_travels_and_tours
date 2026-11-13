@@ -97,6 +97,26 @@ variable "assistant_model" {
   }
 }
 
+variable "flight_suppliers" {
+  description = "Where flights come from (ADR-116): mock, the stand-in that calls no airline, or duffel, with the token in the secret DUFFEL_API_TOKEN. While payments are the stand-in the API takes only Duffel's test token (duffel_test_), which books test orders and moves no money."
+  type        = string
+  default     = "mock"
+  validation {
+    condition     = contains(["mock", "duffel"], var.flight_suppliers)
+    error_message = "Use mock or duffel."
+  }
+}
+
+variable "hotel_suppliers" {
+  description = "Where hotels come from (ADR-116): mock, or duffel (Duffel Stays, which Duffel switches on per account), with the same token as flights."
+  type        = string
+  default     = "mock"
+  validation {
+    condition     = contains(["mock", "duffel"], var.hotel_suppliers)
+    error_message = "Use mock or duffel."
+  }
+}
+
 variable "assistant_location" {
   description = "With vertex: where Vertex AI processes the assistant's requests, a region or global. Empty: the machine's own region."
   type        = string
