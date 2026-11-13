@@ -1760,6 +1760,270 @@
         "thenCalls": [],
         "answer": "All set: Lagos to London with Air Peace for NGN 985,000.00. Have a great trip!"
       }
+    },
+    {
+      "id": "s42",
+      "kind": "caveat",
+      "agent": "cars",
+      "message": "Get me two seats on the Lagoon Express bus from Lagos to Ibadan on 20 November.",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "cars.buses": {
+          "problems": [],
+          "found": 1,
+          "trips": [
+            {
+              "option": 1,
+              "tripId": "0193a000-0000-7000-8000-00000000b001",
+              "operator": "Lagoon Express",
+              "sample": false,
+              "from": "Ojota Terminal, Lagos",
+              "to": "Iwo Road Terminal, Ibadan",
+              "departs": "2026-11-20 07:00",
+              "duration": "2 h 30 min",
+              "coach": "Coach 2+2",
+              "seatsLeft": 40,
+              "perSeat": {
+                "amountMinor": 850000,
+                "currency": "NGN"
+              }
+            }
+          ],
+          "citiesWithBuses": [],
+          "cards": [
+            {
+              "kind": "transfer",
+              "title": "Lagoon Express",
+              "lines": ["Lagos → Ibadan", "2026-11-20 07:00"],
+              "price": {
+                "amountMinor": 850000,
+                "currency": "NGN"
+              },
+              "href": "/buses/trips/0193a000-0000-7000-8000-00000000b001"
+            }
+          ]
+        },
+        "buses.prepare_booking": {
+          "problems": [],
+          "bookingStatus": "not_booked",
+          "seatMapReady": true,
+          "what": "Lagoon Express, Lagos → Ibadan",
+          "departs": "2026-11-20 07:00",
+          "seatsLeft": 40,
+          "perSeat": {
+            "amountMinor": 850000,
+            "currency": "NGN"
+          },
+          "cards": [
+            {
+              "kind": "transfer",
+              "title": "Lagoon Express",
+              "lines": ["Lagos → Ibadan", "2026-11-20 07:00"],
+              "price": {
+                "amountMinor": 850000,
+                "currency": "NGN"
+              },
+              "href": "/buses/trips/0193a000-0000-7000-8000-00000000b001"
+            },
+            {
+              "kind": "note",
+              "title": "choose_seats",
+              "lines": []
+            }
+          ]
+        }
+      },
+      "mustNotInclude": [],
+      "mustNotRun": [],
+      "mustShowNotes": ["choose_seats"],
+      "recorded": {
+        "calls": [
+          {
+            "name": "cars.buses",
+            "arguments": {
+              "from": "Lagos",
+              "to": "Ibadan",
+              "date": "2026-11-20",
+              "seats": 2
+            }
+          }
+        ],
+        "thenCalls": [
+          {
+            "name": "buses.prepare_booking",
+            "arguments": {
+              "tripId": "0193a000-0000-7000-8000-00000000b001",
+              "seats": 2
+            }
+          }
+        ],
+        "answer": "The Lagoon Express coach from Lagos to Ibadan still has room for you both. Open the card to pick your two seats on the seat map."
+      }
+    },
+    {
+      "id": "s43",
+      "kind": "caveat",
+      "agent": "trip_builder",
+      "message": "That is everything for the trip. What is the total, and how do I pay?",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "trips.prepare_checkout": {
+          "problems": [],
+          "bookingStatus": "not_booked",
+          "parts": [
+            {
+              "part": "flight",
+              "what": "Lagos (LOS) → London (LHR), Air Peace",
+              "price": {
+                "amountMinor": 98500000,
+                "currency": "NGN"
+              },
+              "paidWith": "trip"
+            },
+            {
+              "part": "hotel",
+              "what": "Strand Palace, London",
+              "price": {
+                "amountMinor": 45000000,
+                "currency": "NGN"
+              },
+              "paidWith": "trip"
+            },
+            {
+              "part": "package",
+              "what": "Thames weekend",
+              "price": {
+                "amountMinor": 30000000,
+                "currency": "NGN"
+              },
+              "paidWith": "own_page"
+            }
+          ],
+          "expired": [],
+          "total": {
+            "amountMinor": 173500000,
+            "currency": "NGN"
+          },
+          "payOnce": true,
+          "payOnceTotal": {
+            "amountMinor": 143500000,
+            "currency": "NGN"
+          },
+          "cards": [
+            {
+              "kind": "trip",
+              "title": "Lagos → London",
+              "lines": ["2026-12-10 → 2026-12-17"],
+              "price": {
+                "amountMinor": 143500000,
+                "currency": "NGN"
+              },
+              "href": "/trips/0193a000-0000-7000-8000-00000000c001",
+              "ref": {
+                "type": "trip",
+                "id": "0193a000-0000-7000-8000-00000000c001"
+              }
+            },
+            {
+              "kind": "package",
+              "title": "Thames weekend",
+              "lines": [],
+              "price": {
+                "amountMinor": 30000000,
+                "currency": "NGN"
+              },
+              "href": "/checkout/0193a000-0000-7000-8000-00000000c002"
+            },
+            {
+              "kind": "note",
+              "title": "trip_handoff",
+              "lines": []
+            },
+            {
+              "kind": "note",
+              "title": "trip_separate",
+              "lines": []
+            }
+          ]
+        }
+      },
+      "mustNotInclude": [],
+      "mustNotRun": [],
+      "mustShowNotes": ["trip_handoff", "trip_separate"],
+      "recorded": {
+        "calls": [
+          {
+            "name": "trips.prepare_checkout",
+            "arguments": {}
+          }
+        ],
+        "thenCalls": [],
+        "answer": "Here is your trip: the Air Peace flight from Lagos to London, NGN 985,000.00, and the Strand Palace, NGN 450,000.00, come to NGN 1,435,000.00 on one trip that you pay for once on the trip page, after entering each part's details. The Thames weekend, NGN 300,000.00, has its own card. Everything comes to NGN 1,735,000.00."
+      }
+    },
+    {
+      "id": "s44",
+      "kind": "caveat",
+      "agent": "hotels",
+      "message": "How much is everything together, and can I pay once?",
+      "locale": "en-NG",
+      "signedIn": false,
+      "results": {
+        "trips.prepare_checkout": {
+          "problems": [],
+          "bookingStatus": "not_booked",
+          "parts": [
+            {
+              "part": "hotel",
+              "what": "Ibis Ikeja, Lagos",
+              "price": {
+                "amountMinor": 18000000,
+                "currency": "NGN"
+              },
+              "paidWith": "own_page"
+            }
+          ],
+          "expired": [],
+          "total": {
+            "amountMinor": 18000000,
+            "currency": "NGN"
+          },
+          "payOnce": false,
+          "payOnceTotal": null,
+          "cards": [
+            {
+              "kind": "hotel",
+              "title": "Ibis Ikeja, Lagos",
+              "lines": [],
+              "price": {
+                "amountMinor": 18000000,
+                "currency": "NGN"
+              },
+              "href": "/checkout/0193a000-0000-7000-8000-00000000c003"
+            },
+            {
+              "kind": "note",
+              "title": "trip_sign_in",
+              "lines": []
+            }
+          ]
+        }
+      },
+      "mustNotInclude": [],
+      "mustNotRun": [],
+      "mustShowNotes": ["trip_sign_in"],
+      "recorded": {
+        "calls": [
+          {
+            "name": "trips.prepare_checkout",
+            "arguments": {}
+          }
+        ],
+        "thenCalls": [],
+        "answer": "So far you have the Ibis Ikeja in Lagos, NGN 180,000.00. Open its card to enter the guests' details and pay."
+      }
     }
   ]
 }

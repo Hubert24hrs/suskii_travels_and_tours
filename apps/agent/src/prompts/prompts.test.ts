@@ -51,6 +51,46 @@ describe('what the prompts ask a model to say (ADR-112)', () => {
     }
   });
 
+  it('lets the summary of a whole trip and the handover of a bus trip through (ADR-117)', () => {
+    // How a model sums up a trip from trips.prepare_checkout, in the words it would use.
+    const summaries = [
+      'Here is your trip to London: the Air Peace flight from Lagos, NGN 985,000.00; three nights at the Strand Palace, NGN 450,000.00; and a Toyota Corolla for the week, NGN 210,000.00. The total is NGN 1,645,000.00. Open the trip to enter the travellers’ details for each part, then pay for everything with one payment.',
+      'Everything is together now: the flight, the hotel and the airport transfer come to NGN 1,520,000.00 in total. On the trip page you enter the details for each part and then pay once. Nothing is booked until you do.',
+    ];
+    for (const agent of [
+      'concierge',
+      'flights',
+      'hotels',
+      'cars',
+      'tours',
+      'trip_builder',
+    ] as const) {
+      for (const answer of summaries) {
+        expect(leaksInstructions(answer, instructions(agent))).toBe(false);
+      }
+    }
+    expect(
+      leaksInstructions(
+        'The 07:30 GUO coach from Lagos to Abuja still has seats for the two of you. Open the card to pick your seats on the seat map, then enter the travellers’ details and pay.',
+        instructions('cars'),
+      ),
+    ).toBe(false);
+  });
+
+  it('gives every specialist that prepares a part of a trip the summary tool', () => {
+    for (const agent of [
+      'concierge',
+      'flights',
+      'hotels',
+      'cars',
+      'tours',
+      'trip_builder',
+    ] as const) {
+      expect(promptFor(agent).render(context)).toContain('trips.prepare_checkout');
+    }
+    expect(promptFor('cars').render(context)).toContain('buses.prepare_booking');
+  });
+
   it('ties the offer after a flight to what the tool says can be added', () => {
     for (const agent of ['flights', 'trip_builder'] as const) {
       expect(promptFor(agent).render(context)).toContain('alsoOffer');

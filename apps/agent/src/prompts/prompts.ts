@@ -106,15 +106,24 @@ const PREPARE =
 const ALSO =
   'Right after a flight has been prepared, ask once whether they want more for that trip: what alsoOffer lists (hotel, car, airport_transfer, travel_insurance), in plain words, with the place and the dates the tool returned. If they decline, leave it unanswered or move on to something else, do not ask again in this conversation.';
 
+/**
+ * The whole trip at once (ADR-117): every part prepared in the conversation, each price and one
+ * total, from the summary tool, which reads the prepared quotes itself. A model never adds
+ * prices up and never passes their ids.
+ */
+const SUMMARY =
+  'Once the traveller has what they want for the trip, or asks for the total, the checkout or to pay, call trips.prepare_checkout, with leaveOut naming any prepared part they turned down. Then list each part it returned with its price, give its total, and say how it is paid: with one payment on the trip page when payOnce is true, otherwise from each card. If it returns expired parts, offer to prepare those again.';
+
 /** What a specialist does beyond answering, where it has the tools for it. */
 const TASKS: Readonly<Record<string, string>> = {
-  concierge:
-    'Travellers know you as Ask Suskii. When they want to search or book something, say which part of their trip you can start with and ask for what the search needs (places, dates, how many people).',
-  flights: `${PREPARE}\n${ALSO}`,
-  hotels: `${PREPARE}\nRight after a stay has been prepared, you may ask once whether they need a car or an airport transfer there.`,
-  cars: `${PREPARE}\nA rental car can be prepared only for a signed-in traveller, for the pick-up and return times of the search. Extras, another return branch and cover for another country are chosen on the car's own page.`,
-  trip_builder: `${PREPARE}\n${ALSO}`,
+  concierge: `Travellers know you as Ask Suskii. When they want to search or book something, say which part of their trip you can start with and ask for what the search needs (places, dates, how many people).\n${SUMMARY}`,
+  flights: `${PREPARE}\n${ALSO}\n${SUMMARY}`,
+  hotels: `${PREPARE}\nRight after a stay has been prepared, you may ask once whether they need a car or an airport transfer there.\n${SUMMARY}`,
+  cars: `${PREPARE}\nA rental car can be prepared only for a signed-in traveller, for the pick-up and return times of the search. Extras, another return branch and cover for another country are chosen on the car's own page.\nA bus trip is handed over at its seat map instead: once they choose a departure, call buses.prepare_booking with its tripId and the number of seats, then tell them the seats are picked on the card's page, where they also pay.\n${SUMMARY}`,
+  tours: `${PREPARE}\nA package or a tour is prepared for one of the departures the search listed, for the same travellers. Visa assistance is prepared for the nationality, purpose and travel day the traveller gave; it is help with the application, never a promise of a visa.\n${SUMMARY}`,
+  trip_builder: `${PREPARE}\n${ALSO}\nAn airport transfer or travel insurance is prepared from addons.search with addons.prepare_booking, for the trip's dates and travellers.\n${SUMMARY}`,
   disruption: PREPARE,
+  payments: SUMMARY,
   bookings:
     'When a tool shows a flight booking of theirs and they have just made it or ask what else the trip needs, you may offer once, for the dates of that booking, to look for what is still missing (hotel, car, airport_transfer).',
 };
@@ -181,14 +190,14 @@ export const ROUTER_PROMPT: Prompt = {
 };
 
 const SPECIALIST_PROMPTS: Readonly<Partial<Record<AgentName, Prompt>>> = {
-  concierge: specialist('concierge', 3),
-  flights: specialist('flights', 4),
-  hotels: specialist('hotels', 3),
-  cars: specialist('cars', 3),
-  tours: specialist('tours', 3),
-  trip_builder: specialist('trip_builder', 4),
+  concierge: specialist('concierge', 4),
+  flights: specialist('flights', 5),
+  hotels: specialist('hotels', 4),
+  cars: specialist('cars', 4),
+  tours: specialist('tours', 4),
+  trip_builder: specialist('trip_builder', 5),
   bookings: specialist('bookings', 4),
-  payments: specialist('payments', 3),
+  payments: specialist('payments', 4),
   support: specialist('support', 3),
   disruption: specialist('disruption', 3),
   operations: staffSpecialist('operations', 1),
