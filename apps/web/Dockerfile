@@ -71,6 +71,9 @@ ENV NODE_ENV=production \
 WORKDIR /app
 COPY --from=build --chown=root:root /repo/apps/web/.next/standalone ./
 COPY --from=build --chown=root:root /repo/apps/web/.next/static ./apps/web/.next/static
+# The standalone output leaves public/ out, as it does .next/static: without it the header's
+# logo and the sign-in card's Google and Apple marks answer 404.
+COPY --from=build --chown=root:root /repo/apps/web/public ./apps/web/public
 # The only writable path: Next.js's own cache (fetch cache, optimised images).
 RUN mkdir -p apps/web/.next/cache && chown node:node apps/web/.next/cache
 USER node
