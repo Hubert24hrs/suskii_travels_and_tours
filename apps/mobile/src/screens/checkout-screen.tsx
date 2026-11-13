@@ -1,10 +1,7 @@
 import type { Schemas } from '@suskii/api-client';
 import { useFormatters } from '@suskii/i18n/react';
 import {
-  addDays,
   BOOKING_TERMS_VERSION,
-  earliestToday,
-  FLIGHT_NUMBER_PATTERN,
   flightFacts,
   inhouseFacts,
   normalisePassport,
@@ -42,7 +39,15 @@ import { Loading, Notice } from '../components/states';
 import { useSensitiveScreen } from '../hooks/use-sensitive-screen';
 import { problemSlug } from '../lib/api';
 import { attestationHeader } from '../lib/attestation';
-import type { DateBounds } from '../lib/dates';
+import {
+  arrivalDates,
+  asIssue,
+  checkAddonDetails,
+  DETAIL_FIELDS,
+  formPath,
+  normaliseFlightNumber,
+  type AddonDetailsDraft,
+} from '../lib/booking-form';
 import { openHostedCheckout, startPayment } from '../lib/payment';
 import { activeTrip, quoteTripComponent, useActiveTrip } from '../lib/trip-builder';
 import { followBooking } from '../lib/push';
@@ -50,29 +55,6 @@ import { tripStore } from '../lib/trips';
 import { useApp, useT } from '../providers/app-provider';
 
 type Quote = Schemas['Quote'];
-
-const ISSUE_CODES = new Set<string>([
-  'name_not_latin',
-  'name_too_long',
-  'passport_required',
-  'passport_expired',
-  'passport_expires_soon',
-  'passenger_type_mismatch',
-  'born_after_travel',
-  'infants_exceed_adults',
-  'passenger_count_mismatch',
-  'traveller_not_found',
-  'nationality_mismatch',
-]);
-
-/** API field paths (`passengers.0.document.number`) to form paths (`passengers.0.passportNumber`). */
-const formPath = (path: string): string =>
-  path
-    .replace(/^contact\./, '')
-    .replace(/\.document\.number$/, '.passportNumber')
-    .replace(/\.document\.expiryDate$/, '.passportExpiry')
-    .replace(/\.document\.issuingCountry$/, '.issuingCountry')
-    .replace(/\.document$/, '.passportNumber');
 
 function draftFor(quote: Quote): CheckoutDraft {
   const counts =
@@ -88,50 +70,6 @@ function draftFor(quote: Quote): CheckoutDraft {
       ? [{ givenNames: '', surname: '' }]
       : [];
   return { passengers, guests, email: '', phone: '', terms: false };
-}
-
-/** Transfer details an add-on asks for (ADR-027); dates of birth come from the travellers. */
-interface AddonDetailsDraft {
-  flightNumber: string;
-  arrivalTime: string;
-  pickupAddress: string;
-}
-type DetailField = keyof AddonDetailsDraft;
-const DETAIL_FIELDS: Record<string, DetailField> = {
-  flight_number: 'flightNumber',
-  arrival_time: 'arrivalTime',
-  pickup_address: 'pickupAddress',
-};
-const normaliseFlightNumber = (value: string): string => value.trim().toUpperCase();
-
-function checkAddonDetails(
-  fields: readonly DetailField[],
-  details: AddonDetailsDraft,
-): FieldIssues {
-  const issues: FieldIssues = {};
-  for (const field of fields) {
-    const value = details[field].trim();
-    if (!value) issues[`addonDetails.${field}`] = 'required';
-    else if (field === 'flightNumber' && !FLIGHT_NUMBER_PATTERN.test(normaliseFlightNumber(value)))
-      issues[`addonDetails.${field}`] = 'invalid';
-    else if (field === 'arrivalTime' && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value))
-      issues[`addonDetails.${field}`] = 'invalid';
-    else if (field === 'pickupAddress' && value.length < 5)
-      issues[`addonDetails.${field}`] = 'invalid';
-  }
-  return issues;
-}
-
-/**
- * The days a transfer's arrival time can fall on (ADR-114): the extra's own dates and a day
- * either side, since a late flight lands after midnight, and never a day already past everywhere.
- */
-function arrivalDates(addon: NonNullable<Quote['addon']>): DateBounds {
-  const today = earliestToday();
-  const first = addDays(addon.startDate, -1);
-  const min = first < today ? today : first;
-  const last = addDays(addon.endDate, 1);
-  return { min, max: last < min ? min : last };
 }
 
 /** Whether travellers give passport details: required abroad, optional on domestic flights. */
@@ -447,8 +385,6 @@ function Checkout({ quote }: { quote: Quote }) {
           errors?: { path: string; message: string }[];
           missing?: string[];
         };
-        const asIssue = (code: string): CheckoutIssue =>
-          (ISSUE_CODES.has(code) ? code : 'invalid') as CheckoutIssue;
         if (slug === 'passengers-invalid' && problem.issues) {
           const mapped: FieldIssues = {};
           for (const item of problem.issues) {
