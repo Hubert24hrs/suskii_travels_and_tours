@@ -132,7 +132,7 @@ export class TripCheckoutTools implements OnModuleInit {
       agentTool({
         name: 'trips.prepare_checkout',
         description:
-          "Put everything prepared in this conversation together as one summary: each part (a flight, a stay, a car, a transfer, insurance, and any package, tour, visa assistance, eSIM or lounge access) with its price, and one total. For a signed-in traveller with a prepared flight, the flight, stay, car, transfer and insurance go on one combined trip, whose page takes each part's details and then one payment; other products keep their own booking page. Call it when the traveller has what they want for the trip, or asks for the total or to check out; pass in leaveOut what they no longer want. Nothing is booked or paid by this: say what the total covers and that each part still needs the travellers' details before the payment. 'nothing_prepared' in problems means nothing is prepared yet; parts in expired must be prepared again.",
+          "Put everything prepared in this conversation together as one summary: each part (a flight, a stay, a car, a transfer, insurance, and any package, tour, visa assistance, eSIM or lounge access) with its price, and one total. For a signed-in traveller with a prepared flight, the flight, stay, car, transfer and insurance go on one combined trip, whose page takes each part's details and then one payment; other products keep their own booking page. Call it when the traveller has what they want for the trip, or asks for the total or to check out; pass in leaveOut what they no longer want. Nothing is booked or paid by this: say what the total covers and that each part still needs the travellers' details before the payment. 'nothing_prepared' in problems means nothing is prepared yet; parts in expired must be prepared again; 'trip_needs_flight' or 'trip_needs_return_date' means the parts keep their own cards, because a combined trip starts from a flight with a day back.",
         tier: 'propose',
         scope: 'quotes',
         agents: ['flights', 'hotels', 'cars', 'tours', 'trip_builder', 'concierge', 'payments'],
@@ -251,7 +251,8 @@ export class TripCheckoutTools implements OnModuleInit {
   /**
    * The combined trip the parts go on, for a signed-in traveller: the one this conversation
    * built while it is still the same trip, or a new one from the prepared flight. Null for a
-   * guest, without a part a trip takes, or without a plan (`trip_needs_flight`).
+   * guest, without a part a trip takes, or without a plan (`trip_needs_flight`, or
+   * `trip_needs_return_date` for a flight with no day back).
    */
   private async tripFor(
     grant: AgentGrant,
@@ -279,7 +280,9 @@ export class TripCheckoutTools implements OnModuleInit {
         AGENT_REQUEST_CONTEXT,
       );
       if (!trip) {
-        problems.push('trip_needs_flight');
+        // A combined trip starts from a flight with a day back (its plan's airports and days).
+        const flight = loaded.some((part) => part.quote.flight);
+        problems.push(flight ? 'trip_needs_return_date' : 'trip_needs_flight');
         return null;
       }
       await this.prepared.rememberTrip(grant, trip.id);
