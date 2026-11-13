@@ -3224,6 +3224,14 @@ export const en = {
         'Nothing is booked or paid yet. Open the card to enter the travellers’ details and pay on the secure payment page. The price is checked again before you pay.',
       other_services:
         'Need a place to stay, a car or an airport transfer for this trip? Ask, and Ask Suskii will look for the same dates.',
+      choose_seats:
+        'Nothing is booked or held yet. Open the card to choose your seats on the seat map, then enter the travellers’ details and pay.',
+      trip_handoff:
+        'Nothing is booked or paid yet. Open the trip to enter the travellers’ details for each part, then pay for all of them at once. Prices are checked again before you pay.',
+      trip_sign_in:
+        'To pay for all of this at once, sign in and ask again. You can also book each part from its own card.',
+      trip_separate:
+        'Packages, tours, visa assistance, eSIMs and lounge access are not in the trip’s single payment: book each one from its own card.',
     },
     rating: {
       question: 'How well did the assistant help?',
@@ -3538,6 +3546,14 @@ export const en = {
       paid: 'Your trip is paid. Each part has its own booking and confirmation.',
       closed: 'Every part of this trip was cancelled or has expired.',
       nothingYet: 'Add a part to see your total.',
+      prepared: 'Prepared by Ask Suskii',
+      enterDetails: 'Enter details',
+      enterDetailsLabel: 'Enter the details for: {part}',
+      chooseAnother: 'Choose another',
+      chooseAnotherLabel: 'Choose another: {part}',
+      preparedNote:
+        'Parts Ask Suskii prepared join this payment once you enter their details. Their prices are checked again then.',
+      totalWithPrepared: 'Total with prepared parts',
       delete: 'Delete this trip',
       deleteConfirm: 'Delete this trip? Bookings in it are kept as bookings of their own.',
       deleteYes: 'Yes, delete it',

@@ -190,7 +190,7 @@ describe('customer agent tools (e2e)', () => {
     }
   };
 
-  it('ships the tools with their tiers: nine prepare something, six ask for a tap, and the staff tools are staff only', async () => {
+  it('ships the tools with their tiers: fifteen prepare something, six ask for a tap, and the staff tools are staff only', async () => {
     const response = await ctx
       .http()
       .get('/v1/internal/agent-tools')
@@ -199,6 +199,7 @@ describe('customer agent tools (e2e)', () => {
     const tools = (response.body as { tools: { name: string; tier: string; agents: string[] }[] })
       .tools;
     expect(tools.map((tool) => tool.name)).toEqual([
+      'addons.prepare_booking',
       'addons.search',
       'alerts.list',
       'alerts.stop',
@@ -206,6 +207,7 @@ describe('customer agent tools (e2e)', () => {
       'bookings.cancel',
       'bookings.get',
       'bookings.list',
+      'buses.prepare_booking',
       'cars.buses',
       'cars.prepare_booking',
       'cars.rentals',
@@ -230,6 +232,7 @@ describe('customer agent tools (e2e)', () => {
       'memory.read',
       'memory.remember',
       'ops.queues',
+      'packages.prepare_booking',
       'packages.search',
       'payments.options',
       'platform.guide',
@@ -243,22 +246,31 @@ describe('customer agent tools (e2e)', () => {
       'sources.propose_recipe',
       'support.faqs',
       'support.handover',
+      'tours.prepare_booking',
       'tours.search',
       'trips.get',
       'trips.list',
       'trips.plan',
+      'trips.prepare_checkout',
+      'visa.prepare_booking',
       'visa.requirements',
     ]);
     expect(tools.filter((tool) => tool.tier === 'propose').map((tool) => tool.name)).toEqual([
+      'addons.prepare_booking',
+      'buses.prepare_booking',
       'cars.prepare_booking',
       'finance.draft_refund_request',
       'flights.prepare_booking',
       'hotels.prepare_booking',
       'marketing.draft_promo',
+      'packages.prepare_booking',
       'quotes.request',
       'sources.propose_recipe',
       'support.handover',
+      'tours.prepare_booking',
       'trips.plan',
+      'trips.prepare_checkout',
+      'visa.prepare_booking',
     ]);
     // What changes a booking: each only ever becomes a card the traveller confirms.
     expect(tools.filter((tool) => tool.tier === 'commit').map((tool) => tool.name)).toEqual([
@@ -717,7 +729,8 @@ describe('customer agent tools (e2e)', () => {
     expect(none.result?.citiesWithBuses).toEqual(expect.arrayContaining(['Lagos', 'Ibadan']));
   });
 
-  it('reads packages, tours, visa rules and add-ons from the catalog staff manage', async () => {
+  /** A published package, tour, visa assistance product and airport transfer in Lagos. */
+  async function catalogProducts(): Promise<{ lagosId: string }> {
     const lagosId = (
       await ctx.prisma.city.findFirstOrThrow({ where: { name: 'Lagos', countryCode: 'NG' } })
     ).id;
@@ -794,6 +807,11 @@ describe('customer agent tools (e2e)', () => {
     }).expect(201);
     await admin('patch', `addons/${addon.body.id as string}`, { status: 'published' }).expect(204);
 
+    return { lagosId };
+  }
+
+  it('reads packages, tours, visa rules and add-ons from the catalog staff manage', async () => {
+    const { lagosId } = await catalogProducts();
     const grant = await guestGrant();
     const packages = await call<{ found: number; packages: Record<string, unknown>[] }>(
       'packages.search',
@@ -877,6 +895,443 @@ describe('customer agent tools (e2e)', () => {
       chargedPer: 'booking',
     });
     expectInternal(addons.result?.cards);
+  });
+
+  /** A conversation of the assistant, which the prepare tools remember their quotes for. */
+  const conversation = async (userId: string | null): Promise<string> =>
+    (
+      await ctx.prisma.agentConversation.create({
+        data: {
+          reference: `A-${Math.random().toString(36).slice(2, 8).toUpperCase().padEnd(6, 'T')}`,
+          userId,
+          audience: 'customer',
+          channel: 'web',
+          locale: 'en-NG',
+          currency: 'NGN',
+          country: 'NG',
+          lastMessageAt: new Date(),
+        },
+      })
+    ).id;
+
+  const quoteOf = (cards: Card[] | undefined): string =>
+    /^\/checkout\/([0-9a-f-]{36})$/.exec(cards?.[0]?.href ?? '')?.[1] ?? '';
+
+  it('prepares a package, a tour, an airport transfer and visa assistance from what the searches return (ADR-117)', async () => {
+    const { lagosId } = await catalogProducts();
+    const grant = await guestGrant();
+
+    // The searches list the departures that have room, with the ids the prepare tools take.
+    const packages = await call<{
+      packages: { departures: { departureId: string; starts: string; perAdult: Wire }[] }[];
+    }>('packages.search', 'tours', { cityId: lagosId, adults: 2 }, grant);
+    const departure = packages.result?.packages[0]?.departures[0];
+    expect(departure).toMatchObject({ starts: inDays(60), perAdult: ngn(200_000) });
+    const pack = await call<{ prepared: boolean; what: string; totalToPay: Wire }>(
+      'packages.prepare_booking',
+      'tours',
+      { departureId: departure?.departureId, adults: 2 },
+      grant,
+    );
+    expect(pack.result).toMatchObject({
+      problems: [],
+      bookingStatus: 'not_booked',
+      prepared: true,
+      what: 'Lagos getaway',
+      totalToPay: ngn(400_000),
+    });
+    expect(pack.result?.cards?.map((card) => [card.kind, card.title])).toEqual([
+      ['package', 'Lagos getaway'],
+      ['note', 'booking_handoff'],
+    ]);
+    const packQuote = await ctx
+      .http()
+      .get(`/v1/quotes/${quoteOf(pack.result?.cards)}`)
+      .expect(200);
+    expect(packQuote.body).toMatchObject({
+      vertical: 'packages',
+      package: { departureId: departure?.departureId, travellers: { adults: 2, children: 0 } },
+    });
+
+    const tours = await call<{
+      tours: { departures: { departureId: string; starts: string }[] }[];
+    }>('tours.search', 'tours', { query: 'walking', adults: 1 }, grant);
+    const slot = tours.result?.tours[0]?.departures[0];
+    expect(slot?.starts).toBe(`${inDays(10)} 09:00`);
+    const tour = await call<{ prepared: boolean; totalToPay: Wire }>(
+      'tours.prepare_booking',
+      'tours',
+      { departureId: slot?.departureId, adults: 1 },
+      grant,
+    );
+    expect(tour.result).toMatchObject({ prepared: true, totalToPay: ngn(30_000) });
+    expect(tour.result?.cards?.[0]?.lines).toEqual([
+      'Lagos',
+      `${inDays(10)} 09:00`,
+      'Tafawa Balewa Square',
+    ]);
+    // More travellers than the tour has places: nothing prepared, and the reason in a code.
+    const full = await call(
+      'tours.prepare_booking',
+      'tours',
+      { departureId: slot?.departureId, adults: 9 },
+      grant,
+    );
+    expect(full.result).toMatchObject({ prepared: false, cards: [] });
+    expect(full.result?.problems?.length).toBeGreaterThan(0);
+
+    const addons = await call<{ addons: { addonId: string }[] }>(
+      'addons.search',
+      'cars',
+      { type: 'airport_transfer', countryCode: 'NG' },
+      grant,
+    );
+    const transfer = await call<{ prepared: boolean; totalToPay: Wire }>(
+      'addons.prepare_booking',
+      'cars',
+      {
+        addonId: addons.result?.addons[0]?.addonId,
+        startDate: inDays(10),
+        endDate: inDays(10),
+        cityId: lagosId,
+        adults: 2,
+      },
+      grant,
+    );
+    expect(transfer.result).toMatchObject({ prepared: true, totalToPay: ngn(25_000) });
+    // Sold in Nigeria only: without a place there it is refused, and the reason is passed on.
+    const nowhere = await call(
+      'addons.prepare_booking',
+      'cars',
+      {
+        addonId: addons.result?.addons[0]?.addonId,
+        startDate: inDays(10),
+        endDate: inDays(10),
+        adults: 2,
+      },
+      grant,
+    );
+    expect(nowhere.result).toMatchObject({
+      prepared: false,
+      problems: ['quote-invalid', 'not_available_there'],
+    });
+    expect(transfer.result?.cards?.[0]).toMatchObject({
+      kind: 'transfer',
+      lines: ['Lagos', inDays(10)],
+    });
+
+    const visa = await call<{ assistance: { productId: string }[] }>(
+      'visa.requirements',
+      'tours',
+      { nationality: 'NG', destination: 'GB' },
+      grant,
+    );
+    const help = await call<{ prepared: boolean; totalToPay: Wire }>(
+      'visa.prepare_booking',
+      'tours',
+      {
+        productId: visa.result?.assistance[0]?.productId,
+        nationality: 'NG',
+        travelDate: inDays(40),
+        adults: 1,
+      },
+      grant,
+    );
+    expect(help.result).toMatchObject({ prepared: true, totalToPay: ngn(80_000) });
+    // Help with an application, never a visa: the note goes with it whatever the model writes.
+    expect(help.result?.cards?.map((card) => card.title)).toEqual([
+      'UK visitor visa assistance',
+      'booking_handoff',
+      'visa_guidance',
+    ]);
+    // Only quotes: nothing booked, held or paid.
+    expect(await ctx.prisma.booking.count()).toBe(0);
+    expect(await ctx.prisma.payment.count()).toBe(0);
+    // Each prepare tool keeps to the agents that sell what it prepares.
+    expect(
+      await call(
+        'packages.prepare_booking',
+        'hotels',
+        { departureId: departure?.departureId, adults: 2 },
+        grant,
+      ),
+    ).toMatchObject({ status: 'denied', reason: 'agent' });
+  });
+
+  it('hands a bus trip over at its seat map and holds no seat (ADR-109, ADR-117)', async () => {
+    const { tripId } = await busInventory(ctx, staff, { departureInDays: 5 });
+    const grant = await guestGrant();
+    const buses = await call<{ trips: { tripId: string; perSeat: Wire }[] }>(
+      'cars.buses',
+      'cars',
+      { from: 'Lagos', to: 'Ibadan', date: inDays(5), seats: 2 },
+      grant,
+    );
+    expect(buses.result?.trips[0]?.tripId).toBe(tripId);
+
+    const handed = await call<{ seatMapReady: boolean; seatsLeft: number; perSeat: Wire }>(
+      'buses.prepare_booking',
+      'cars',
+      { tripId, seats: 2 },
+      grant,
+    );
+    expect(handed.result).toMatchObject({
+      problems: [],
+      bookingStatus: 'not_booked',
+      seatMapReady: true,
+      seatsLeft: 40,
+      perSeat: buses.result?.trips[0]?.perSeat,
+    });
+    expect(handed.result?.cards?.map((card) => [card.kind, card.href ?? card.title])).toEqual([
+      ['transfer', `/buses/trips/${tripId}`],
+      ['note', 'choose_seats'],
+    ]);
+    // The seat map still has every seat: the traveller chooses them, nothing is held for them.
+    const map = await ctx.http().get(`/v1/buses/trips/${tripId}`).expect(200);
+    const states = (map.body.seatMap.rows as ({ state: string } | null)[][])
+      .flat()
+      .flatMap((seat) => (seat ? [seat.state] : []));
+    expect(states.filter((state) => state !== 'available')).toEqual([]);
+    expect(await ctx.prisma.offer.count()).toBe(0);
+
+    const gone = await call(
+      'buses.prepare_booking',
+      'cars',
+      { tripId: '0192d3a0-7c1e-7b2a-9f00-0000000000b1', seats: 1 },
+      grant,
+    );
+    expect(gone.result).toMatchObject({
+      seatMapReady: false,
+      problems: ['offer-unavailable'],
+      cards: [],
+    });
+  });
+
+  it('sums up a whole trip on one combined trip that is paid once, and leaves out what was turned down (ADR-117)', async () => {
+    await catalogProducts();
+    const conversationId = await conversation(ada.userId);
+    const grant = await grantFor({ conversationId });
+
+    // Nothing prepared yet: said in a code.
+    expect((await call('trips.prepare_checkout', 'trip_builder', {}, grant)).result).toMatchObject({
+      problems: ['nothing_prepared'],
+      payOnce: false,
+      parts: [],
+    });
+
+    // A return flight Lagos to Abuja for one adult.
+    const flights = await call<{ offers: { offerId: string; total: Wire }[] }>(
+      'flights.search',
+      'flights',
+      {
+        origin: 'LOS',
+        destination: 'ABV',
+        departDate: inDays(30),
+        returnDate: inDays(33),
+        limit: 1,
+      },
+      grant,
+    );
+    const flight = await call<{ totalToPay: Wire }>(
+      'flights.prepare_booking',
+      'flights',
+      { offerId: flights.result?.offers[0]?.offerId },
+      grant,
+    );
+    // A stay in Abuja for the same nights.
+    const cityId =
+      (await ctx.prisma.airport.findUniqueOrThrow({ where: { iataCode: 'ABV' } })).cityId ?? '';
+    const stays = await call<{ hotels: { rateId: string }[] }>(
+      'hotels.search',
+      'hotels',
+      { cityId, checkIn: inDays(30), checkOut: inDays(33), rooms: [{ adults: 1 }], limit: 1 },
+      grant,
+    );
+    const hotel = await call<{ totalToPay: Wire }>(
+      'hotels.prepare_booking',
+      'hotels',
+      { rateId: stays.result?.hotels[0]?.rateId },
+      grant,
+    );
+    // An airport transfer, and a package, which a combined trip does not take.
+    const addons = await call<{ addons: { addonId: string }[] }>(
+      'addons.search',
+      'trip_builder',
+      { type: 'airport_transfer' },
+      grant,
+    );
+    const transfer = await call<{ totalToPay: Wire }>(
+      'addons.prepare_booking',
+      'trip_builder',
+      {
+        addonId: addons.result?.addons[0]?.addonId,
+        startDate: inDays(30),
+        endDate: inDays(30),
+        cityId,
+        adults: 1,
+      },
+      grant,
+    );
+    expect(transfer.result?.problems).toEqual([]);
+    const packages = await call<{ packages: { departures: { departureId: string }[] }[] }>(
+      'packages.search',
+      'trip_builder',
+      { adults: 1 },
+      grant,
+    );
+    const pack = await call<{ totalToPay: Wire }>(
+      'packages.prepare_booking',
+      'trip_builder',
+      { departureId: packages.result?.packages[0]?.departures[0]?.departureId, adults: 1 },
+      grant,
+    );
+
+    const amounts = [flight, hotel, transfer, pack].map(
+      (answer) => answer.result?.totalToPay.amountMinor ?? Number.NaN,
+    );
+    const [flightMinor = 0, hotelMinor = 0, transferMinor = 0, packMinor = 0] = amounts;
+    const summary = await call<{
+      parts: { part: string; price: Wire; paidWith: string }[];
+      expired: string[];
+      total: Wire;
+      payOnce: boolean;
+      payOnceTotal: Wire;
+    }>('trips.prepare_checkout', 'trip_builder', {}, grant);
+    expect(summary.status).toBe('ok');
+    expect(summary.result).toMatchObject({
+      problems: [],
+      bookingStatus: 'not_booked',
+      expired: [],
+      payOnce: true,
+      // One total for everything, and what the trip's one payment covers.
+      total: { amountMinor: flightMinor + hotelMinor + transferMinor + packMinor, currency: 'NGN' },
+      payOnceTotal: { amountMinor: flightMinor + hotelMinor + transferMinor, currency: 'NGN' },
+    });
+    expect(summary.result?.parts.map((part) => [part.part, part.paidWith])).toEqual([
+      ['flight', 'trip'],
+      ['hotel', 'trip'],
+      ['transfer', 'trip'],
+      ['package', 'own_page'],
+    ]);
+    const cards = summary.result?.cards ?? [];
+    expect(cards.map((card) => card.kind)).toEqual(['trip', 'package', 'note', 'note']);
+    expect(cards.slice(2).map((card) => card.title)).toEqual(['trip_handoff', 'trip_separate']);
+    const tripId = /^\/trips\/([0-9a-f-]{36})$/.exec(cards[0]?.href ?? '')?.[1] ?? '';
+    expect(cards[0]).toMatchObject({
+      ref: { type: 'trip', id: tripId },
+      price: summary.result?.payOnceTotal,
+    });
+    expect(cards[1]?.href).toMatch(/^\/checkout\/[0-9a-f-]{36}$/);
+    expectInternal(cards);
+
+    // The trip page shows each prepared part with its price, and the total with them.
+    const trip = await ctx
+      .http()
+      .get(`/v1/trips/${tripId}`)
+      .set(bearer(ada.accessToken))
+      .expect(200);
+    expect(trip.body).toMatchObject({
+      plan: {
+        origin: { code: 'LOS' },
+        destination: { code: 'ABV' },
+        departDate: inDays(30),
+        returnDate: inDays(33),
+        adults: 1,
+        components: ['flight', 'hotel', 'transfer'],
+      },
+      parts: [],
+      total: ngn(0),
+      totalWithPrepared: summary.result?.payOnceTotal,
+    });
+    const prepared = trip.body.prepared as { component: string; quoteId: string; price: Wire }[];
+    expect(prepared.map((part) => [part.component, part.price.amountMinor])).toEqual([
+      ['flight', flightMinor],
+      ['hotel', hotelMinor],
+      ['transfer', transferMinor],
+    ]);
+    // Nobody else sees it.
+    await ctx.http().get(`/v1/trips/${tripId}`).set(bearer(bola.accessToken)).expect(404);
+
+    // The traveller books the stay from the trip page: the prepared stay becomes that booking.
+    const hotelQuote = prepared.find((part) => part.component === 'hotel')?.quoteId;
+    const booked = await book({
+      quoteId: hotelQuote,
+      guests: [{ givenNames: 'Ngozi', surname: 'Eze' }],
+    }).expect(201);
+    const added = await ctx
+      .http()
+      .post(`/v1/trips/${tripId}/parts`)
+      .set(bearer(ada.accessToken))
+      .send({ bookingId: booked.body.booking.id })
+      .expect(200);
+    expect((added.body.prepared as { component: string }[]).map((part) => part.component)).toEqual([
+      'flight',
+      'transfer',
+    ]);
+    expect(added.body.totalWithPrepared).toEqual({
+      amountMinor: (added.body.total as Wire).amountMinor + flightMinor + transferMinor,
+      currency: 'NGN',
+    });
+
+    // The transfer is turned down: the summary leaves it out, on the same trip.
+    const again = await call<{ parts: { part: string }[]; payOnce: boolean }>(
+      'trips.prepare_checkout',
+      'trip_builder',
+      { leaveOut: ['transfer'] },
+      grant,
+    );
+    expect(again.result?.parts.map((part) => part.part)).toEqual(['flight', 'hotel', 'package']);
+    expect(again.result?.cards?.[0]?.href).toBe(`/trips/${tripId}`);
+    const after = await ctx
+      .http()
+      .get(`/v1/trips/${tripId}`)
+      .set(bearer(ada.accessToken))
+      .expect(200);
+    expect((after.body.prepared as { component: string }[]).map((part) => part.component)).toEqual([
+      'flight',
+    ]);
+    expect(await ctx.prisma.trip.count()).toBe(1);
+    expect(await ctx.prisma.payment.count()).toBe(0);
+  });
+
+  it('sums up what a guest prepared and asks them to sign in to pay once (ADR-117)', async () => {
+    const conversationId = await conversation(null);
+    const grant = await grantFor({
+      conversationId,
+      userId: null,
+      roles: [],
+      scopes: GUEST_SCOPES,
+    });
+    const cityId =
+      (await ctx.prisma.airport.findUniqueOrThrow({ where: { iataCode: 'ABV' } })).cityId ?? '';
+    const stays = await call<{ hotels: { rateId: string; total: Wire }[] }>(
+      'hotels.search',
+      'hotels',
+      { cityId, checkIn: inDays(30), checkOut: inDays(33), rooms: [{ adults: 1 }], limit: 1 },
+      grant,
+    );
+    await call(
+      'hotels.prepare_booking',
+      'hotels',
+      { rateId: stays.result?.hotels[0]?.rateId },
+      grant,
+    );
+    const summary = await call<{
+      parts: { part: string; paidWith: string }[];
+      payOnce: boolean;
+      total: Wire;
+    }>('trips.prepare_checkout', 'hotels', {}, grant);
+    expect(summary.result).toMatchObject({
+      problems: [],
+      payOnce: false,
+      payOnceTotal: null,
+      total: stays.result?.hotels[0]?.total,
+      parts: [{ part: 'hotel', paidWith: 'own_page' }],
+    });
+    expect(summary.result?.cards?.map((card) => card.kind)).toEqual(['hotel', 'note']);
+    expect(summary.result?.cards?.[1]?.title).toBe('trip_sign_in');
+    expect(summary.result?.cards?.[0]?.href).toMatch(/^\/checkout\/[0-9a-f-]{36}$/);
+    expect(await ctx.prisma.trip.count()).toBe(0);
   });
 
   it("reads a traveller's own bookings without a name, a contact, a reference or a payment link", async () => {

@@ -3317,6 +3317,14 @@ export const pt: Messages = {
         'Ainda nada está reservado nem pago. Abra o cartão para introduzir os dados dos viajantes e pagar na página de pagamento segura. O preço é verificado de novo antes do pagamento.',
       other_services:
         'Precisa de alojamento, de um carro ou de um transfer do aeroporto para esta viagem? Peça, e o Ask Suskii procura para as mesmas datas.',
+      choose_seats:
+        'Ainda nada está reservado nem guardado. Abra o cartão para escolher os seus lugares no mapa de lugares e depois introduza os dados dos viajantes e pague.',
+      trip_handoff:
+        'Ainda nada está reservado nem pago. Abra a viagem para introduzir os dados dos viajantes de cada parte e depois pague tudo de uma só vez. Os preços são verificados de novo antes do pagamento.',
+      trip_sign_in:
+        'Para pagar tudo de uma só vez, inicie sessão e peça de novo. Também pode reservar cada parte a partir do seu próprio cartão.',
+      trip_separate:
+        'Os pacotes, os passeios, a assistência com vistos, os eSIM e o acesso a salas VIP não entram no pagamento único da viagem: reserve cada um a partir do seu próprio cartão.',
     },
     rating: {
       question: 'O assistente ajudou-o bem?',
@@ -3632,6 +3640,14 @@ export const pt: Messages = {
       paid: 'A sua viagem está paga. Cada parte tem a sua própria reserva e confirmação.',
       closed: 'Todas as partes desta viagem foram canceladas ou expiraram.',
       nothingYet: 'Adicione uma parte para ver o seu total.',
+      prepared: 'Preparado pelo Ask Suskii',
+      enterDetails: 'Introduzir os dados',
+      enterDetailsLabel: 'Introduzir os dados de: {part}',
+      chooseAnother: 'Escolher outro',
+      chooseAnotherLabel: 'Escolher outro: {part}',
+      preparedNote:
+        'As partes preparadas pelo Ask Suskii juntam-se a este pagamento quando introduzir os dados delas. Os preços são verificados de novo nessa altura.',
+      totalWithPrepared: 'Total com as partes preparadas',
       delete: 'Eliminar esta viagem',
       deleteConfirm:
         'Eliminar esta viagem? As reservas que contém ficam como reservas independentes.',

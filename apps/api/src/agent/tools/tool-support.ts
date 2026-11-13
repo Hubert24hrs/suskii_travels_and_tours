@@ -87,8 +87,11 @@ export function problemCodes(error: unknown): string[] | null {
   const status = error.getStatus();
   if (status !== 503 && (status < 400 || status >= 500)) return null;
   const listed = Array.isArray(error.extensions.errors) ? error.extensions.errors : [];
+  // A refusal's own reason (`{ code }` beside the slug), such as `not_available_there`.
+  const reason = typeof error.extensions.code === 'string' ? [error.extensions.code] : [];
   const codes = [
     error.slug,
+    ...reason,
     ...listed.flatMap((issue: unknown) =>
       typeof issue === 'object' && issue !== null && 'code' in issue ? [String(issue.code)] : [],
     ),

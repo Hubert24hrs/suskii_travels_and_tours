@@ -3347,6 +3347,14 @@ export const fr: Messages = {
         'Rien n’est encore réservé ni payé. Ouvrez la carte pour saisir les informations des voyageurs et payer sur la page de paiement sécurisée. Le prix est vérifié à nouveau avant le paiement.',
       other_services:
         'Besoin d’un hébergement, d’une voiture ou d’un transfert aéroport pour ce voyage ? Demandez, et Ask Suskii cherchera pour les mêmes dates.',
+      choose_seats:
+        'Rien n’est encore réservé ni bloqué. Ouvrez la carte pour choisir vos places sur le plan, puis saisissez les informations des voyageurs et payez.',
+      trip_handoff:
+        'Rien n’est encore réservé ni payé. Ouvrez le voyage pour saisir les informations des voyageurs de chaque partie, puis payez le tout en une seule fois. Les prix sont vérifiés à nouveau avant le paiement.',
+      trip_sign_in:
+        'Pour tout payer en une seule fois, connectez-vous et demandez à nouveau. Vous pouvez aussi réserver chaque partie depuis sa propre carte.',
+      trip_separate:
+        'Les forfaits, les visites, l’aide au visa, les eSIM et l’accès aux salons ne font pas partie du paiement unique du voyage : réservez chacun depuis sa propre carte.',
     },
     rating: {
       question: "L'assistant vous a-t-il bien aidé ?",
@@ -3666,6 +3674,14 @@ export const fr: Messages = {
       paid: 'Votre voyage est payé. Chaque élément a sa propre réservation et sa confirmation.',
       closed: 'Tous les éléments de ce voyage ont été annulés ou ont expiré.',
       nothingYet: 'Ajoutez un élément pour voir votre total.',
+      prepared: 'Préparé par Ask Suskii',
+      enterDetails: 'Saisir les informations',
+      enterDetailsLabel: 'Saisir les informations pour : {part}',
+      chooseAnother: 'En choisir un autre',
+      chooseAnotherLabel: 'En choisir un autre : {part}',
+      preparedNote:
+        'Les parties préparées par Ask Suskii rejoignent ce paiement dès que vous saisissez leurs informations. Leurs prix sont alors vérifiés à nouveau.',
+      totalWithPrepared: 'Total avec les parties préparées',
       delete: 'Supprimer ce voyage',
       deleteConfirm: 'Supprimer ce voyage ? Ses réservations sont conservées séparément.',
       deleteYes: 'Oui, le supprimer',

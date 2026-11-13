@@ -3305,6 +3305,14 @@ export const sw: Messages = {
         'Hakuna kilichowekwa wala kulipwa bado. Fungua kadi ili kuweka taarifa za wasafiri na kulipa kwenye ukurasa salama wa malipo. Bei hukaguliwa tena kabla hujalipa.',
       other_services:
         'Unahitaji mahali pa kukaa, gari au usafiri wa uwanja wa ndege kwa safari hii? Uliza, na Ask Suskii itatafuta kwa tarehe zilezile.',
+      choose_seats:
+        'Hakuna kilichowekwa wala kushikiliwa bado. Fungua kadi ili kuchagua viti vyako kwenye ramani ya viti, kisha uweke taarifa za wasafiri na ulipe.',
+      trip_handoff:
+        'Hakuna kilichowekwa wala kulipwa bado. Fungua safari ili kuweka taarifa za wasafiri kwa kila sehemu, kisha ulipie zote kwa mara moja. Bei hukaguliwa tena kabla hujalipa.',
+      trip_sign_in:
+        'Ili kulipia vyote kwa mara moja, ingia kwenye akaunti yako na uulize tena. Unaweza pia kuweka kila sehemu kutoka kwenye kadi yake.',
+      trip_separate:
+        'Vifurushi, ziara, msaada wa visa, eSIM na kuingia kwenye sebule hazimo kwenye malipo moja ya safari: weka kila kimoja kutoka kwenye kadi yake.',
     },
     rating: {
       question: 'Msaidizi alikusaidia kwa kiasi gani?',
@@ -3619,6 +3627,14 @@ export const sw: Messages = {
       paid: 'Safari yako imelipwa. Kila sehemu ina uhifadhi na uthibitisho wake.',
       closed: 'Kila sehemu ya safari hii imeghairiwa au muda wake umeisha.',
       nothingYet: 'Ongeza sehemu ili kuona jumla yako.',
+      prepared: 'Imeandaliwa na Ask Suskii',
+      enterDetails: 'Weka taarifa',
+      enterDetailsLabel: 'Weka taarifa za: {part}',
+      chooseAnother: 'Chagua nyingine',
+      chooseAnotherLabel: 'Chagua nyingine: {part}',
+      preparedNote:
+        'Sehemu zilizoandaliwa na Ask Suskii zinajiunga na malipo haya mara tu unapoweka taarifa zake. Bei zake hukaguliwa tena wakati huo.',
+      totalWithPrepared: 'Jumla pamoja na sehemu zilizoandaliwa',
       delete: 'Futa safari hii',
       deleteConfirm: 'Ufute safari hii? Uhifadhi uliomo utabaki kama uhifadhi wa kujitegemea.',
       deleteYes: 'Ndiyo, ifute',

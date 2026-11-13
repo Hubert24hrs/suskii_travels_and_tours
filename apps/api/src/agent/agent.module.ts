@@ -65,12 +65,14 @@ import { KnowledgeTools } from './tools/knowledge-tools';
 import { MemoryTools } from './tools/memory-tools';
 import { PlanningTools } from './tools/planning-tools';
 import { PlatformTools } from './tools/platform-tools';
+import { AgentPreparedParts } from './tools/prepared-parts';
 import { ProductTools } from './tools/product-tools';
 import { QuoteTools } from './tools/quote-tools';
 import { SearchTools } from './tools/search-tools';
 import { StaffTools } from './tools/staff-tools';
 import { SupportTools } from './tools/support-tools';
 import { AgentToolCallers } from './tools/tool-support';
+import { TripCheckoutTools } from './tools/trip-checkout-tools';
 import { WatchTools } from './tools/watch-tools';
 import { AgentWhatsApp } from './whatsapp/agent-whatsapp.service';
 
@@ -132,7 +134,9 @@ import { AgentWhatsApp } from './whatsapp/agent-whatsapp.service';
     PlanningTools,
     CatalogTools,
     SearchTools,
+    AgentPreparedParts,
     CheckoutTools,
+    TripCheckoutTools,
     ProductTools,
     AccountTools,
     CommitTools,

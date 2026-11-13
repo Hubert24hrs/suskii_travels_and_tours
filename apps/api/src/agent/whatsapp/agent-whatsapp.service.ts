@@ -85,6 +85,14 @@ export const AGENT_WHATSAPP_NOTES: Record<AgentCardNote, string> = {
     'Please note: nothing is booked or paid yet. Open the link to enter the travellers’ details and pay on the secure payment page. The price is checked again before you pay.',
   other_services:
     'Need a place to stay, a car or an airport transfer for this trip? Ask, and we will look for the same dates.',
+  choose_seats:
+    'Please note: nothing is booked or held yet. Open the link to choose your seats on the seat map, then enter the travellers’ details and pay.',
+  trip_handoff:
+    'Please note: nothing is booked or paid yet. Open the trip to enter the travellers’ details for each part, then pay for all of them at once. Prices are checked again before you pay.',
+  trip_sign_in:
+    'Please note: to pay for all of this at once, sign in on our website or in our app and ask Ask Suskii there. You can also book each part from its own link.',
+  trip_separate:
+    'Please note: packages, tours, visa assistance, eSIMs and lounge access are not in the trip’s single payment: book each one from its own link.',
 };
 
 /** One card as lines of plain text: what it is, its facts, its price and where to open it. */
