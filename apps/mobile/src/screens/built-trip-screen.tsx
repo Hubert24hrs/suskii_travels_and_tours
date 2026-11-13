@@ -617,9 +617,19 @@ function BuiltTrip({ tripId }: { tripId: string }) {
           </View>
         )}
         {prepared.length > 0 ? (
-          <Text testID="trip-prepared-note" className="font-body text-caption text-foreground">
-            {t('trips.page.preparedNote')}
-          </Text>
+          <>
+            {/* One form for every prepared part (ADR-118); each part's own checkout still works. */}
+            <Button
+              testID="trip-details-open"
+              fullWidth
+              onPress={() => router.push(`/trips/built/${trip.id}/details` as Href)}
+            >
+              {t('trips.details.open')}
+            </Button>
+            <Text testID="trip-prepared-note" className="font-body text-caption text-foreground">
+              {t('trips.page.preparedNote')}
+            </Text>
+          </>
         ) : null}
         {open ? (
           <>

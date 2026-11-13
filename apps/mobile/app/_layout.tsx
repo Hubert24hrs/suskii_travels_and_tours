@@ -117,7 +117,14 @@ function Screens() {
         />
         <Stack.Screen name="trips/[id]/addons" options={{ title: t('mobile.addons.title') }} />
         <Stack.Screen name="trips/plan" options={{ title: t('trips.title') }} />
-        <Stack.Screen name="trips/built/[tripId]" options={{ title: t('trips.page.title') }} />
+        <Stack.Screen
+          name="trips/built/[tripId]/index"
+          options={{ title: t('trips.page.title') }}
+        />
+        <Stack.Screen
+          name="trips/built/[tripId]/details"
+          options={{ title: t('trips.details.title') }}
+        />
         <Stack.Screen
           name="packages/index"
           options={{ title: t('mobile.search.titles.packages') }}
