@@ -237,3 +237,22 @@ the API share one (`infra/terraform/README.md`).
 
 Run it again first: most stops are Google still finishing something. If it stops at the same
 place twice, send the last 30 lines it printed. Nothing in them is secret.
+
+**"No space left on device"** in the machine's lines means its system disk (30 GB, where the
+images live) is full. Each release now removes the images of earlier releases before it
+downloads its own, so this should not come back; if it does, free the space and let the machine
+try the same release again:
+
+```bash
+gcloud compute ssh suskii-staging-backend --zone europe-west2-a --tunnel-through-iap --command 'sudo systemctl stop suskii-watch; sudo docker image prune -af; df -h /; sudo systemctl start suskii-watch'
+```
+
+It removes only images no running container uses, so nothing that serves the website stops;
+the database is on a disk of its own and is not touched. The first time, it asks for a
+passphrase for your SSH key: press Enter twice. Then follow the release with:
+
+```bash
+gcloud compute instances get-guest-attributes suskii-staging-backend --zone europe-west2-a --query-path=suskii/status --format='value(value)'
+```
+
+It says `deploying ...` while it works and `ok ...` when it is done (5 to 10 minutes).

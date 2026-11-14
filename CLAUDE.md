@@ -1837,7 +1837,11 @@ Tooling notes for agents:
   file there is `docker-compose.release.yml` with real keys, so a setting or a hardening
   change to one goes to the other. The stack's files reach the machine as instance metadata
   (never `metadata_startup_script`, which would replace the machine), and a release is the
-  metadata key `suskii-release`: nothing in a deploy logs in to the machine. Each container
+  metadata key `suskii-release`: nothing in a deploy logs in to the machine. A release keeps
+  only its own images and the running release's on the 30 GB system disk (`keep_images` in
+  `deploy.sh`; an age-based prune let a busy day of releases fill it), and every failure is
+  reported with its step and the free space (an EXIT trap: a function does not inherit an ERR
+  trap). Each container
   gets only its own keys, read from Secret Manager as the machine's identity; never put a
   secret in metadata, in Terraform or in the compose file. The assistant's container keeps
   its ceiling on memory and processor time and is started last, and a release must stand
