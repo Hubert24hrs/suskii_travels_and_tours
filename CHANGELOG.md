@@ -6,6 +6,43 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### The receipt of a combined trip, and the whole trip run end to end (2026-11-14, ADR-120)
+
+#### Added
+
+- A receipt for a paid combined trip: `GET /v1/trips/{tripId}/receipt` (a PDF). It shows each
+  payment (when, the amount, the method and its reference), the trip, each part with its booking
+  reference, what it took and the service taxes inside it, and the total paid. It shows no name,
+  contact or card detail. A trip that is not paid answers 409 `trip-not-paid`, and another
+  account's trip 404. The trip's answer carries `receipt` (when paid, and the amount) once there
+  is one.
+- Website: the trip page shows a Receipt card once the trip is paid, with when and how much, and
+  saves the PDF. The account's Trips page lists combined trips first, each with its receipt,
+  then every booking.
+- App: the trip screen shows the same card and shares the PDF through the share sheet (no copy is
+  kept). The Trips tab lists combined trips first.
+- `format.dateTime(instant, zone, { year: true })`: a moment kept on record (a payment on a
+  receipt) names its year.
+- An end-to-end test of the whole journey through Ask Suskii (`agent-whole-trip.e2e-spec.ts`):
+  the LangGraph agent service, as its own process with a scripted stand-in model, plans Lagos to
+  London, preparing a flight, a hotel and a London rental car through the tool gateway and
+  putting them on one trip. The traveller enters the details once and pays once, every part is
+  confirmed, and the receipt is ready. The agent service's start-up moved into
+  `runAgentService()` (`src/service.ts`), which `main.ts` and the test entrypoint share.
+- The website's trip builder e2e and the app's tests and Maestro flow now check the receipt and
+  the account's list of trips after payment.
+- Ask Suskii's guide says where a paid trip's receipt is.
+
+#### Fixed
+
+- PDFs with a short header (the trip plan, the receipt) drew their first heading's rule across
+  the QR code in the corner; every heading now starts below it.
+
+#### Changed
+
+- Dependabot holds `pg` at major 8: Prisma's pg adapter can overlap the queries of one
+  transaction, which pg 9 will refuse (ADR-002).
+
 ### Paystack's test mode on the testing backend (2026-11-14, ADR-119)
 
 #### Added
