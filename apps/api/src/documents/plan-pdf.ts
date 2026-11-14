@@ -1,11 +1,18 @@
 import type { Money } from '@suskii/shared';
 
-import { documentDateTime, documentMoney, newDocument } from './booking-pdf';
+import {
+  type DocumentTax,
+  documentDateTime,
+  documentMoney,
+  newDocument,
+  writeServiceTaxes,
+} from './booking-pdf';
 
 // Documents a traveller can pass on before anything is booked: a price request with the offer
 // a person verified, and the plan of a combined trip. Each says when it was written, how long
-// it holds and what is still to be confirmed, so nobody reads it as a booking. English, like
-// the other documents; no name, contact or payment detail is printed on either.
+// it holds and what is still to be confirmed, so nobody reads it as a booking. Once a combined
+// trip is paid, its receipt says what the payment came to and what each part took. English,
+// like the other documents; no name, contact or card detail is printed on any of them.
 
 const utc = (value: Date): string => `${documentDateTime(value.toISOString().slice(0, 16))} UTC`;
 
@@ -155,6 +162,93 @@ export async function renderTripPlanPdf(trip: TripPlanDocument): Promise<Uint8Ar
   writer.gap(4);
   writer.paragraph(
     'A plan, not a booking. Prices are those shown when this was written and are confirmed with each supplier when you pay; a part that is not paid is not reserved and its price can change. Each part keeps its own conditions for changes and refunds.',
+  );
+  return pdf.save();
+}
+
+/**
+ * The receipt of a paid combined trip (ADR-099): each payment that went through, what each part
+ * of the trip took from it with the taxes on our service inside, and the total paid.
+ */
+export interface TripReceiptDocument {
+  reference: string;
+  issuedAt: Date;
+  /** The trip's page; printed as a QR code. */
+  link: string;
+  origin: string;
+  destination: string;
+  departDate: string;
+  returnDate: string;
+  adults: number;
+  children: number;
+  payments: {
+    paidAt: Date;
+    /** Our reference for the payment, as the provider shows it to the traveller. */
+    reference: string;
+    /** The channel the provider reported (card, bank_transfer, ussd), never card details. */
+    method: string | null;
+    amount: Money;
+    /** What the payment took that no booking could keep, refunded automatically. */
+    refunded: Money | null;
+  }[];
+  parts: { part: string; booking: string; what: string; amount: Money; taxes: DocumentTax[] }[];
+  total: Money;
+}
+
+const PAYMENT_METHODS: Record<string, string> = {
+  card: 'Card',
+  bank: 'Bank account',
+  bank_transfer: 'Bank transfer',
+  ussd: 'USSD',
+  qr: 'QR code',
+  mobile_money: 'Mobile money',
+  apple_pay: 'Apple Pay',
+  google_pay: 'Google Pay',
+  agent: 'Cash at an agent',
+};
+
+/** "Card", "Bank transfer": a provider's channel name as a person reads it. */
+function methodText(method: string): string {
+  const known = PAYMENT_METHODS[method];
+  if (known) return known;
+  const words = method.replace(/[_-]+/g, ' ').trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+export async function renderTripReceiptPdf(receipt: TripReceiptDocument): Promise<Uint8Array> {
+  const { pdf, writer } = await newDocument('Receipt', receipt.reference, receipt.link);
+  writer.pair('Trip reference', receipt.reference);
+  writer.pair('Written on', utc(receipt.issuedAt));
+
+  writer.heading(receipt.payments.length > 1 ? 'Payments' : 'Payment');
+  for (const [index, payment] of receipt.payments.entries()) {
+    if (index > 0) writer.gap(4);
+    writer.pair('Paid on', utc(payment.paidAt));
+    writer.pair('Amount', documentMoney(payment.amount));
+    if (payment.method) writer.pair('Paid by', methodText(payment.method));
+    writer.pair('Payment reference', payment.reference);
+    if (payment.refunded) writer.pair('Refund started', documentMoney(payment.refunded));
+  }
+
+  writer.heading('The trip');
+  writer.pair('Route', `${receipt.origin} to ${receipt.destination}`);
+  writer.pair('Dates', dates(receipt.departDate, receipt.returnDate));
+  writer.pair('Travellers', people(receipt.adults, receipt.children));
+
+  writer.heading('What was paid for');
+  for (const [index, part] of receipt.parts.entries()) {
+    if (index > 0) writer.gap(4);
+    writer.pair(part.part, part.what);
+    writer.pair('Booking', part.booking);
+    writer.pair('Paid', documentMoney(part.amount));
+    writeServiceTaxes(writer, part.taxes);
+  }
+
+  writer.heading('Total');
+  writer.pair('Total paid', documentMoney(receipt.total));
+  writer.gap(8);
+  writer.paragraph(
+    'Each part is its own booking. Its tickets or vouchers, its conditions for changes and refunds, and any refund made later are on its booking page.',
   );
   return pdf.save();
 }

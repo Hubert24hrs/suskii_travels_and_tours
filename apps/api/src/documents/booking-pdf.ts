@@ -173,6 +173,8 @@ const duration = (minutes: number): string => `${Math.floor(minutes / 60)}h ${mi
 /** Writes one A4 page from the top down. Shared by every document Suskii generates. */
 export class Writer {
   private y = PAGE[1] - MARGIN;
+  /** The highest a heading's rule may be drawn: under the QR code in the corner, once drawn. */
+  private ruleCeiling = Number.POSITIVE_INFINITY;
 
   constructor(
     private readonly page: PDFPage,
@@ -228,7 +230,12 @@ export class Writer {
 
   heading(value: string) {
     this.gap(8);
-    this.line(value.toUpperCase(), { size: 9, bold: true, color: BRAND });
+    // The rule runs the width of the page: a heading that comes early (a short document) moves
+    // down until its rule clears the QR code in the corner.
+    const size = 9;
+    const rule = this.y - size - 4;
+    if (rule > this.ruleCeiling) this.gap(rule - this.ruleCeiling);
+    this.line(value.toUpperCase(), { size, bold: true, color: BRAND });
     this.page.drawLine({
       start: { x: MARGIN, y: this.y + 2 },
       end: { x: PAGE[0] - MARGIN, y: this.y + 2 },
@@ -248,6 +255,7 @@ export class Writer {
     const module = 3;
     const left = PAGE[0] - MARGIN - size * module;
     const top = PAGE[1] - MARGIN;
+    this.ruleCeiling = top - size * module - 6;
     data.forEach((row, y) =>
       row.forEach((dark, x) => {
         if (dark) {
@@ -265,7 +273,7 @@ export class Writer {
 }
 
 /** Each tax inside the total paid, then the seller's registration numbers. */
-function writeServiceTaxes(writer: Writer, taxes: readonly DocumentTax[] | undefined): void {
+export function writeServiceTaxes(writer: Writer, taxes: readonly DocumentTax[] | undefined): void {
   const lines = taxes ?? [];
   for (const tax of lines) {
     writer.pair(`Includes ${tax.label} ${documentRate(tax.rateBps)}`, documentMoney(tax.amount));

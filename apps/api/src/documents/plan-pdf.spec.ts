@@ -3,7 +3,13 @@ import { PDFDocument } from 'pdf-lib';
 
 import { pdfText } from '../../test/helpers/pdf-text';
 
-import { renderPriceRequestPdf, renderTripPlanPdf, type PriceRequestDocument } from './plan-pdf';
+import {
+  renderPriceRequestPdf,
+  renderTripPlanPdf,
+  renderTripReceiptPdf,
+  type PriceRequestDocument,
+  type TripReceiptDocument,
+} from './plan-pdf';
 
 const request: PriceRequestDocument = {
   reference: 'Q-7K2M4X',
@@ -126,5 +132,108 @@ describe('trip plan PDF', () => {
     const flat = text.replace(/\n/g, ' ');
     expect(flat).toContain('A plan, not a booking.');
     expect(flat).toContain('a part that is not paid is not reserved');
+  });
+});
+
+const receipt: TripReceiptDocument = {
+  reference: 'T-AB12CD',
+  issuedAt: new Date('2026-11-14T10:22:00Z'),
+  link: 'https://www.suskii.test/trips/0192d3a0-7c1e-7b2a-9f00-00000000d001',
+  origin: 'Lagos (LOS)',
+  destination: 'London (LHR)',
+  departDate: '2026-12-10',
+  returnDate: '2026-12-17',
+  adults: 2,
+  children: 1,
+  payments: [
+    {
+      paidAt: new Date('2026-11-14T10:20:00Z'),
+      reference: 'pay_ref_0001',
+      method: 'card',
+      amount: money(255_000_000n, 'NGN'),
+      refunded: null,
+    },
+  ],
+  parts: [
+    {
+      part: 'Flight',
+      booking: 'SK-FLT001',
+      what: 'Lagos (LOS) to London (LHR) and back',
+      amount: money(165_000_000n, 'NGN'),
+      taxes: [],
+    },
+    {
+      part: 'Hotel',
+      booking: 'SK-HTL002',
+      what: 'The Palm Suites, London, 7 nights',
+      amount: money(90_000_000n, 'NGN'),
+      taxes: [
+        {
+          label: 'VAT',
+          rateBps: 750,
+          amount: money(627_907n, 'NGN'),
+          registrationNumber: 'TIN-0001',
+        },
+      ],
+    },
+  ],
+  total: money(255_000_000n, 'NGN'),
+};
+
+describe('trip receipt PDF', () => {
+  it('prints the payment, each part with its booking and the tax inside it, and the total paid', async () => {
+    const bytes = await renderTripReceiptPdf(receipt);
+    const pdf = await PDFDocument.load(bytes);
+    expect(pdf.getPageCount()).toBe(1);
+    expect(pdf.getTitle()).toBe('Receipt T-AB12CD');
+
+    const text = await pdfText(bytes);
+    // Headings are printed in capitals.
+    expect(text).toContain('PAYMENT\n');
+    expect(text).not.toContain('PAYMENTS');
+    expect(text).toContain('Sat, 14 Nov 2026 10:20 UTC');
+    expect(text).toContain('Card');
+    expect(text).toContain('pay_ref_0001');
+    expect(text).toContain('SK-FLT001');
+    expect(text).toContain('SK-HTL002');
+    expect(text).toContain('NGN 1,650,000.00');
+    expect(text).toContain('NGN 900,000.00');
+    expect(text).toContain('Includes VAT 7.5%');
+    expect(text).toContain('TIN-0001');
+    expect(text).toContain('NGN 2,550,000.00');
+    expect(text).toContain('Adults: 2. Children: 1.');
+    expect(text).not.toContain('Refund started');
+    // A receipt, never the plan's caveat.
+    expect(text.replace(/\n/g, ' ')).not.toContain('A plan, not a booking.');
+  });
+
+  it('lists every payment, names a method it does not know in words, and says when a refund started', async () => {
+    const text = await pdfText(
+      await renderTripReceiptPdf({
+        ...receipt,
+        payments: [
+          {
+            paidAt: new Date('2026-11-14T10:20:00Z'),
+            reference: 'pay_ref_0001',
+            method: 'pay_by_bank',
+            amount: money(165_000_000n, 'NGN'),
+            refunded: null,
+          },
+          {
+            paidAt: new Date('2026-11-14T11:05:00Z'),
+            reference: 'pay_ref_0002',
+            method: null,
+            amount: money(100_000_000n, 'NGN'),
+            refunded: money(10_000_000n, 'NGN'),
+          },
+        ],
+      }),
+    );
+    expect(text).toContain('PAYMENTS');
+    expect(text).toContain('Pay by bank');
+    expect(text).toContain('pay_ref_0002');
+    expect(text).toContain('Sat, 14 Nov 2026 11:05 UTC');
+    expect(text).toContain('Refund started');
+    expect(text).toContain('NGN 100,000.00');
   });
 });

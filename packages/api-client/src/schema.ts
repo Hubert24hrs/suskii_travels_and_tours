@@ -8106,6 +8106,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/trips/{tripId}/receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The receipt of one of my paid trips as a PDF
+         * @description Each payment for the trip that went through (when, the amount, the method the provider reported, its reference and anything refunded at once), each part it paid (its booking reference, what it is, the amount and the taxes on our service inside it) and the total paid. 409 `trip-not-paid` until a payment has gone through. No name, contact or card detail is printed on it.
+         */
+        get: operations["downloadTripReceipt"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/visa/documents/{documentId}/content": {
         parameters: {
             query?: never;
@@ -15450,6 +15470,11 @@ export interface components {
                     expiresAt: string;
                 } | null;
             };
+            receipt?: {
+                /** Format: date-time */
+                paidAt: string;
+                amount: components["schemas"]["Money"];
+            } | null;
         };
         TripCancelled: {
             refundedBookings: number;
@@ -31517,6 +31542,35 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    downloadTripReceipt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tripId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];

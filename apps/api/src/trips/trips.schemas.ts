@@ -168,6 +168,19 @@ export const tripSchema = named(
         .nullable()
         .meta({ description: 'A hosted checkout still waiting for the traveller.' }),
     }),
+    receipt: z
+      .object({
+        paidAt: timestamp.meta({ description: 'When the latest payment went through.' }),
+        amount: moneySchema.meta({
+          description: 'What the payments that went through for the trip came to.',
+        }),
+      })
+      .nullable()
+      .optional()
+      .meta({
+        description:
+          'Once a payment for the trip has gone through and a part is paid: its receipt is `GET /v1/trips/{tripId}/receipt`. Absent from older answers.',
+      }),
   }),
 );
 export type TripDto = z.infer<typeof tripSchema>;

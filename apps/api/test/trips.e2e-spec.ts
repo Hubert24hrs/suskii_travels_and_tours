@@ -1,7 +1,8 @@
-import { BOOKING_TERMS_VERSION } from '@suskii/shared';
+import { BOOKING_TERMS_VERSION, money } from '@suskii/shared';
 
 import { PaymentReconciliationService } from '../src/bookings/payment-reconciliation.service';
 import { RefundsService } from '../src/bookings/refunds.service';
+import { documentMoney } from '../src/documents/booking-pdf';
 import { LedgerReconciliationService } from '../src/finance/ledger-reconciliation.service';
 import { MockPaymentProvider } from '../src/payments/mock-payment-provider';
 
@@ -19,7 +20,7 @@ interface TripPart {
   component: string;
   state: string;
   status: string;
-  booking: { id: string; total: Wire };
+  booking: { id: string; reference: string; total: Wire };
   due: Wire;
   priceChange: { previous: Wire; current: Wire } | null;
 }
@@ -32,6 +33,8 @@ interface Trip {
   total: Wire;
   due: Wire;
   payment: { open: { id: string; checkoutUrl: string; amount: Wire } | null };
+  /** Once a payment for the trip went through and a part is paid (ADR-120). */
+  receipt?: { paidAt: string; amount: Wire } | null;
 }
 
 const ALL = ['flight', 'hotel', 'car', 'transfer', 'insurance'] as const;
@@ -125,6 +128,19 @@ describe('combined trips (e2e)', () => {
       .send({});
 
   const referenceOf = (checkoutUrl: string): string => checkoutUrl.split('/').pop() ?? '';
+
+  /** A PDF route's answer, with its body kept as bytes. */
+  const pdfAnswer = (path: string, headers: Record<string, string> = traveller.headers) =>
+    ctx
+      .http()
+      .get(path)
+      .set(headers)
+      .buffer(true)
+      .parse((response, done) => {
+        const chunks: Buffer[] = [];
+        response.on('data', (chunk: Buffer) => chunks.push(chunk));
+        response.on('end', () => done(null, Buffer.concat(chunks)));
+      });
 
   const complete = async (reference: string, outcome: 'succeeded' | 'failed' = 'succeeded') => {
     await ctx.http().post(`/v1/payments/mock/${reference}/complete`).send({ outcome }).expect(200);
@@ -322,6 +338,14 @@ describe('combined trips (e2e)', () => {
     const sum = trip.parts.reduce((total, part) => total + part.booking.total.amountMinor, 0);
     expect(trip.total).toEqual({ amountMinor: sum, currency: 'NGN' });
     expect(trip.due).toEqual(trip.total);
+    // Nothing paid yet: no receipt.
+    expect(trip.receipt).toBeNull();
+    const early = await ctx
+      .http()
+      .get(`/v1/trips/${trip.id}/receipt`)
+      .set(traveller.headers)
+      .expect(409);
+    expect(early.body.type).toBe('urn:suskii:problem:trip-not-paid');
     for (const part of trip.parts) {
       expect(part).toMatchObject({ state: 'to_pay', status: 'PRICED', priceChange: null });
       expect(part.due).toEqual(part.booking.total);
@@ -373,6 +397,31 @@ describe('combined trips (e2e)', () => {
     expect(paid.parts.map((part) => [part.component, part.status, part.state])).toEqual(
       ALL.map((component) => [component, 'CONFIRMED', 'confirmed']),
     );
+
+    // The receipt: the one payment (when, how much, its reference) and what each part took,
+    // with its booking reference, and the total paid. No name, contact or card detail.
+    expect(paid.receipt).toEqual({ paidAt: expect.any(String), amount: trip.total });
+    const receipt = await pdfAnswer(`/v1/trips/${trip.id}/receipt`).expect(200);
+    expect(receipt.headers['content-type']).toBe('application/pdf');
+    expect(receipt.headers['content-disposition']).toContain(
+      `filename="suskii-receipt-${trip.reference}.pdf"`,
+    );
+    const printed = (await pdfText(receipt.body as Buffer)).replace(/\n/g, ' ');
+    expect(printed).toContain('Receipt');
+    expect(printed).toContain(trip.reference);
+    expect(printed).toContain('Payment reference');
+    expect(printed).toContain(reference);
+    for (const part of paid.parts) expect(printed).toContain(part.booking.reference);
+    for (const name of ['Flight', 'Hotel', 'Rental car', 'Airport transfer', 'Travel insurance']) {
+      expect(printed).toContain(name);
+    }
+    expect(printed).toContain('Total paid');
+    expect(printed).toContain(documentMoney(money(BigInt(sum), 'NGN')));
+    expect(printed).not.toContain('A plan, not a booking.');
+    expect(printed).not.toMatch(/@example\.com|\+234/);
+    const stranger = bearer((await signUp(ctx, 'trip.receipt@example.com')).accessToken);
+    await ctx.http().get(`/v1/trips/${trip.id}/receipt`).set(stranger).expect(404);
+    await ctx.http().get(`/v1/trips/${trip.id}/receipt`).expect(401);
 
     // The provider charged once; the ledger took each booking's share from that one charge.
     const tripPayment = await ctx.prisma.tripPayment.findUniqueOrThrow({
@@ -688,6 +737,9 @@ describe('combined trips (e2e)', () => {
     expect(
       await ctx.prisma.auditLog.count({ where: { action: 'trip.payment_amount_mismatch' } }),
     ).toBe(1);
+    // Money given back is not a receipt for the trip.
+    expect(after.receipt).toBeNull();
+    await ctx.http().get(`/v1/trips/${tripId}/receipt`).set(traveller.headers).expect(409);
   });
 
   it('settles a trip whose webhook never came, through reconciliation', async () => {
