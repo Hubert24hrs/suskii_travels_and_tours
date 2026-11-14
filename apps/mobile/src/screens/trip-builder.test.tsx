@@ -486,22 +486,28 @@ describe('BuiltTripScreen', () => {
     expect(await screen.findByTestId('trip-currency-note')).toHaveTextContent(/priced in USD/);
   });
 
-  it('shows a paid trip with nothing left to pay or delete', async () => {
-    mockApi({
-      [`GET /v1/trips/${TRIP_ID}`]: () =>
-        json(
-          twoParts({
-            state: 'paid',
-            parts: [
-              flightPart({ state: 'confirmed', status: 'CONFIRMED', due: ngn(0) }),
-              hotelPart({ state: 'confirmed', status: 'CONFIRMED', due: ngn(0) }),
-            ],
-            due: ngn(0),
-          }),
-        ),
+  const paidTrip = (): Trip =>
+    twoParts({
+      state: 'paid',
+      parts: [
+        flightPart({ state: 'confirmed', status: 'CONFIRMED', due: ngn(0) }),
+        hotelPart({ state: 'confirmed', status: 'CONFIRMED', due: ngn(0) }),
+      ],
+      due: ngn(0),
+      receipt: { paidAt: '2026-11-14T10:20:00.000Z', amount: ngn(255_000_000) },
     });
+
+  it('shows a paid trip with its receipt and nothing left to pay or delete', async () => {
+    mockApi({ [`GET /v1/trips/${TRIP_ID}`]: () => json(paidTrip()) });
     await renderWithApp(<BuiltTripScreen />, await signedInSession());
     expect(await screen.findByTestId('built-trip-paid')).toBeOnTheScreen();
+    // The receipt: when the trip was paid and what the payment came to.
+    const receipt = screen.getByTestId('trip-receipt-card');
+    expect(
+      within(receipt).getByRole('header', { name: m.trips.receipt.heading }),
+    ).toBeOnTheScreen();
+    expect(screen.getByTestId('trip-receipt-amount')).toHaveTextContent(/2,550,000/);
+    expect(screen.getByTestId('trip-receipt-paid-on')).toHaveTextContent(/2026/);
     expect(screen.queryByTestId('trip-pay')).toBeNull();
     expect(screen.queryByTestId('trip-delete')).toBeNull();
     expect(screen.queryByTestId('trip-remove-flight')).toBeNull();
@@ -530,6 +536,38 @@ describe('BuiltTripScreen', () => {
     await waitFor(() =>
       expect(new File('file:///data/cache/suskii-trip-T-AB12CD.pdf').exists).toBe(false),
     );
+  });
+
+  it('hands the receipt of a paid trip to the share sheet, and keeps no copy on the phone', async () => {
+    mockApi({ [`GET /v1/trips/${TRIP_ID}`]: () => json(paidTrip()) });
+    const shared = jest.mocked(shareAsync);
+    const downloaded = jest.mocked(File.downloadFileAsync);
+    shared.mockClear();
+    downloaded.mockClear();
+    await renderWithApp(<BuiltTripScreen />, await signedInSession());
+
+    await fireEvent.press(await screen.findByTestId('trip-receipt'));
+    await waitFor(() => expect(shared).toHaveBeenCalledTimes(1));
+    const [url, , options] = downloaded.mock.calls[0] ?? [];
+    expect(url).toBe(`http://api.test/v1/trips/${TRIP_ID}/receipt`);
+    expect(options).toMatchObject({ headers: { Authorization: 'Bearer access-token' } });
+    expect(shared).toHaveBeenCalledWith(
+      'file:///data/cache/suskii-receipt-T-AB12CD.pdf',
+      expect.objectContaining({
+        mimeType: 'application/pdf',
+        dialogTitle: m.trips.receipt.download,
+      }),
+    );
+    await waitFor(() =>
+      expect(new File('file:///data/cache/suskii-receipt-T-AB12CD.pdf').exists).toBe(false),
+    );
+  });
+
+  it('shows no receipt before the trip is paid', async () => {
+    mockApi({ [`GET /v1/trips/${TRIP_ID}`]: () => json(twoParts()) });
+    await renderWithApp(<BuiltTripScreen />, await signedInSession());
+    expect(await screen.findByTestId('trip-pay')).toBeOnTheScreen();
+    expect(screen.queryByTestId('trip-receipt-card')).toBeNull();
   });
 
   it('deletes an unpaid trip after asking, and says so when the trip is not there', async () => {

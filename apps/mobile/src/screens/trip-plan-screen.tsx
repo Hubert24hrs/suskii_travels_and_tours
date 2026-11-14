@@ -6,10 +6,9 @@ import {
   TRIP_MAX_CHILDREN,
   TRIP_MAX_NIGHTS,
   daysBetween,
-  tripTitle,
   type TripComponent,
 } from '@suskii/shared';
-import { Badge, Button, Card, DateRangePicker } from '@suskii/ui-native';
+import { Button, Card, DateRangePicker } from '@suskii/ui-native';
 import { useQuery } from '@tanstack/react-query';
 import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -19,6 +18,7 @@ import { RequireAccount } from '../components/account/require-account';
 import { Checkbox } from '../components/booking/form-controls';
 import { PlaceField, type PlaceOption } from '../components/search/place-field';
 import { Stepper } from '../components/search/rooms-picker';
+import { BuiltTripCard } from '../components/trips/built-trip-card';
 import { problemSlug } from '../lib/api';
 import { useCarsFeaturesQuery } from '../lib/cars';
 import { daysFromToday, fromIso, toIso } from '../lib/dates';
@@ -37,14 +37,6 @@ interface Plan {
 }
 
 type Field = 'origin' | 'destination' | 'dates' | 'components' | 'form';
-
-export const TRIP_STATE_VARIANT = {
-  empty: 'neutral',
-  open: 'info',
-  awaiting_payment: 'warning',
-  paid: 'success',
-  closed: 'neutral',
-} as const;
 
 function Planner() {
   const { api, user, currency } = useApp();
@@ -260,36 +252,13 @@ function Planner() {
           <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
             {t('trips.list.heading')}
           </Text>
-          {trips.data.map((trip) => {
-            const live = trip.parts.filter((part) => part.state !== 'closed').length;
-            const title = t('trips.route', tripTitle(trip.plan));
-            return (
-              <View key={trip.id} testID="built-trip-card">
-                <Card
-                  onPress={() => router.push(`/trips/built/${trip.id}` as Href)}
-                  accessibilityLabel={`${title}, ${trip.reference}`}
-                  className="gap-2 p-4"
-                >
-                  <Text className="font-heading text-h4 text-heading">{title}</Text>
-                  <Text className="font-body text-body-sm text-foreground">
-                    {format.dateRange(trip.plan.departDate, trip.plan.returnDate, 'medium')}
-                    {' · '}
-                    {live > 0 ? t('trips.list.parts', { count: live }) : t('trips.list.none')}
-                  </Text>
-                  <View className="flex-row items-center justify-between gap-3">
-                    <Badge variant={TRIP_STATE_VARIANT[trip.state]}>
-                      {t(`trips.states.${trip.state}`)}
-                    </Badge>
-                    {trip.total.amountMinor > 0 ? (
-                      <Text className="font-body-bold text-body text-heading">
-                        {format.money(trip.total)}
-                      </Text>
-                    ) : null}
-                  </View>
-                </Card>
-              </View>
-            );
-          })}
+          {trips.data.map((trip) => (
+            <BuiltTripCard
+              key={trip.id}
+              trip={trip}
+              onPress={() => router.push(`/trips/built/${trip.id}` as Href)}
+            />
+          ))}
         </View>
       ) : null}
     </ScrollView>

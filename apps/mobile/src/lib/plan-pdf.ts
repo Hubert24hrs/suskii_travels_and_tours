@@ -8,15 +8,15 @@ import type { SessionStore } from './session';
 const SAFE_NAME = /^[A-Za-z0-9._-]{1,120}\.pdf$/;
 
 /**
- * A price request or a trip plan as a PDF (ADR-099, ADR-104), handed to the system share
- * sheet so the traveller keeps or passes it on where they choose. `path` is one of the API's
- * own PDF routes. The file is read with the account's session, written to the app's cache and
+ * A price request, a trip plan or a paid trip's receipt as a PDF (ADR-099, ADR-104), handed to
+ * the system share sheet so the traveller keeps or passes it on where they choose. `path` is one
+ * of the API's own PDF routes. The file is read with the account's session, written to the app's cache and
  * deleted as soon as the sheet closes, whatever the outcome: nothing of it stays on the phone
  * unless the traveller saved it somewhere themselves.
  */
 export async function sharePlanPdf(
   session: SessionStore,
-  path: `/v1/${string}/pdf`,
+  path: `/v1/${string}/pdf` | `/v1/trips/${string}/receipt`,
   fileName: string,
   dialogTitle: string,
 ): Promise<void> {

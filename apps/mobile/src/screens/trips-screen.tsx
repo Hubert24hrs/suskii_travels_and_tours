@@ -7,6 +7,7 @@ import { ScrollView, Text, View } from 'react-native';
 
 import { Loading, Notice, OfflineBanner } from '../components/states';
 import { StatusBanner } from '../components/status-banner';
+import { BuiltTripCard } from '../components/trips/built-trip-card';
 import { isNetworkError } from '../lib/api';
 import { todayIso } from '../lib/dates';
 import { summaryOf, tripStore, type BookingSummary } from '../lib/trips';
@@ -66,7 +67,9 @@ function TripCard({ trip, onPress }: { trip: BookingSummary; onPress: () => void
 
 /**
  * Trips (ADR-020): the account's bookings plus guest bookings made on this phone, newest first,
- * split into upcoming and past. Everything shown is also cached for offline use.
+ * split into upcoming and past. Everything shown is also cached for offline use. A signed-in
+ * traveller's combined trips (ADR-099) come first while the API answers: each opens its trip,
+ * with its receipt once paid; they are not kept offline, and their parts are bookings below.
  */
 export function TripsScreen() {
   const { api, user } = useApp();
@@ -120,12 +123,24 @@ export function TripsScreen() {
     },
   });
 
+  // The same list the trip planner shows, under the same key.
+  const built = useQuery({
+    queryKey: ['built-trips', user?.id ?? null],
+    enabled: Boolean(user),
+    queryFn: async () => {
+      const { data } = await api.GET('/v1/me/trips');
+      return data?.trips ?? [];
+    },
+  });
+
   // Coming back from checkout or a trip shows the latest state.
   const { refetch } = trips;
+  const { refetch: refetchBuilt } = built;
   useFocusEffect(
     useCallback(() => {
       void refetch();
-    }, [refetch]),
+      if (user) void refetchBuilt();
+    }, [refetch, refetchBuilt, user]),
   );
 
   if (trips.isPending) return <Loading label={t('mobile.loading')} />;
@@ -145,13 +160,31 @@ export function TripsScreen() {
   );
   const past = trips.data.trips.filter((trip) => !upcoming.includes(trip));
   const open = (trip: BookingSummary) => router.push(`/trips/${trip.id}` as Href);
+  const combined = user && !trips.data.offline ? (built.data ?? []) : [];
 
   return (
     <View className="flex-1 bg-background">
       {trips.data.offline ? <OfflineBanner label={t('mobile.offline')} /> : null}
       <ScrollView testID="trips" contentContainerClassName="gap-4 p-4 pb-12">
         <StatusBanner />
-        {trips.data.trips.length === 0 ? (
+        {combined.length > 0 ? (
+          <View testID="combined-trips" className="gap-3">
+            <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
+              {t('account.trips.combinedHeading')}
+            </Text>
+            <Text className="font-body text-body-sm text-foreground">
+              {t('account.trips.combinedIntro')}
+            </Text>
+            {combined.map((trip) => (
+              <BuiltTripCard
+                key={trip.id}
+                trip={trip}
+                onPress={() => router.push(`/trips/built/${trip.id}` as Href)}
+              />
+            ))}
+          </View>
+        ) : null}
+        {trips.data.trips.length === 0 && combined.length === 0 ? (
           <Card className="gap-2 p-4">
             <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
               {t('mobile.trips.empty')}
