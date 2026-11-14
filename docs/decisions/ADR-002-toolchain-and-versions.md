@@ -71,6 +71,11 @@ testing, docs) targets it. Consequences:
 - **Mobile build in CI**: `expo export` for iOS and Android bundles the app with Metro on every
   affected PR, which catches module resolution breakage in the pnpm monorepo early. Native binaries
   are built only by EAS (phase 7).
+- **`pg` stays on major 8** (added 2026-11-14). Prisma's driver adapter (`@prisma/adapter-pg`
+  7.10) can send several queries of one interactive transaction to its client at once. pg 8
+  queues them and prints a deprecation warning (seen in the trip booking and payment e2e
+  suites); pg 9 will refuse them, which would fail those transactions. Dependabot ignores pg
+  majors until the adapter waits for each query.
 
 ## Consequences
 
@@ -86,3 +91,5 @@ testing, docs) targets it. Consequences:
 - `typescript-eslint` and `@nestjs/cli` support TypeScript 7, then migrate tsup to tsdown and
   upgrade TypeScript.
 - Each Expo SDK upgrade: bump React, React Native and the pnpm `overrides` together.
+- `@prisma/adapter-pg` sends one query at a time within a transaction (no `client.query()`
+  deprecation warning in the API's e2e suites), then lift the Dependabot rule and upgrade pg.
