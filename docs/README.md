@@ -16,7 +16,7 @@ engineering spec is [PROJECT_SPEC.json](../PROJECT_SPEC.json).
 
 ## What was built and why
 
-- **[Decisions](./decisions/)**: ADR-001 to ADR-118, one per decision, each with its context,
+- **[Decisions](./decisions/)**: ADR-001 to ADR-119, one per decision, each with its context,
   what was decided, the consequences and the alternatives. The titled list is in
   [CLAUDE.md](../CLAUDE.md#key-decisions).
 - **[Phase plans](./phases/)**: the plan, the risks and the outcome of each piece of work.

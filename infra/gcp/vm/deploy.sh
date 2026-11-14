@@ -120,6 +120,14 @@ if "duffel" in (settings.get("flight_suppliers"), settings.get("hotel_suppliers"
     if not duffel.startswith("duffel_test_"):
         raise SystemExit("suskii-deploy: DUFFEL_API_TOKEN must be a Duffel test token (duffel_test_...)")
     api["DUFFEL_API_TOKEN"] = duffel
+# Naira through Paystack's test mode (ADR-119): its key only while Paystack is chosen, and only a
+# test key, because a testing backend never takes real money. The key itself is never printed.
+payments = settings.get("payment_providers") or "mock"
+if payments == "paystack":
+    paystack = secret("PAYSTACK_SECRET_KEY")
+    if not paystack.startswith("sk_test_"):
+        raise SystemExit("suskii-deploy: PAYSTACK_SECRET_KEY must be a Paystack test secret key (sk_test_...)")
+    api["PAYSTACK_SECRET_KEY"] = paystack
 write("api.env", api)
 write("worker.env", {"REDIS_URL": redis_url, "INTERNAL_API_TOKEN": secret("INTERNAL_API_TOKEN")})
 
@@ -168,6 +176,8 @@ write(
         "SUSKII_SAMPLE_CATALOGUE": "true" if settings.get("sample_catalogue") else "false",
         "SUSKII_FLIGHT_SUPPLIERS": settings.get("flight_suppliers") or "mock",
         "SUSKII_HOTEL_SUPPLIERS": settings.get("hotel_suppliers") or "mock",
+        # Paystack first for naira, the stand-in page for everything it does not take.
+        "SUSKII_PAYMENT_PROVIDERS": "paystack,mock" if payments == "paystack" else "mock",
         "SUSKII_EMAIL_PROVIDER": "smtp" if mailbox else "mock",
         "SUSKII_MAIL_HOST": settings.get("mail_host") or "mail.suskii.example",
     },

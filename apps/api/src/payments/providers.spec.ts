@@ -80,6 +80,29 @@ describe('PaystackPaymentProvider', () => {
     },
   };
 
+  it('takes only the currencies the account settles (PAYSTACK_CURRENCIES, ADR-119)', () => {
+    expect(provider().currencies).toEqual(['NGN', 'GHS', 'ZAR', 'KES', 'USD']);
+    const naira = new PaystackPaymentProvider({
+      secretKey,
+      baseUrl: 'https://api.paystack.test',
+      timeoutMs: 1000,
+      currencies: ['NGN'],
+    });
+    expect(naira.currencies).toEqual(['NGN']);
+    expect(naira.methodsFor('NGN')).toEqual(
+      expect.arrayContaining(['card', 'bank_transfer', 'ussd']),
+    );
+    expect(naira.methodsFor('USD')).toEqual([]);
+    // A currency the adapter cannot take is never offered, whatever the setting says.
+    const odd = new PaystackPaymentProvider({
+      secretKey,
+      baseUrl: 'https://api.paystack.test',
+      timeoutMs: 1000,
+      currencies: ['NGN', 'EUR'],
+    });
+    expect(odd.currencies).toEqual(['NGN']);
+  });
+
   it('initialises a transaction in subunits with our payment id as reference', async () => {
     const { fetch, calls } = fakeFetch({
       body: {

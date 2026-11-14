@@ -117,6 +117,16 @@ variable "hotel_suppliers" {
   }
 }
 
+variable "payment_providers" {
+  description = "How travellers pay (ADR-119): mock, the stand-in page that approves every payment, or paystack: naira through Paystack's test mode, with the test secret key in the secret PAYSTACK_SECRET_KEY (the machine refuses a live key), and the stand-in for every other currency and method."
+  type        = string
+  default     = "mock"
+  validation {
+    condition     = contains(["mock", "paystack"], var.payment_providers)
+    error_message = "Use mock or paystack."
+  }
+}
+
 variable "assistant_location" {
   description = "With vertex: where Vertex AI processes the assistant's requests, a region or global. Empty: the machine's own region."
   type        = string

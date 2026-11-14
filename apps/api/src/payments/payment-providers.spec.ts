@@ -25,6 +25,21 @@ describe('PaymentProviders', () => {
     expect(providers.choose('NGN', 'stripe')).toBeNull();
   });
 
+  it('sends naira to Paystack and the rest to the stand-in page on a testing backend (ADR-119)', () => {
+    // PAYMENT_PROVIDERS=paystack,mock with PAYSTACK_CURRENCIES=NGN, as on the one machine.
+    const naira = provider('paystack', ['NGN'], { NGN: ['card', 'bank_transfer', 'ussd'] });
+    const standIn = provider('mock', ['NGN', 'USD', 'GBP'], {
+      NGN: ['card', 'bank_transfer', 'ussd', 'mobile_money'],
+    });
+    const providers = new PaymentProviders([naira, standIn]);
+    expect(providers.choose('NGN', null, 'card')?.name).toBe('paystack');
+    expect(providers.choose('NGN', null, 'ussd')?.name).toBe('paystack');
+    // What Paystack does not take in naira, and every other currency, stays on the stand-in.
+    expect(providers.choose('NGN', null, 'mobile_money')?.name).toBe('mock');
+    expect(providers.choose('USD', null, 'card')?.name).toBe('mock');
+    expect(providers.choose('GBP')?.name).toBe('mock');
+  });
+
   it('takes no new payments through a paused provider but keeps it for existing ones', () => {
     const providers = new PaymentProviders([paystack, flutterwave, stripe], ['paystack']);
     expect(providers.choose('NGN')?.name).toBe('flutterwave');

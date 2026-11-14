@@ -35,7 +35,9 @@ Both figures are estimates from Google's list prices, not quotes.
   week.
 
 It runs on the built-in stand-ins for airlines, hotels, payments and texts, so no real money
-moves and no email reaches a real inbox. Each real provider is connected later with its key.
+moves and no email reaches a real inbox. Each real provider is connected later with its key;
+flights can already come from Duffel's test mode and naira payments from Paystack's test mode
+(both below), which move no money either.
 
 **What you can try on it.** Flights, hotels, combined trips, deals, Ask Suskii, and the
 sample catalogue the test server has always shown: sample packages, tours, add-ons, visa
@@ -93,7 +95,7 @@ The bootstrap works once: after it, roles are given in the console, with the aut
 The machine can take its flights from Duffel instead of the stand-in (ADR-116). Duffel's test
 mode answers with test copies of real airlines' offers and with its own test airline, Duffel
 Airways, and a booking makes a Duffel test order: no money moves anywhere. Payments stay on
-the stand-in page.
+the stand-in page unless you also switch on Paystack's test mode (below).
 
 1. In Duffel's dashboard (<https://app.duffel.com>), switch to **Test mode**, open
    **Developers**, **Access tokens**, and copy a test token. It starts with `duffel_test_`. The
@@ -114,10 +116,52 @@ the stand-in page.
    show only Duffel Airways in test mode, and a Duffel Airways fare is the most predictable to
    book. Use made-up traveller names: they go to Duffel's test environment.
 
-The machine refuses any token but a test one while payments are the stand-in: a live token
-would book real tickets that nobody paid for. To go back to the stand-in, deploy with
+The machine refuses any token but a test one while payments are test payments (the stand-in
+page or Paystack's test mode): a live token would book real tickets that nobody paid for. To go back to the stand-in, deploy with
 `FLIGHT_SUPPLIERS=mock`. Hotels follow the same way (`HOTEL_SUPPLIERS=duffel`) once Duffel has
 switched Stays on for your account.
+
+### Payments from Paystack's test mode
+
+The machine can take naira payments through Paystack instead of the stand-in page (ADR-119),
+so you can see a customer's payment arrive the way it will after launch: Paystack's own
+checkout page, Paystack telling Suskii the payment succeeded, and the booking turning paid.
+Test mode moves no money: you pay with Paystack's test cards and the payment shows in your
+Paystack dashboard as a test transaction. Bookings in other currencies, and mobile money, stay
+on the stand-in page.
+
+1. Create a free account at <https://paystack.com> (Sign up). Test mode works at once; going
+   live later needs your business documents, but not now.
+2. In the dashboard, make sure **Test mode** is on (the switch at the top), then open
+   **Settings**, **API Keys & Webhooks**:
+   - copy the **Test Secret Key**. It starts with `sk_test_`. It is a password: never paste it
+     anywhere but the page in step 3, and never send it in a chat;
+   - in **Test Webhook URL**, enter
+     `https://api.endpoints.suskii-travels-staging.cloud.goog/v1/payments/webhooks/paystack`
+     and save. This is how Paystack tells Suskii that a payment succeeded.
+3. In Cloud Shell, deploy with Paystack:
+
+   ```bash
+   cd ~/suskii_travels_and_tours && git pull && PAYMENT_PROVIDERS=paystack bash scripts/gcp/deploy-vm.sh suskii-travels-staging
+   ```
+
+   The first time, it stops after a minute or two: it has made an empty secret for the key and
+   prints the page to paste it on,
+   <https://console.cloud.google.com/security/secret-manager/secret/PAYSTACK_SECRET_KEY/versions?project=suskii-travels-staging>.
+   Press **New version**, paste the Test Secret Key, save, and run the same command again
+   (about 20 minutes). The summary at the end says "Payments: Paystack (test mode) for naira".
+
+4. Book something priced in naira on the website or in the app and choose to pay by card. On
+   Paystack's page, pay with the test card **4084 0840 8408 4081**, CVV **408**, any expiry
+   date in the future. Paystack's other test cards, and test transfers and USSD, are listed at
+   <https://paystack.com/docs/payments/test-payments>.
+5. You come back to the booking, which turns paid within a few seconds. In your Paystack
+   dashboard (test mode), **Transactions** shows the payment. If the webhook address was not
+   saved, the booking still turns paid, about 15 minutes later, when Suskii asks Paystack.
+
+The machine refuses any key but a test one (it must start with `sk_test_`): this backend never
+takes real money. A live key goes only into production, after launch checklist 1.2. To go back
+to the stand-in page, deploy with `PAYMENT_PROVIDERS=mock`; the key stays in its secret.
 
 ### What this shape does not give you
 

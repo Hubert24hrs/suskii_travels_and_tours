@@ -6,6 +6,29 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Paystack's test mode on the testing backend (2026-11-14, ADR-119)
+
+#### Added
+
+- The testing backend can take naira through Paystack's test mode: deploy with
+  `PAYMENT_PROVIDERS=paystack` (remembered like the other settings) and Paystack's test secret
+  key in the secret `PAYSTACK_SECRET_KEY`. Its checkout, signed webhook and verification run
+  as they will in production, and no money moves. The API gets `PAYMENT_PROVIDERS=paystack,mock`
+  and `PAYSTACK_CURRENCIES=NGN`, so other currencies and mobile money stay on the stand-in page.
+  The machine refuses any key but a `sk_test_` one. The deploy stops and says where to paste
+  the key, and prints the webhook address to set on Paystack's dashboard. The owner guide has
+  the steps and Paystack's test card.
+- `PAYSTACK_CURRENCIES`: the currencies a Paystack account settles (default: the five the
+  adapter takes). Paystack offers only those, and the next provider takes the rest.
+
+#### Fixed
+
+- The API took a Paystack test key beside a live Duffel token. That pairing would book real
+  tickets for payments that moved no money, and the test even named it "real payments". Duffel
+  now runs in the mode of the payments: beside test payments (the mock page, or a Paystack,
+  Stripe or Flutterwave test key) only a `duffel_test_` token, and beside live payments only a
+  live one.
+
 ### The testing backend's disk no longer fills with old releases (2026-11-14)
 
 #### Fixed

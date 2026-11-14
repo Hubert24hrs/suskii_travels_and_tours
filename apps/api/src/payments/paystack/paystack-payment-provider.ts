@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { money } from '@suskii/shared';
 import { z } from 'zod';
 
+import { PAYSTACK_SETTLEMENT_CURRENCIES } from '../../config/env.schema';
 import {
   checkoutLabel,
   type CheckoutRequest,
@@ -51,6 +52,8 @@ export interface PaystackOptions {
   secretKey: string;
   baseUrl: string;
   timeoutMs: number;
+  /** The currencies the account settles (`PAYSTACK_CURRENCIES`); unset, all the adapter takes. */
+  currencies?: readonly string[];
   fetch?: typeof fetch;
 }
 
@@ -128,23 +131,26 @@ function toRefund(data: z.infer<typeof refund>): ProviderRefund {
 }
 
 /**
- * Paystack (NGN, GHS, ZAR, KES, USD; cards, bank transfer, USSD), ADR-016. Webhooks are signed
- * with HMAC-SHA512 of the raw body using the secret key; successes are confirmed with
- * `GET /transaction/verify/:reference` before they are applied. Amounts are in subunits.
+ * Paystack (NGN, GHS, ZAR, KES, USD; cards, bank transfer, USSD), ADR-016, limited to the
+ * currencies the account settles (ADR-119). Webhooks are signed with HMAC-SHA512 of the raw body
+ * using the secret key; successes are confirmed with `GET /transaction/verify/:reference` before
+ * they are applied. Amounts are in subunits.
  */
 export class PaystackPaymentProvider extends PaymentProvider {
   readonly name = 'paystack' as const;
-  readonly currencies = ['NGN', 'GHS', 'ZAR', 'KES', 'USD'] as const;
+  readonly currencies: readonly string[];
   methodsFor(currency: string): PaymentMethod[] {
-    return (this.currencies as readonly string[]).includes(currency)
-      ? paystackMethods(currency)
-      : [];
+    return this.currencies.includes(currency) ? paystackMethods(currency) : [];
   }
   readonly idempotentRefunds = false;
   private readonly http: ProviderHttp;
 
   constructor(private readonly options: PaystackOptions) {
     super();
+    const supported: readonly string[] = PAYSTACK_SETTLEMENT_CURRENCIES;
+    this.currencies = (options.currencies ?? supported).filter((currency) =>
+      supported.includes(currency),
+    );
     this.http = new ProviderHttp({ provider: this.name, ...options });
   }
 

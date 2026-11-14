@@ -110,11 +110,82 @@ describe('parseEnv', () => {
       parseEnv({
         ...live,
         PAYMENT_PROVIDERS: 'paystack',
-        PAYSTACK_SECRET_KEY: 'sk_test_0123456789abcdef',
+        PAYSTACK_SECRET_KEY: 'sk_live_0123456789abcdef',
       }).DUFFEL_API_TOKEN,
     ).toBe('duffel_live_x');
     // Without Duffel among the suppliers nothing is booked with the token.
     expect(parseEnv({ ...live, FLIGHT_SUPPLIERS: 'mock' }).FLIGHT_SUPPLIERS).toEqual(['mock']);
+  });
+
+  it('keeps Duffel in the mode of the payments: test with test, live with live (ADR-119)', () => {
+    const duffel = (token: string) => ({
+      ...base,
+      FLIGHT_SUPPLIERS: 'duffel',
+      DUFFEL_API_TOKEN: token,
+    });
+    const paystack = (key: string) => ({ PAYMENT_PROVIDERS: 'paystack', PAYSTACK_SECRET_KEY: key });
+    // Paystack's test mode moves no money: only Duffel's test orders beside it.
+    expect(() =>
+      parseEnv({ ...duffel('duffel_live_x'), ...paystack('sk_test_0123456789abcdef') }),
+    ).toThrow(/duffel_test_/);
+    expect(
+      parseEnv({ ...duffel('duffel_test_x'), ...paystack('sk_test_0123456789abcdef') })
+        .DUFFEL_API_TOKEN,
+    ).toBe('duffel_test_x');
+    // Real money for test orders would sell tickets that do not exist.
+    expect(() =>
+      parseEnv({ ...duffel('duffel_test_x'), ...paystack('sk_live_0123456789abcdef') }),
+    ).toThrow(/DUFFEL_API_TOKEN: must be a live Duffel token/);
+    // One test provider among live ones still makes test payments: nothing fits both.
+    expect(() =>
+      parseEnv({
+        ...duffel('duffel_live_x'),
+        PAYMENT_PROVIDERS: 'paystack,stripe',
+        PAYSTACK_SECRET_KEY: 'sk_live_0123456789abcdef',
+        STRIPE_SECRET_KEY: 'sk_test_0123456789abcdef',
+        STRIPE_WEBHOOK_SECRET: 'whsec_0123456789abcdef',
+      }),
+    ).toThrow(/duffel_test_/);
+    // Flutterwave marks its test keys FLWSECK_TEST-; its live keys FLWSECK-.
+    const flutterwave = (key: string) => ({
+      PAYMENT_PROVIDERS: 'flutterwave',
+      FLUTTERWAVE_SECRET_KEY: key,
+      FLUTTERWAVE_WEBHOOK_HASH: 'hash-0123456789abcdef',
+    });
+    expect(() =>
+      parseEnv({ ...duffel('duffel_live_x'), ...flutterwave('FLWSECK_TEST-0123456789abcdef-X') }),
+    ).toThrow(/duffel_test_/);
+    expect(() =>
+      parseEnv({ ...duffel('duffel_test_x'), ...flutterwave('FLWSECK-0123456789abcdef-X') }),
+    ).toThrow(/must be a live Duffel token/);
+    // Without Duffel the payments may be in either mode.
+    expect(
+      parseEnv({ ...base, ...paystack('sk_live_0123456789abcdef') }).PAYMENT_PROVIDERS,
+    ).toEqual(['paystack']);
+  });
+
+  it('takes the currencies the Paystack account settles (ADR-119)', () => {
+    const paystack = {
+      PAYMENT_PROVIDERS: 'paystack,mock',
+      PAYSTACK_SECRET_KEY: 'sk_test_0123456789abcdef',
+    };
+    // Unset (or `PAYSTACK_CURRENCIES=`, which means unset): every currency the adapter takes.
+    expect(parseEnv({ ...base, ...paystack }).PAYSTACK_CURRENCIES).toEqual([
+      'NGN',
+      'GHS',
+      'ZAR',
+      'KES',
+      'USD',
+    ]);
+    expect(
+      parseEnv({ ...base, ...paystack, PAYSTACK_CURRENCIES: 'NGN' }).PAYSTACK_CURRENCIES,
+    ).toEqual(['NGN']);
+    expect(() => parseEnv({ ...base, ...paystack, PAYSTACK_CURRENCIES: 'NGN,EUR' })).toThrow(
+      /PAYSTACK_CURRENCIES/,
+    );
+    expect(() => parseEnv({ ...base, ...paystack, PAYSTACK_CURRENCIES: ',' })).toThrow(
+      /PAYSTACK_CURRENCIES: list at least one currency/,
+    );
   });
 
   it('keeps access tokens between 10 and 15 minutes', () => {
