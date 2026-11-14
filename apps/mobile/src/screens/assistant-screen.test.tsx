@@ -253,6 +253,41 @@ describe('AssistantScreen', () => {
     expect(router.push).toHaveBeenCalledTimes(2);
   });
 
+  it("says a run that used its steps and the day's spend cap in different words", async () => {
+    await assistantSession.remember(ID);
+    const { calls } = mockApi({
+      'GET /v1/agent/status': available,
+      // A run that used its steps or tool calls ends in the `limit` notice.
+      [`GET /v1/agent/conversations/${ID}`]: () =>
+        json(
+          conversation({
+            messages: [message(), answer({ kind: 'notice', text: '', notice: 'limit' })],
+          }),
+        ),
+      // The day's spend cap refuses the next message before a run starts.
+      'POST /v1/agent/chat': () =>
+        json(
+          {
+            type: 'urn:suskii:problem:agent-budget',
+            title: "The assistant has reached today's limit",
+            status: 429,
+          },
+          429,
+        ),
+    });
+    await renderWithApp(<AssistantScreen />);
+
+    // The run's notice asks for one thing at a time and says nothing about the day.
+    expect(await screen.findByText(m.assistant.notices.limit)).toBeOnTheScreen();
+    expect(screen.queryByText(m.assistant.errors.budget)).toBeNull();
+
+    await fireEvent.changeText(screen.getByTestId('assistant-input'), 'And a hotel in Abuja?');
+    await fireEvent.press(screen.getByTestId('assistant-send'));
+
+    expect(await screen.findByText(m.assistant.errors.budget)).toBeOnTheScreen();
+    expect(calls.filter((call) => call.url.endsWith('/v1/agent/chat'))).toHaveLength(1);
+  });
+
   it('opens a prepared booking in the checkout of the app, with the notes it is read with (ADR-109)', async () => {
     const QUOTE = '0192D3A0-7C1E-7B2A-9F00-00000000A501';
     await assistantSession.remember(ID);

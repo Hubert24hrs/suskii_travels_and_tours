@@ -3185,7 +3185,7 @@ export const en = {
     notices: {
       greeting: 'Hello. What can I help you with?',
       cannot_answer: 'I cannot answer that from what I can read. Would you like a person to help?',
-      limit: "Today's limit for the assistant is reached. Search and booking work as usual.",
+      limit: 'I could not finish that in one go. Please ask again, one thing at a time.',
       timeout: 'That took too long. Please ask again.',
       unavailable: 'The assistant cannot answer right now. Search and booking work as usual.',
       paused: 'The assistant is paused for now. Search and booking work as usual.',
@@ -3194,6 +3194,8 @@ export const en = {
       start: 'The assistant could not start. Try again.',
       send: 'Your message was not sent. Try again.',
       busy: 'The assistant is still answering. Wait a moment.',
+      budget:
+        "The assistant has reached today's limit. Try again tomorrow. Search and booking work as usual.",
       full: 'This conversation is full. Start a new one.',
       gone: 'This conversation is no longer available.',
       human: 'We could not check that you are a person. Reload the page and try again.',

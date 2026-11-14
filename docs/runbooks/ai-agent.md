@@ -24,9 +24,12 @@ When in doubt, pause first and look afterwards.
 - **The answer guard** refuses an answer whose figures, contacts or outcomes are not in what
   the tools returned, asks the model once to correct it, and sends a notice (`cannot_answer`)
   if the second answer fails too. No unchecked answer is shown.
-- **Limits**: a run has at most 10 model turns, 24 tool calls and 2 minutes. Before its first
-  model call it reserves its worst case against the daily caps per person, per guest address
-  and in total (UTC days); over a cap no run starts and the person reads the `limit` notice.
+- **Limits**: a run has at most 10 model turns, 24 tool calls and 2 minutes. A run that uses
+  its turns or tool calls ends with the `limit` notice (outcome `step_limit` or `tool_limit`),
+  which asks the person to ask again, one thing at a time. Before its first model call a run
+  reserves its worst case against the daily caps per person, per guest address and in total
+  (UTC days); over a cap no run starts, the message is refused (429 `agent-budget`) and the
+  person reads that the assistant has reached today's limit.
 - **The monthly figure** (`AGENT_MONTHLY_ALERT_MICROUSD`): the worker has the month's estimated
   cost checked every hour. Operations are told once when the month is heading past the figure
   (after its first three days) and once when it is past it. It only tells: it stops nothing.
@@ -70,8 +73,10 @@ activity; the provider's own status page.
 
 ## 3. The spending caps are reached, or the monthly figure is passed
 
-Signs: people read "today's limit is reached"; `AssistantMonthlyCost`; the email
-`[ops] assistant cost`.
+Signs: people read "The assistant has reached today's limit"; `AssistantMonthlyCost`; the
+email `[ops] assistant cost`. "I could not finish that in one go" is not a cap: that run used
+its turns or tool calls (outcome `step_limit` or `tool_limit` in Assistant activity), and the
+next message starts a new run.
 
 1. Open Assistant cost and quality. Every figure there is an estimate: the tokens the models
    reported at `AGENT_MODEL_PRICES`. The provider's invoice is the actual cost; compare the

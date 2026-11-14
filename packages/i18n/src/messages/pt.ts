@@ -3276,8 +3276,7 @@ export const pt: Messages = {
     notices: {
       greeting: 'Olá. Em que posso ajudar?',
       cannot_answer: 'Não consigo responder a isso com o que posso ler. Quer que uma pessoa ajude?',
-      limit:
-        'O limite de hoje do assistente foi atingido. A pesquisa e a reserva funcionam como habitualmente.',
+      limit: 'Não consegui terminar isso de uma só vez. Pergunte novamente, uma coisa de cada vez.',
       timeout: 'Demorou demasiado. Pergunte novamente.',
       unavailable:
         'O assistente não pode responder agora. A pesquisa e a reserva funcionam como habitualmente.',
@@ -3287,6 +3286,8 @@ export const pt: Messages = {
       start: 'Não foi possível iniciar o assistente. Tente novamente.',
       send: 'A sua mensagem não foi enviada. Tente novamente.',
       busy: 'O assistente ainda está a responder. Aguarde um momento.',
+      budget:
+        'O assistente atingiu o limite de hoje. Tente novamente amanhã. A pesquisa e a reserva funcionam como habitualmente.',
       full: 'Esta conversa está cheia. Comece uma nova.',
       gone: 'Esta conversa já não está disponível.',
       human: 'Não foi possível verificar que é uma pessoa. Recarregue a página e tente novamente.',

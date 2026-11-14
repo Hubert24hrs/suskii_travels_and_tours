@@ -3264,7 +3264,7 @@ export const sw: Messages = {
       greeting: 'Habari. Nikusaidie nini?',
       cannot_answer: 'Siwezi kujibu hilo kwa ninachoweza kusoma. Ungependa mtu akusaidie?',
       limit:
-        'Kikomo cha leo cha msaidizi kimefikiwa. Kutafuta na kuhifadhi nafasi kunaendelea kama kawaida.',
+        'Sikuweza kumaliza hilo kwa mara moja. Tafadhali uliza tena, jambo moja baada ya jingine.',
       timeout: 'Hilo limechukua muda mrefu mno. Tafadhali uliza tena.',
       unavailable:
         'Msaidizi hawezi kujibu kwa sasa. Kutafuta na kuhifadhi nafasi kunaendelea kama kawaida.',
@@ -3275,6 +3275,8 @@ export const sw: Messages = {
       start: 'Msaidizi hakuweza kuanza. Jaribu tena.',
       send: 'Ujumbe wako haukutumwa. Jaribu tena.',
       busy: 'Msaidizi bado anajibu. Subiri kidogo.',
+      budget:
+        'Msaidizi amefikia kikomo cha leo. Jaribu tena kesho. Kutafuta na kuhifadhi nafasi kunaendelea kama kawaida.',
       full: 'Mazungumzo haya yamejaa. Anza mapya.',
       gone: 'Mazungumzo haya hayapatikani tena.',
       human: 'Hatukuweza kuhakikisha kuwa wewe ni mtu. Pakia ukurasa upya kisha ujaribu tena.',

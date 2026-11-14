@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Ask Suskii's two limits in their own words (2026-11-14)
+
+#### Fixed
+
+- A run that used its steps or tool calls (the `limit` notice) and the day's spend cap (429
+  `agent-budget`) read the same on the website and in the app: "Today's limit for the
+  assistant is reached", which sent a traveller away for the day after one long question. The
+  run's notice now says "I could not finish that in one go. Please ask again, one thing at a
+  time." (the console's staff chat too), and the spend cap has its own sentence,
+  `assistant.errors.budget`, which says to try again tomorrow. Both are in every catalog, and a
+  test on each client keeps them apart.
+
 ### The go-live list, a documentation index and a field button fix (2026-11-14)
 
 #### Added

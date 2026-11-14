@@ -3305,7 +3305,7 @@ export const fr: Messages = {
       cannot_answer:
         'Je ne peux pas répondre à cela avec ce que je peux lire. Souhaitez-vous l’aide d’une personne ?',
       limit:
-        'La limite du jour de l’assistant est atteinte. La recherche et la réservation fonctionnent comme d’habitude.',
+        'Je n’ai pas pu terminer en une seule fois. Reposez votre question, une chose à la fois.',
       timeout: 'Cela a pris trop de temps. Veuillez reposer votre question.',
       unavailable:
         'L’assistant ne peut pas répondre pour le moment. La recherche et la réservation fonctionnent comme d’habitude.',
@@ -3316,6 +3316,8 @@ export const fr: Messages = {
       start: 'L’assistant n’a pas pu démarrer. Réessayez.',
       send: 'Votre message n’a pas été envoyé. Réessayez.',
       busy: 'L’assistant répond encore. Patientez un instant.',
+      budget:
+        'L’assistant a atteint sa limite du jour. Réessayez demain. La recherche et la réservation fonctionnent comme d’habitude.',
       full: 'Cette conversation est pleine. Commencez-en une nouvelle.',
       gone: 'Cette conversation n’est plus disponible.',
       human:
