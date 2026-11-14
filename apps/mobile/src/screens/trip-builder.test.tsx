@@ -1,16 +1,25 @@
 import type { Schemas } from '@suskii/api-client';
 import { getMessages } from '@suskii/i18n';
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { BOOKING_TERMS_VERSION } from '@suskii/shared';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { File } from 'expo-file-system';
 import { router, useLocalSearchParams } from 'expo-router';
 import { shareAsync } from 'expo-sharing';
 
 import { openHostedCheckout } from '../lib/payment';
 import { activeTrip, quoteTripComponent, tripSearchPath } from '../lib/trip-builder';
-import { json, mockApi, renderWithApp, signedInSession } from '../test/app';
-import { flightQuote, hotelQuote, rentalQuote } from '../test/fixtures';
+import { chooseDate, json, mockApi, renderWithApp, signedInSession } from '../test/app';
+import {
+  countries,
+  flightQuote,
+  hotelQuote,
+  rentalQuote,
+  slice,
+  transferQuote,
+} from '../test/fixtures';
 
 import { BuiltTripScreen } from './built-trip-screen';
+import { TripDetailsScreen } from './trip-details-screen';
 import { TripPlanScreen } from './trip-plan-screen';
 
 jest.mock('../config', () => ({
@@ -348,6 +357,56 @@ describe('BuiltTripScreen', () => {
     });
   });
 
+  it("shows the parts Ask Suskii prepared with their prices, and opens each one's checkout (ADR-117)", async () => {
+    const HOTEL_QUOTE = '0192d3a0-7c1e-7b2a-9f00-00000000d007';
+    mockApi({
+      [`GET /v1/trips/${TRIP_ID}`]: () =>
+        json(
+          trip({
+            parts: [],
+            missing: ['flight', 'hotel'],
+            total: ngn(0),
+            due: ngn(0),
+            prepared: [
+              {
+                component: 'hotel',
+                quoteId: HOTEL_QUOTE,
+                title: 'Paddington Court, London',
+                price: ngn(60_000_000),
+                expiresAt: '2026-11-13T22:00:00.000Z',
+              },
+            ],
+            totalWithPrepared: ngn(60_000_000),
+          }),
+        ),
+    });
+    await renderWithApp(<BuiltTripScreen />, await signedInSession());
+
+    expect(await screen.findByTestId('trip-prepared-hotel')).toHaveTextContent(
+      'Paddington Court, London',
+    );
+    expect(screen.getByTestId('trip-prepared-price-hotel')).toHaveTextContent(/600,000/);
+    expect(screen.getByTestId('trip-part-hotel')).toHaveTextContent(
+      new RegExp(m.trips.page.prepared),
+    );
+    // The summary counts it, says the total is with prepared parts and how they join the payment.
+    expect(screen.getByTestId('trip-review-prepared-hotel')).toHaveTextContent(/600,000/);
+    expect(screen.getByTestId('trip-total')).toHaveTextContent(/600,000/);
+    expect(screen.getByText(m.trips.page.totalWithPrepared)).toBeOnTheScreen();
+    expect(screen.getByTestId('trip-prepared-note')).toHaveTextContent(m.trips.page.preparedNote);
+    // A part nobody prepared keeps its ordinary way in.
+    expect(screen.getByTestId('trip-choose-flight')).toHaveTextContent(m.trips.page.choose.flight);
+
+    // One form takes everyone's details for every prepared part at once (ADR-118).
+    await fireEvent.press(screen.getByTestId('trip-details-open'));
+    expect(router.push).toHaveBeenCalledWith(`/trips/built/${TRIP_ID}/details`);
+
+    // Entering the details opens that quote's checkout, which adds the booking to this trip.
+    await fireEvent.press(screen.getByTestId('trip-enter-details-hotel'));
+    expect(router.push).toHaveBeenCalledWith(`/checkout/${HOTEL_QUOTE}`);
+    expect(activeTrip.get()).toEqual({ id: TRIP_ID, reference: 'T-AB12CD', component: 'hotel' });
+  });
+
   it('pays for every part with one hosted checkout', async () => {
     const { calls } = mockApi({
       [`GET /v1/trips/${TRIP_ID}`]: () => json(twoParts()),
@@ -487,5 +546,213 @@ describe('BuiltTripScreen', () => {
     expect(screen.getByText(m.trips.page.deleteConfirm)).toBeOnTheScreen();
     await fireEvent.press(screen.getByTestId('trip-delete-yes'));
     await waitFor(() => expect(router.back).toHaveBeenCalled());
+  });
+});
+
+describe('TripDetailsScreen (ADR-118)', () => {
+  const FLIGHT_QUOTE = '0192d3a0-7c1e-7b2a-9f00-00000000d008';
+  const HOTEL_QUOTE = '0192d3a0-7c1e-7b2a-9f00-00000000d009';
+  const TRANSFER_QUOTE = '0192d3a0-7c1e-7b2a-9f00-00000000d00a';
+  const EXPIRES = '2026-11-13T22:00:00.000Z';
+
+  beforeEach(() => {
+    jest.mocked(useLocalSearchParams).mockReturnValue({ tripId: TRIP_ID });
+  });
+
+  /** A flight for one adult and one child, landing in Abuja on the transfer's day. */
+  function familyFlight(): Schemas['Quote'] {
+    const quote = flightQuote({ quoteId: FLIGHT_QUOTE });
+    if (!quote.flight) throw new Error('fixture without a flight');
+    return {
+      ...quote,
+      flight: {
+        ...quote.flight,
+        offer: {
+          ...quote.flight.offer,
+          slices: [slice('LOS', 'ABV', '2026-12-05')],
+          passengers: { adults: 1, children: 1, infants: 0 },
+        },
+      },
+    };
+  }
+
+  const preparedTrip = (patch: Partial<Trip> = {}): Trip =>
+    trip({
+      missing: ['car', 'insurance'],
+      prepared: [
+        {
+          component: 'flight',
+          quoteId: FLIGHT_QUOTE,
+          title: 'Lagos to Abuja',
+          price: ngn(85_000_000),
+          expiresAt: EXPIRES,
+        },
+        {
+          component: 'hotel',
+          quoteId: HOTEL_QUOTE,
+          title: 'Marina Suites, Lagos',
+          price: ngn(12_000_000),
+          expiresAt: EXPIRES,
+        },
+        {
+          component: 'transfer',
+          quoteId: TRANSFER_QUOTE,
+          title: 'Airport transfer (sample)',
+          price: ngn(2_500_000),
+          expiresAt: EXPIRES,
+        },
+      ],
+      totalWithPrepared: ngn(99_500_000),
+      ...patch,
+    });
+
+  const quotes = () => ({
+    [`GET /v1/quotes/${FLIGHT_QUOTE}`]: () => json(familyFlight()),
+    [`GET /v1/quotes/${HOTEL_QUOTE}`]: () => json({ ...hotelQuote(), quoteId: HOTEL_QUOTE }),
+    [`GET /v1/quotes/${TRANSFER_QUOTE}`]: () =>
+      json({ ...transferQuote(), quoteId: TRANSFER_QUOTE }),
+    'GET /v1/catalog/countries': () => json(countries),
+  });
+
+  async function fillTraveller(
+    index: number,
+    person: { title: 'mr' | 'miss'; gender: 'm' | 'f'; given: string; born: string },
+  ): Promise<void> {
+    const card = within(screen.getByTestId(`passenger-${index}`));
+    await fireEvent.press(
+      card.getByRole('radio', { name: m.checkout.fields.titles[person.title] }),
+    );
+    await fireEvent.press(
+      card.getByRole('radio', { name: m.checkout.fields.genders[person.gender] }),
+    );
+    await fireEvent.changeText(screen.getByTestId(`passengers.${index}.givenNames`), person.given);
+    await fireEvent.changeText(screen.getByTestId(`passengers.${index}.surname`), 'Okafor');
+    await chooseDate(`passengers.${index}.dateOfBirth`, person.born);
+    await fireEvent.changeText(card.getByLabelText(m.checkout.fields.nationality), 'nig');
+    await fireEvent.press(await screen.findByRole('button', { name: 'Nigeria' }));
+  }
+
+  it('asks for each traveller once, starts the transfer from the flight and books every part', async () => {
+    let bookings = 0;
+    const { calls } = mockApi({
+      [`GET /v1/trips/${TRIP_ID}`]: () => json(preparedTrip()),
+      ...quotes(),
+      [`POST /v1/trips/${TRIP_ID}/book`]: () =>
+        ++bookings === 1
+          ? json(
+              {
+                type: 'urn:suskii:problem:passengers-invalid',
+                title: 'Some travellers are not valid',
+                status: 422,
+                part: 'hotel',
+                issues: [{ index: 1, path: ['surname'], code: 'name_not_latin' }],
+              },
+              422,
+            )
+          : json(twoParts({ prepared: [], totalWithPrepared: ngn(155_000_000) })),
+    });
+    await renderWithApp(<TripDetailsScreen />, await signedInSession());
+
+    // What is being booked, with one total; the flight's bags stay on its own checkout.
+    expect(await screen.findByTestId('trip-details-part-flight')).toHaveTextContent(
+      /Lagos to Abuja.*850,000/,
+    );
+    expect(screen.getByTestId('trip-details-part-hotel')).toHaveTextContent(/120,000/);
+    expect(screen.getByTestId('trip-details-total')).toHaveTextContent(/995,000/);
+    expect(screen.getByTestId('trip-details-bags')).toHaveTextContent(m.trips.details.bagsNote);
+    // The most travellers any part takes, each once: the flight's adult and child.
+    expect(screen.getByTestId('passenger-0')).toHaveTextContent(/Adult 1/);
+    expect(screen.getByTestId('passenger-1')).toHaveTextContent(/Child 1/);
+    expect(screen.queryByTestId('passenger-2')).toBeNull();
+    // The transfer meets the flight the trip arrives on.
+    expect(screen.getByTestId('addonDetails.flightNumber')).toHaveProp('value', 'ZZ 101');
+    expect(screen.getByTestId('addonDetails.arrivalTime')).toHaveTextContent('5 Dec 2026 08:40');
+
+    // Nothing is sent while the form is incomplete.
+    await fireEvent.press(screen.getByTestId('trip-details-submit'));
+    expect(screen.getByTestId('trip-details-error')).toHaveTextContent(m.checkout.issues.summary);
+    expect(calls.some((request) => request.method === 'POST')).toBe(false);
+
+    await fillTraveller(0, { title: 'mr', gender: 'm', given: 'Chinedu', born: '1990-04-21' });
+    await fillTraveller(1, { title: 'miss', gender: 'f', given: 'Ada', born: '2018-06-01' });
+    await fireEvent.changeText(
+      screen.getByTestId('addonDetails.pickupAddress'),
+      '12 Adeola Odeku Street, Victoria Island',
+    );
+    await fireEvent.changeText(screen.getByTestId('contact-email'), ' ada@example.com ');
+    await fireEvent.changeText(screen.getByTestId('contact-phone'), '+234 803 000 0000');
+    await fireEvent.press(screen.getByTestId('accept-terms'));
+    await fireEvent.press(screen.getByTestId('trip-details-submit'));
+
+    // A part refuses a traveller: the part is named and the traveller's field is marked.
+    expect(await screen.findByTestId('trip-details-error')).toHaveTextContent(
+      m.trips.details.errors.part.replace('{part}', m.trips.components.hotel),
+    );
+    expect(screen.getByText(m.checkout.issues.name_not_latin)).toBeOnTheScreen();
+
+    await fireEvent.changeText(screen.getByTestId('passengers.1.surname'), 'Okafor Eze');
+    await fireEvent.press(screen.getByTestId('trip-details-submit'));
+    await waitFor(() => expect(router.dismissTo).toHaveBeenCalledWith(`/trips/built/${TRIP_ID}`));
+
+    const sent = calls.filter((request) => request.url.endsWith(`/v1/trips/${TRIP_ID}/book`));
+    expect(sent).toHaveLength(2);
+    // A changed form is a new request: a new key, so the first answer is not replayed.
+    const keys = sent.map((request) => request.headers.get('Idempotency-Key'));
+    expect(keys[0]).toBeTruthy();
+    expect(keys[1]).toBeTruthy();
+    expect(keys[0]).not.toBe(keys[1]);
+    const body = (await sent[1]?.json()) as {
+      contact: unknown;
+      travellers: { type: string; givenNames: string; surname: string; document: unknown }[];
+      addonDetails: unknown;
+      termsVersion: string;
+      acceptTerms: boolean;
+    };
+    expect(body.contact).toEqual({ email: 'ada@example.com', phone: '+2348030000000' });
+    expect(
+      body.travellers.map(({ type, givenNames, surname, document }) => ({
+        type,
+        givenNames,
+        surname,
+        document,
+      })),
+    ).toEqual([
+      { type: 'adult', givenNames: 'Chinedu', surname: 'Okafor', document: null },
+      { type: 'child', givenNames: 'Ada', surname: 'Okafor Eze', document: null },
+    ]);
+    expect(body.addonDetails).toEqual({
+      flightNumber: 'ZZ 101',
+      arrivalTime: '2026-12-05T08:40',
+      pickupAddress: '12 Adeola Odeku Street, Victoria Island',
+    });
+    expect(body.termsVersion).toBe(BOOKING_TERMS_VERSION);
+    expect(body.acceptTerms).toBe(true);
+  });
+
+  it('says when nothing waits for details, and goes back to the trip', async () => {
+    mockApi({ [`GET /v1/trips/${TRIP_ID}`]: () => json(twoParts()) });
+    await renderWithApp(<TripDetailsScreen />, await signedInSession());
+
+    expect(await screen.findByTestId('trip-details-nothing')).toHaveTextContent(
+      m.trips.details.nothing,
+      { exact: false },
+    );
+    await fireEvent.press(screen.getByText(m.trips.details.back));
+    expect(router.dismissTo).toHaveBeenCalledWith(`/trips/built/${TRIP_ID}`);
+  });
+
+  it('names the part whose price has run out', async () => {
+    mockApi({
+      [`GET /v1/trips/${TRIP_ID}`]: () => json(preparedTrip()),
+      ...quotes(),
+      [`GET /v1/quotes/${HOTEL_QUOTE}`]: () =>
+        json({ type: 'urn:suskii:problem:offer-expired', title: 'Gone', status: 410 }, 410),
+    });
+    await renderWithApp(<TripDetailsScreen />, await signedInSession());
+
+    expect(await screen.findByTestId('trip-details-expired')).toHaveTextContent(
+      m.trips.details.errors.expired.replace('{part}', m.trips.components.hotel),
+      { exact: false },
+    );
   });
 });

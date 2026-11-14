@@ -3224,6 +3224,14 @@ export const en = {
         'Nothing is booked or paid yet. Open the card to enter the travellers’ details and pay on the secure payment page. The price is checked again before you pay.',
       other_services:
         'Need a place to stay, a car or an airport transfer for this trip? Ask, and Ask Suskii will look for the same dates.',
+      choose_seats:
+        'Nothing is booked or held yet. Open the card to choose your seats on the seat map, then enter the travellers’ details and pay.',
+      trip_handoff:
+        'Nothing is booked or paid yet. Open the trip to enter the travellers’ details once for every part, then pay for all of them at once. Prices are checked again before you pay.',
+      trip_sign_in:
+        'To pay for all of this at once, sign in and ask again. You can also book each part from its own card.',
+      trip_separate:
+        'Packages, tours, visa assistance, eSIMs and lounge access are not in the trip’s single payment: book each one from its own card.',
     },
     rating: {
       question: 'How well did the assistant help?',
@@ -3435,6 +3443,30 @@ export const en = {
     intro:
       'Put a flight, a hotel, a rental car, an airport transfer and travel insurance together, or only the parts you want. You see a price for each part and one total, and you pay once.',
     pdf: 'Save this plan as a PDF',
+    details: {
+      title: 'Your trip’s details',
+      heading: 'Enter everyone’s details once',
+      intro:
+        'One form for every part Ask Suskii prepared. Each part takes the travellers it needs: the flight everyone, the hotel a lead guest per room, the rental car its driver, who shows the licence at pickup.',
+      open: 'Enter everyone’s details once',
+      partsHeading: 'What you are booking',
+      travellersHeading: 'Travellers',
+      bagsNote:
+        'Bags and seats are chosen on the flight’s own checkout. To add them, enter the flight’s details from the trip page instead.',
+      submit: 'Book every part',
+      booking: 'Booking your trip',
+      back: 'Back to the trip',
+      nothing: 'Nothing on this trip is waiting for details.',
+      errors: {
+        part: 'This part could not be booked: {part}. Nothing was booked. Check the details and try again.',
+        short:
+          'This part was priced for more travellers than the form names: {part}. Go back to the trip and choose it again.',
+        expired:
+          'A price on this trip has run out: {part}. Go back to the trip and choose that part again.',
+        nothing: 'Nothing on this trip is waiting for details any more.',
+        generic: 'Something went wrong. Nothing was booked. Try again.',
+      },
+    },
     components: {
       flight: 'Flight',
       hotel: 'Hotel',
@@ -3538,6 +3570,14 @@ export const en = {
       paid: 'Your trip is paid. Each part has its own booking and confirmation.',
       closed: 'Every part of this trip was cancelled or has expired.',
       nothingYet: 'Add a part to see your total.',
+      prepared: 'Prepared by Ask Suskii',
+      enterDetails: 'Enter details',
+      enterDetailsLabel: 'Enter the details for: {part}',
+      chooseAnother: 'Choose another',
+      chooseAnotherLabel: 'Choose another: {part}',
+      preparedNote:
+        'Parts Ask Suskii prepared join this payment once you enter their details. Their prices are checked again then.',
+      totalWithPrepared: 'Total with prepared parts',
       delete: 'Delete this trip',
       deleteConfirm: 'Delete this trip? Bookings in it are kept as bookings of their own.',
       deleteYes: 'Yes, delete it',

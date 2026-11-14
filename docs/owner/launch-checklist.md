@@ -5,6 +5,10 @@ filing or a decision only the owner can make. The code for every item is already
 tested; each step says where its result goes and how to check it worked. Work top to bottom:
 section 1 is what going live needs, the rest can follow.
 
+Before the public launch, also work through [Going live: replace every stand-in](./going-live.md):
+every mock provider, sample product and test switch the testing backend runs on, what replaces
+each, and the assistant's eval run (about 2 US dollars) to do before travellers talk to it.
+
 ## How to hand over keys safely
 
 - **Never paste a key into a chat, an email, an issue or a file in the repository.**

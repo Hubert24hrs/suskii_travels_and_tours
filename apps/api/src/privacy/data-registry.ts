@@ -635,7 +635,7 @@ export const DATA_REGISTRY = {
     section: 'trips',
     deletion: 'retain',
     retention: { kind: 'rule', rule: 'trips' },
-    note: 'A group of bookings paid together (ADR-099): where from and to, the dates, head counts and the parts wanted; no names, contacts or documents. Exported with its parts; each booking also says which trip it belongs to. Kept with its bookings as a financial record: an empty plan goes after 30 days, the rest after FINANCIAL_RECORDS_RETENTION_YEARS.',
+    note: 'A group of bookings paid together (ADR-099): where from and to, the dates, head counts, the parts wanted and the parts Ask Suskii prepared (quote ids, titles and quoted prices, ADR-117); no names, contacts or documents. Exported with its parts; each booking also says which trip it belongs to. Kept with its bookings as a financial record: an empty plan goes after 30 days, the rest after FINANCIAL_RECORDS_RETENTION_YEARS.',
   },
   TripPayment: {
     section: 'payments',

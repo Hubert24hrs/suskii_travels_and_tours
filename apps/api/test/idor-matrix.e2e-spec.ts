@@ -269,6 +269,27 @@ const CASES: Record<string, Case> = {
   },
   removeTripPart: { path: (f) => `/v1/trips/${f.tripId}/parts/${f.tripBookingId}` },
   startTripPayment: { path: (f) => `/v1/trips/${f.tripId}/payments`, body: () => ({}) },
+  // One details form for the whole trip (ADR-118): a valid form, so only ownership refuses it.
+  bookTrip: {
+    path: (f) => `/v1/trips/${f.tripId}/book`,
+    body: () => ({
+      contact: { email: 'intruder@example.com', phone: '+2348030000001' },
+      travellers: [
+        {
+          type: 'adult',
+          title: 'mr',
+          gender: 'm',
+          givenNames: 'Intruder',
+          surname: 'Okafor',
+          dateOfBirth: '1990-01-01',
+          nationality: 'NG',
+          document: null,
+        },
+      ],
+      termsVersion: BOOKING_TERMS_VERSION,
+      acceptTerms: true,
+    }),
+  },
   getAgentConversation: { path: (f) => `/v1/agent/conversations/${f.agentConversationId}` },
   deleteAgentConversation: { path: (f) => `/v1/agent/conversations/${f.agentConversationId}` },
   rateAgentConversation: {

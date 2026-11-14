@@ -3317,6 +3317,14 @@ export const pt: Messages = {
         'Ainda nada está reservado nem pago. Abra o cartão para introduzir os dados dos viajantes e pagar na página de pagamento segura. O preço é verificado de novo antes do pagamento.',
       other_services:
         'Precisa de alojamento, de um carro ou de um transfer do aeroporto para esta viagem? Peça, e o Ask Suskii procura para as mesmas datas.',
+      choose_seats:
+        'Ainda nada está reservado nem guardado. Abra o cartão para escolher os seus lugares no mapa de lugares e depois introduza os dados dos viajantes e pague.',
+      trip_handoff:
+        'Ainda nada está reservado nem pago. Abra a viagem para introduzir uma só vez os dados dos viajantes de todas as partes e depois pague tudo de uma só vez. Os preços são verificados de novo antes do pagamento.',
+      trip_sign_in:
+        'Para pagar tudo de uma só vez, inicie sessão e peça de novo. Também pode reservar cada parte a partir do seu próprio cartão.',
+      trip_separate:
+        'Os pacotes, os passeios, a assistência com vistos, os eSIM e o acesso a salas VIP não entram no pagamento único da viagem: reserve cada um a partir do seu próprio cartão.',
     },
     rating: {
       question: 'O assistente ajudou-o bem?',
@@ -3528,6 +3536,30 @@ export const pt: Messages = {
     intro:
       'Junte um voo, um hotel, um carro de aluguer, um transfer do aeroporto e um seguro de viagem, ou só as partes que quiser. Vê um preço por cada parte e um total, e paga uma única vez.',
     pdf: 'Guardar este plano em PDF',
+    details: {
+      title: 'Os dados da sua viagem',
+      heading: 'Introduza os dados de todos uma só vez',
+      intro:
+        'Um só formulário para todas as partes que o Ask Suskii preparou. Cada parte leva os viajantes de que precisa: o voo todos, o hotel um hóspede principal por quarto, o carro alugado o seu condutor, que mostra a carta de condução no levantamento.',
+      open: 'Introduzir os dados de todos uma só vez',
+      partsHeading: 'O que está a reservar',
+      travellersHeading: 'Viajantes',
+      bagsNote:
+        'A bagagem e os lugares escolhem-se no pagamento do próprio voo. Para os acrescentar, introduza antes os dados do voo a partir da página da viagem.',
+      submit: 'Reservar todas as partes',
+      booking: 'A reservar a sua viagem',
+      back: 'Voltar à viagem',
+      nothing: 'Nenhuma parte desta viagem está à espera de dados.',
+      errors: {
+        part: 'Não foi possível reservar esta parte: {part}. Nada foi reservado. Verifique os dados e tente de novo.',
+        short:
+          'Esta parte foi cotada para mais viajantes do que os que o formulário indica: {part}. Volte à viagem e escolha-a de novo.',
+        expired:
+          'Um preço desta viagem expirou: {part}. Volte à viagem e escolha essa parte de novo.',
+        nothing: 'Já nenhuma parte desta viagem está à espera de dados.',
+        generic: 'Algo correu mal. Nada foi reservado. Tente de novo.',
+      },
+    },
     components: {
       flight: 'Voo',
       hotel: 'Hotel',
@@ -3632,6 +3664,14 @@ export const pt: Messages = {
       paid: 'A sua viagem está paga. Cada parte tem a sua própria reserva e confirmação.',
       closed: 'Todas as partes desta viagem foram canceladas ou expiraram.',
       nothingYet: 'Adicione uma parte para ver o seu total.',
+      prepared: 'Preparado pelo Ask Suskii',
+      enterDetails: 'Introduzir os dados',
+      enterDetailsLabel: 'Introduzir os dados de: {part}',
+      chooseAnother: 'Escolher outro',
+      chooseAnotherLabel: 'Escolher outro: {part}',
+      preparedNote:
+        'As partes preparadas pelo Ask Suskii juntam-se a este pagamento quando introduzir os dados delas. Os preços são verificados de novo nessa altura.',
+      totalWithPrepared: 'Total com as partes preparadas',
       delete: 'Eliminar esta viagem',
       deleteConfirm:
         'Eliminar esta viagem? As reservas que contém ficam como reservas independentes.',

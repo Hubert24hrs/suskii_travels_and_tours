@@ -25,9 +25,11 @@ import { Contract, fileResponse } from '../contract/contract';
 import { renderTripPlanPdf } from '../documents/plan-pdf';
 import { BOOKING_LIMITS, RateLimit } from '../rate-limit/rate-limit.decorator';
 
+import { TripBookingService } from './trip-booking.service';
 import { TripCheckoutService } from './trip-checkout.service';
 import {
   addTripPartSchema,
+  bookTripSchema,
   createTripSchema,
   startTripPaymentSchema,
   tripIdParamsSchema,
@@ -35,6 +37,7 @@ import {
   tripPartParamsSchema,
   tripPaymentSessionSchema,
   tripSchema,
+  type BookTripRequest,
   type StartTripPaymentRequest,
 } from './trips.schemas';
 import { TripsService } from './trips.service';
@@ -85,6 +88,7 @@ export class TripsController {
   constructor(
     private readonly trips: TripsService,
     private readonly checkout: TripCheckoutService,
+    private readonly booking: TripBookingService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -222,6 +226,30 @@ export class TripsController {
     @Req() request: AuthenticatedRequest,
   ): Promise<TripView> {
     return this.trips.addPart(tripId, body.bookingId, bookingCaller(request), auth.userId);
+  }
+
+  @Post('trips/:tripId/book')
+  @RateLimit(BOOKING_LIMITS.createUser)
+  @Contract({
+    operationId: 'bookTrip',
+    summary: 'Book every prepared part of the trip with one set of details',
+    description:
+      "One form for the whole trip (ADR-118): the contact and each traveller once, for every part Ask Suskii prepared (`prepared`). Each part is booked as an ordinary booking, with the travellers its quote was priced for, and joins the trip; then the trip is paid once with `startTripPayment`. All or nothing: when a part cannot be booked, nothing this request booked stays, and the problem carries `part` (the trip part) and, for a traveller's detail, `issues` whose `index` is the traveller's place in `travellers`. 409 `trip-nothing-prepared` when no part waits for details; 422 `trip-travellers-short` when a part was priced for more travellers of a kind than the form names; 410 when a prepared part's price has run out.",
+    tags: TAGS,
+    params: tripIdParamsSchema,
+    body: bookTripSchema,
+    responses: { 200: tripSchema },
+    errors: [404, 409, 410, 422, 503],
+    idempotent: true,
+  })
+  @HttpCode(HttpStatus.OK)
+  book(
+    @Param('tripId') tripId: string,
+    @CurrentAuth() auth: AuthContext,
+    @Body() body: BookTripRequest,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<TripView> {
+    return this.booking.book(tripId, body, bookingCaller(request), auth.userId);
   }
 
   @Delete('trips/:tripId/parts/:bookingId')

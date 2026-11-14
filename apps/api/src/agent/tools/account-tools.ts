@@ -17,6 +17,7 @@ import type { tripSchema } from '../../trips/trips.schemas';
 import { TripsService } from '../../trips/trips.service';
 import { agentTool, AgentToolRegistry } from '../agent-tool';
 
+import { AgentPreparedParts } from './prepared-parts';
 import {
   AGENT_REQUEST_CONTEXT,
   AgentToolCallers,
@@ -137,6 +138,7 @@ export class AccountTools implements OnModuleInit {
     private readonly bookings: BookingsService,
     private readonly trips: TripsService,
     private readonly catalog: CatalogService,
+    private readonly prepared: AgentPreparedParts,
   ) {}
 
   onModuleInit(): void {
@@ -442,6 +444,8 @@ export class AccountTools implements OnModuleInit {
               { plan: plan.data, currency: grant.currency },
               AGENT_REQUEST_CONTEXT,
             );
+            // What the conversation prepares next goes on this trip (ADR-117).
+            await this.prepared.rememberTrip(grant, trip.id);
             return { problems: [], trip: tripOf(trip), cards: tripCard(trip) };
           } catch (error) {
             // Too many open trips, mostly: said as a code, with the list a tap away.

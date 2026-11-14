@@ -1,4 +1,4 @@
-import { Injectable, type OnModuleInit } from '@nestjs/common';
+import { Injectable, NotFoundException, type OnModuleInit } from '@nestjs/common';
 import { z } from 'zod';
 
 import {
@@ -41,6 +41,16 @@ const brief = (text: string): string =>
 const count = (min: number, max: number, fallback: number) =>
   z.number().int().min(min).max(max).default(fallback);
 const limit = count(1, 6, 4);
+
+/** Departures listed per package or tour: enough to choose a date, small enough for a model. */
+const DEPARTURES_SHOWN = 4;
+
+/** A detail read that lost a race with an unpublish lists no departures, never an error. */
+const unlessGone = <T>(read: Promise<T>): Promise<T | null> =>
+  read.catch((error: unknown) => {
+    if (error instanceof NotFoundException) return null;
+    throw error;
+  });
 
 /** `not_offered`: the product is switched off here, as its routes answer 404 (ADR-049). */
 const NOT_OFFERED = ['not_offered'];
@@ -185,7 +195,7 @@ export class ProductTools implements OnModuleInit {
       agentTool({
         name: 'cars.buses',
         description:
-          'Find intercity bus departures between two cities on a date, with the price per seat and the seats left. When nothing is found, the cities buses run between are listed so you can check the names. Trips marked sample are demo inventory.',
+          'Find intercity bus departures between two cities on a date, with the price per seat and the seats left. When nothing is found, the cities buses run between are listed so you can check the names. Trips marked sample are demo inventory. When the traveller chooses a trip, hand its tripId and the number of seats to buses.prepare_booking; never show a tripId to the traveller.',
         tier: 'read',
         scope: 'search',
         agents: ['cars'],
@@ -202,6 +212,8 @@ export class ProductTools implements OnModuleInit {
           trips: z.array(
             z.object({
               option: z.number().int(),
+              /** Handed to buses.prepare_booking when the traveller chooses this trip. */
+              tripId: z.string(),
               operator: z.string(),
               sample: z.boolean(),
               from: z.string(),
@@ -241,6 +253,7 @@ export class ProductTools implements OnModuleInit {
             found: trips.length,
             trips: shown.map((trip, index) => ({
               option: index + 1,
+              tripId: trip.id,
               operator: trip.operator.name,
               sample: trip.sample,
               from: `${trip.origin.name}, ${trip.origin.cityName}`,
@@ -272,7 +285,7 @@ export class ProductTools implements OnModuleInit {
       agentTool({
         name: 'packages.search',
         description:
-          'List holiday packages (flight, stay and extras sold together by Suskii) for a city, a country or a month, with the lowest price per adult. Packages marked sample are demo inventory.',
+          'List holiday packages (flight, stay and extras sold together by Suskii) for a city, a country or a month, with the lowest price per adult and the next departures that have room for the travellers. Packages marked sample are demo inventory. When the traveller chooses a departure, hand its departureId and the same travellers to packages.prepare_booking; never show a departureId to the traveller.',
         tier: 'read',
         scope: 'search',
         agents: ['tours', 'trip_builder'],
@@ -302,12 +315,23 @@ export class ProductTools implements OnModuleInit {
               fromPerAdult: moneyOut,
               nextDeparture: z.string(),
               departuresWithRoom: z.number().int(),
+              departures: z.array(
+                z.object({
+                  /** Handed to packages.prepare_booking when the traveller chooses it. */
+                  departureId: z.string(),
+                  starts: z.string(),
+                  ends: z.string(),
+                  seatsLeft: z.number().int(),
+                  perAdult: moneyOut,
+                }),
+              ),
             }),
           ),
           cards: cardsOut,
         }),
         run: async (input, { grant }) => {
           const client = await this.callers.client(grant);
+          const travellers = { adults: input.adults, children: input.children, infants: 0 };
           const packages = await this.inhouse.listPackages(
             {
               currency: this.callers.currency(grant),
@@ -322,6 +346,18 @@ export class ProductTools implements OnModuleInit {
             client,
           );
           const shown = packages.slice(0, input.limit);
+          // The departures each one has for these travellers, priced as its page prices them.
+          const details = await Promise.all(
+            shown.map((item) =>
+              unlessGone(
+                this.inhouse.packageDetail(
+                  item.slug,
+                  { currency: this.callers.currency(grant), ...travellers },
+                  client,
+                ),
+              ),
+            ),
+          );
           return {
             found: packages.length,
             packages: shown.map((item, index) => ({
@@ -335,6 +371,20 @@ export class ProductTools implements OnModuleInit {
               fromPerAdult: item.fromPrice,
               nextDeparture: item.nextDeparture,
               departuresWithRoom: item.departures,
+              departures: (details[index]?.departures ?? [])
+                .filter(
+                  (departure) =>
+                    departure.bookable &&
+                    (!input.month || departure.startDate.startsWith(input.month)),
+                )
+                .slice(0, DEPARTURES_SHOWN)
+                .map((departure) => ({
+                  departureId: departure.id,
+                  starts: departure.startDate,
+                  ends: departure.endDate,
+                  seatsLeft: departure.seatsLeft,
+                  perAdult: departure.prices.adult,
+                })),
             })),
             cards: shown.flatMap((item): AgentCard[] =>
               card('package', item.title, [item.cityName, item.nextDeparture], {
@@ -351,7 +401,7 @@ export class ProductTools implements OnModuleInit {
       agentTool({
         name: 'tours.search',
         description:
-          'List tours and activities run by Suskii, by name, city or date, with the lowest price and the next departure (local time at the meeting point). Tours marked sample are demo inventory.',
+          'List tours and activities run by Suskii, by name, city or date, with the lowest price and the next departures that have room for the travellers (local time at the meeting point). Tours marked sample are demo inventory. When the traveller chooses a departure, hand its departureId and the same travellers to tours.prepare_booking; never show a departureId to the traveller.',
         tier: 'read',
         scope: 'search',
         agents: ['tours'],
@@ -384,12 +434,22 @@ export class ProductTools implements OnModuleInit {
               fromPrice: moneyOut,
               nextDeparture: z.string(),
               departuresWithRoom: z.number().int(),
+              departures: z.array(
+                z.object({
+                  /** Handed to tours.prepare_booking when the traveller chooses it. */
+                  departureId: z.string(),
+                  starts: z.string(),
+                  seatsLeft: z.number().int(),
+                  perAdult: moneyOut,
+                }),
+              ),
             }),
           ),
           cards: cardsOut,
         }),
         run: async (input, { grant }) => {
           const client = await this.callers.client(grant);
+          const travellers = { adults: input.adults, children: input.children, infants: 0 };
           const tours = await this.inhouse.listTours(
             {
               currency: this.callers.currency(grant),
@@ -404,6 +464,17 @@ export class ProductTools implements OnModuleInit {
             client,
           );
           const shown = tours.slice(0, input.limit);
+          const details = await Promise.all(
+            shown.map((item) =>
+              unlessGone(
+                this.inhouse.tourDetail(
+                  item.slug,
+                  { currency: this.callers.currency(grant), ...travellers },
+                  client,
+                ),
+              ),
+            ),
+          );
           return {
             found: tours.length,
             tours: shown.map((item, index) => ({
@@ -418,6 +489,19 @@ export class ProductTools implements OnModuleInit {
               fromPrice: item.fromPrice,
               nextDeparture: wallTime(item.nextDeparture),
               departuresWithRoom: item.departures,
+              departures: (details[index]?.departures ?? [])
+                .filter(
+                  (departure) =>
+                    departure.bookable &&
+                    (!input.date || departure.startsAtLocal.startsWith(input.date)),
+                )
+                .slice(0, DEPARTURES_SHOWN)
+                .map((departure) => ({
+                  departureId: departure.id,
+                  starts: wallTime(departure.startsAtLocal),
+                  seatsLeft: departure.seatsLeft,
+                  perAdult: departure.prices.adult,
+                })),
             })),
             cards: shown.flatMap((item): AgentCard[] =>
               card('tour', item.title, [item.cityName, wallTime(item.nextDeparture)], {
@@ -434,7 +518,7 @@ export class ProductTools implements OnModuleInit {
       agentTool({
         name: 'visa.requirements',
         description:
-          "Whether a traveller of one nationality needs a visa for a country, from Suskii's own rules, and the visa assistance Suskii sells for it. When the requirement is unknown there is no rule on file: say so and never guess. Always pass on the disclaimer. Use ISO 3166 two-letter country codes.",
+          "Whether a traveller of one nationality needs a visa for a country, from Suskii's own rules, and the visa assistance Suskii sells for it. When the requirement is unknown there is no rule on file: say so and never guess. Always pass on the disclaimer. Use ISO 3166 two-letter country codes. When the traveller wants the assistance, hand its productId with the same nationality and purpose to visa.prepare_booking; never show a productId to the traveller.",
         tier: 'read',
         scope: 'catalog',
         agents: ['tours', 'flights', 'concierge'],
@@ -458,6 +542,8 @@ export class ProductTools implements OnModuleInit {
           assistance: z.array(
             z.object({
               option: z.number().int(),
+              /** Handed to visa.prepare_booking when the traveller wants this assistance. */
+              productId: z.string(),
               title: z.string(),
               sample: z.boolean(),
               summary: z.string(),
@@ -484,6 +570,7 @@ export class ProductTools implements OnModuleInit {
             disclaimer: answer.disclaimer,
             assistance: shown.map((product, index) => ({
               option: index + 1,
+              productId: product.id,
               title: product.title,
               sample: product.sample,
               summary: brief(product.summary),
@@ -510,7 +597,7 @@ export class ProductTools implements OnModuleInit {
       agentTool({
         name: 'addons.search',
         description:
-          'List travel add-ons Suskii sells: travel insurance, airport transfers, eSIMs and lounge access, with the unit price and what it is charged per. Add-ons marked sample are demo inventory.',
+          'List travel add-ons Suskii sells: travel insurance, airport transfers, eSIMs and lounge access, with the unit price and what it is charged per. Add-ons marked sample are demo inventory. When the traveller chooses one, hand its addonId, the dates and the travellers to addons.prepare_booking; never show an addonId to the traveller.',
         tier: 'read',
         scope: 'search',
         agents: ['tours', 'cars', 'trip_builder', 'flights', 'hotels'],
@@ -526,6 +613,8 @@ export class ProductTools implements OnModuleInit {
           addons: z.array(
             z.object({
               option: z.number().int(),
+              /** Handed to addons.prepare_booking when the traveller chooses this add-on. */
+              addonId: z.string(),
               title: z.string(),
               sample: z.boolean(),
               type: z.enum(ADDON_PRODUCT_TYPES),
@@ -552,6 +641,7 @@ export class ProductTools implements OnModuleInit {
             found: addons.length,
             addons: shown.map((item, index) => ({
               option: index + 1,
+              addonId: item.id,
               title: item.title,
               sample: item.sample,
               type: item.type,

@@ -3933,6 +3933,9 @@ model Trip {
   /// No personal data.
   plan      Json
   currency  String   @db.Char(3)
+  /// Parts Ask Suskii prepared that no booking fills yet (ADR-117), as `TripPreparedPart`: the
+  /// part, its quote, its title and price as quoted and when the quote expires. No personal data.
+  prepared  Json     @default("[]")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 

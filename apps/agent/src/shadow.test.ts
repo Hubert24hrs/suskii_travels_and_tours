@@ -89,7 +89,7 @@ describe('a shadow turn (ADR-106)', () => {
     });
 
     // The traveller's answer is the live prompt's, and it went out before the shadow line.
-    expect(end).toMatchObject({ outcome: 'answered', prompts: ['router@1', 'flights@4'] });
+    expect(end).toMatchObject({ outcome: 'answered', prompts: ['router@1', 'flights@5'] });
     expect(end.answer?.text).toBe(LIVE_ANSWER);
     expect(events.at(-1)?.type).toBe('shadow');
     expect(events.at(-2)?.type).toBe('end');

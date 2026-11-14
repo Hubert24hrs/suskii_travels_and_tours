@@ -16,6 +16,17 @@ export const AGENT_CARD_NOTES = [
   'booking_handoff',
   // After a flight was prepared: the assistant can find a stay, a car or a transfer for it.
   'other_services',
+  // A bus trip the assistant found (ADR-117): the seats are chosen on its seat map, and nothing
+  // is held or booked until the traveller has chosen them and paid.
+  'choose_seats',
+  // A combined trip the assistant put together (ADR-117): each part takes the travellers'
+  // details from the trip page, then one payment covers every part. Nothing is booked before.
+  'trip_handoff',
+  // One payment for several parts needs an account: sign in, or book each part from its card.
+  'trip_sign_in',
+  // What a combined trip does not take (packages, tours, visa assistance, eSIMs, lounges) is
+  // booked and paid on its own page.
+  'trip_separate',
 ] as const;
 export type AgentCardNote = (typeof AGENT_CARD_NOTES)[number];
 

@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  FLIGHT_NUMBER_PATTERN,
   flightFacts,
   inhouseFacts,
   normalisePassport,
@@ -9,7 +8,6 @@ import {
   passengerDrafts,
   validateCheckout,
   type CheckoutDraft,
-  type CheckoutIssue,
   type FieldIssues,
   type ItineraryFacts,
   type LocaleCode,
@@ -21,7 +19,6 @@ import { Armchair, Lock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
-import { marketingAttribution } from '../../lib/ad-attribution';
 import { trackAd } from '../../lib/ad-events';
 import { adValue } from '../../lib/ad-value';
 import { bookingHeaders, saveBookingToken } from '../../lib/booking-token';
@@ -39,6 +36,16 @@ import { loadTurnstile } from '../home/turnstile';
 import { ResultsLoading } from '../results/result-states';
 import { CheckboxField } from '../search/native-select';
 
+import {
+  asIssue,
+  checkAddonDetails,
+  DETAIL_FIELDS,
+  formPath,
+  NO_DETAILS,
+  normaliseFlightNumber,
+  withMarketing,
+  type AddonDetailsDraft,
+} from './booking-form';
 import { useBookingT } from './checkout-messages';
 import { GuestFields, PassengerFields, type CountryOption } from './passenger-fields';
 import {
@@ -71,32 +78,6 @@ type Phase =
   | { kind: 'expired'; searchHref: string }
   | { kind: 'missing' };
 
-const ISSUE_CODES: readonly CheckoutIssue[] = [
-  'name_not_latin',
-  'name_too_long',
-  'passport_required',
-  'passport_expired',
-  'passport_expires_soon',
-  'passenger_type_mismatch',
-  'born_after_travel',
-  'infants_exceed_adults',
-  'passenger_count_mismatch',
-  'traveller_not_found',
-  'nationality_mismatch',
-];
-const asIssue = (code: string): CheckoutIssue =>
-  (ISSUE_CODES as readonly string[]).includes(code) ? (code as CheckoutIssue) : 'invalid';
-
-/** API field paths (`passengers.0.document.number`) to form paths (`passengers.0.passportNumber`). */
-function formPath(apiPath: string): string {
-  return apiPath
-    .replace(/^contact\./, '')
-    .replace(/\.document\.number$/, '.passportNumber')
-    .replace(/\.document\.expiryDate$/, '.passportExpiry')
-    .replace(/\.document\.issuingCountry$/, '.issuingCountry')
-    .replace(/\.document$/, '.passportNumber');
-}
-
 function draftFor(quote: Quote): CheckoutDraft {
   const counts =
     quote.flight?.offer.passengers ??
@@ -111,46 +92,6 @@ function draftFor(quote: Quote): CheckoutDraft {
       ? [{ givenNames: '', surname: '' }]
       : [];
   return { passengers, guests, email: '', phone: '', terms: false };
-}
-
-/** Transfer details an add-on asks for (ADR-027); dates of birth come from the travellers. */
-interface AddonDetailsDraft {
-  flightNumber: string;
-  arrivalTime: string;
-  pickupAddress: string;
-}
-const NO_DETAILS: AddonDetailsDraft = { flightNumber: '', arrivalTime: '', pickupAddress: '' };
-type DetailField = keyof AddonDetailsDraft;
-const DETAIL_FIELDS: Record<string, DetailField> = {
-  flight_number: 'flightNumber',
-  arrival_time: 'arrivalTime',
-  pickup_address: 'pickupAddress',
-};
-
-const normaliseFlightNumber = (value: string): string => value.trim().toUpperCase();
-
-/** The booking's ad attribution, when the visitor allowed marketing (ADR-079). */
-function withMarketing(): { marketing?: NonNullable<ReturnType<typeof marketingAttribution>> } {
-  const marketing = marketingAttribution();
-  return marketing ? { marketing } : {};
-}
-
-function checkAddonDetails(
-  fields: readonly DetailField[],
-  details: AddonDetailsDraft,
-): FieldIssues {
-  const issues: FieldIssues = {};
-  for (const field of fields) {
-    const value = details[field].trim();
-    if (!value) issues[`addonDetails.${field}`] = 'required';
-    else if (field === 'flightNumber' && !FLIGHT_NUMBER_PATTERN.test(normaliseFlightNumber(value)))
-      issues[`addonDetails.${field}`] = 'invalid';
-    else if (field === 'arrivalTime' && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value))
-      issues[`addonDetails.${field}`] = 'invalid';
-    else if (field === 'pickupAddress' && value.length < 5)
-      issues[`addonDetails.${field}`] = 'invalid';
-  }
-  return issues;
 }
 
 /** Whether travellers give passport details: required abroad, optional on domestic flights. */

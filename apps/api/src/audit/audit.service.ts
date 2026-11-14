@@ -204,6 +204,7 @@ export type AuditAction =
   | 'company_wallet.topup_started'
   | 'company_wallet.topped_up'
   | 'trip.created'
+  | 'trip.parts_prepared'
   | 'trip.part_added'
   | 'trip.part_removed'
   | 'trip.deleted'

@@ -3305,6 +3305,14 @@ export const sw: Messages = {
         'Hakuna kilichowekwa wala kulipwa bado. Fungua kadi ili kuweka taarifa za wasafiri na kulipa kwenye ukurasa salama wa malipo. Bei hukaguliwa tena kabla hujalipa.',
       other_services:
         'Unahitaji mahali pa kukaa, gari au usafiri wa uwanja wa ndege kwa safari hii? Uliza, na Ask Suskii itatafuta kwa tarehe zilezile.',
+      choose_seats:
+        'Hakuna kilichowekwa wala kushikiliwa bado. Fungua kadi ili kuchagua viti vyako kwenye ramani ya viti, kisha uweke taarifa za wasafiri na ulipe.',
+      trip_handoff:
+        'Hakuna kilichowekwa wala kulipwa bado. Fungua safari ili kuweka taarifa za wasafiri mara moja kwa sehemu zote, kisha ulipie zote kwa mara moja. Bei hukaguliwa tena kabla hujalipa.',
+      trip_sign_in:
+        'Ili kulipia vyote kwa mara moja, ingia kwenye akaunti yako na uulize tena. Unaweza pia kuweka kila sehemu kutoka kwenye kadi yake.',
+      trip_separate:
+        'Vifurushi, ziara, msaada wa visa, eSIM na kuingia kwenye sebule hazimo kwenye malipo moja ya safari: weka kila kimoja kutoka kwenye kadi yake.',
     },
     rating: {
       question: 'Msaidizi alikusaidia kwa kiasi gani?',
@@ -3516,6 +3524,30 @@ export const sw: Messages = {
     intro:
       'Unganisha ndege, hoteli, gari la kukodi, usafiri wa uwanja wa ndege na bima ya safari, au sehemu unazotaka tu. Unaona bei ya kila sehemu na jumla moja, kisha unalipa mara moja.',
     pdf: 'Hifadhi mpango huu kama PDF',
+    details: {
+      title: 'Taarifa za safari yako',
+      heading: 'Weka taarifa za kila mtu mara moja',
+      intro:
+        'Fomu moja kwa sehemu zote zilizoandaliwa na Ask Suskii. Kila sehemu inachukua wasafiri inaowahitaji: ndege kila mtu, hoteli mgeni mkuu kwa kila chumba, gari la kukodi dereva wake, atakayeonyesha leseni wakati wa kulichukua.',
+      open: 'Weka taarifa za kila mtu mara moja',
+      partsHeading: 'Unachoweka',
+      travellersHeading: 'Wasafiri',
+      bagsNote:
+        'Mizigo na viti huchaguliwa kwenye malipo ya ndege yenyewe. Ili kuviongeza, weka taarifa za ndege kutoka kwenye ukurasa wa safari badala yake.',
+      submit: 'Weka sehemu zote',
+      booking: 'Tunaweka safari yako',
+      back: 'Rudi kwenye safari',
+      nothing: 'Hakuna sehemu ya safari hii inayosubiri taarifa.',
+      errors: {
+        part: 'Sehemu hii haikuweza kuwekwa: {part}. Hakuna kilichowekwa. Kagua taarifa na ujaribu tena.',
+        short:
+          'Sehemu hii iliwekewa bei ya wasafiri wengi kuliko waliotajwa kwenye fomu: {part}. Rudi kwenye safari na uichague tena.',
+        expired:
+          'Bei ya sehemu ya safari hii imeisha muda: {part}. Rudi kwenye safari na uchague sehemu hiyo tena.',
+        nothing: 'Hakuna tena sehemu ya safari hii inayosubiri taarifa.',
+        generic: 'Hitilafu imetokea. Hakuna kilichowekwa. Jaribu tena.',
+      },
+    },
     components: {
       flight: 'Ndege',
       hotel: 'Hoteli',
@@ -3619,6 +3651,14 @@ export const sw: Messages = {
       paid: 'Safari yako imelipwa. Kila sehemu ina uhifadhi na uthibitisho wake.',
       closed: 'Kila sehemu ya safari hii imeghairiwa au muda wake umeisha.',
       nothingYet: 'Ongeza sehemu ili kuona jumla yako.',
+      prepared: 'Imeandaliwa na Ask Suskii',
+      enterDetails: 'Weka taarifa',
+      enterDetailsLabel: 'Weka taarifa za: {part}',
+      chooseAnother: 'Chagua nyingine',
+      chooseAnotherLabel: 'Chagua nyingine: {part}',
+      preparedNote:
+        'Sehemu zilizoandaliwa na Ask Suskii zinajiunga na malipo haya mara tu unapoweka taarifa zake. Bei zake hukaguliwa tena wakati huo.',
+      totalWithPrepared: 'Jumla pamoja na sehemu zilizoandaliwa',
       delete: 'Futa safari hii',
       deleteConfirm: 'Ufute safari hii? Uhifadhi uliomo utabaki kama uhifadhi wa kujitegemea.',
       deleteYes: 'Ndiyo, ifute',

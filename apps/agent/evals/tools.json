@@ -1,8 +1,70 @@
 {
   "tools": [
     {
+      "name": "addons.prepare_booking",
+      "description": "Prepare one travel add-on the traveller chose from addons.search (an airport transfer, travel insurance, an eSIM or lounge access) for their dates and travellers: prices it now and gives a card that opens the booking page, where they enter the details it needs and pay. For a transfer or a lounge visit the start and end are the same day; insurance and an eSIM cover the days of the trip. Pass the destination's cityId from catalog.places when you have it: a lounge or a local eSIM needs it. Call it only after they said which one they want. Nothing is booked or paid by this: say it is prepared and waits for their details and payment. 'not_available_there' in problems means it is not sold for that place.",
+      "tier": "propose",
+      "scope": "quotes",
+      "agents": [
+        "tours",
+        "cars",
+        "trip_builder",
+        "flights",
+        "hotels"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "addonId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The addonId chosen, as returned."
+          },
+          "startDate": {
+            "type": "string",
+            "description": "YYYY-MM-DD: the first day."
+          },
+          "endDate": {
+            "type": "string",
+            "description": "YYYY-MM-DD: the last day covered."
+          },
+          "cityId": {
+            "description": "A city id from catalog.places.",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "adults": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9,
+            "description": "As in the search."
+          },
+          "children": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8
+          },
+          "infants": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8
+          }
+        },
+        "required": [
+          "addonId",
+          "startDate",
+          "endDate",
+          "adults"
+        ]
+      }
+    },
+    {
       "name": "addons.search",
-      "description": "List travel add-ons Suskii sells: travel insurance, airport transfers, eSIMs and lounge access, with the unit price and what it is charged per. Add-ons marked sample are demo inventory.",
+      "description": "List travel add-ons Suskii sells: travel insurance, airport transfers, eSIMs and lounge access, with the unit price and what it is charged per. Add-ons marked sample are demo inventory. When the traveller chooses one, hand its addonId, the dates and the travellers to addons.prepare_booking; never show an addonId to the traveller.",
       "tier": "read",
       "scope": "search",
       "agents": [
@@ -206,8 +268,37 @@
       }
     },
     {
+      "name": "buses.prepare_booking",
+      "description": "Hand over one bus trip the traveller chose from cars.buses, for the number of seats they need: checks the trip is still on sale with that many seats and gives a card that opens its seat map, where they choose the seats, enter the travellers' details and pay. Call it only after they said which trip they want. Nothing is booked, held or paid by this and no seat is chosen: say the seats are chosen on the seat map. 'not_enough_seats', 'trip-closed' or 'offer-unavailable' in problems means the trip no longer has room for them: offer another.",
+      "tier": "propose",
+      "scope": "quotes",
+      "agents": [
+        "cars"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "tripId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The tripId chosen, as returned."
+          },
+          "seats": {
+            "default": 1,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          }
+        },
+        "required": [
+          "tripId"
+        ]
+      }
+    },
+    {
       "name": "cars.buses",
-      "description": "Find intercity bus departures between two cities on a date, with the price per seat and the seats left. When nothing is found, the cities buses run between are listed so you can check the names. Trips marked sample are demo inventory.",
+      "description": "Find intercity bus departures between two cities on a date, with the price per seat and the seats left. When nothing is found, the cities buses run between are listed so you can check the names. Trips marked sample are demo inventory. When the traveller chooses a trip, hand its tripId and the number of seats to buses.prepare_booking; never show a tripId to the traveller.",
       "tier": "read",
       "scope": "search",
       "agents": [
@@ -1130,8 +1221,51 @@
       }
     },
     {
+      "name": "packages.prepare_booking",
+      "description": "Prepare the booking of one package departure the traveller chose from packages.search, for the same travellers: prices it now and gives the traveller a card that opens the booking page, where they enter the travellers' details and pay. Call it only after they said which departure they want. Nothing is booked or paid by this, and no room is held: say the booking is prepared and waits for their details and payment. 'sold-out' or 'offer-unavailable' in problems means that departure can no longer be had: offer the other departures.",
+      "tier": "propose",
+      "scope": "quotes",
+      "agents": [
+        "tours",
+        "trip_builder"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "departureId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The departureId chosen, as returned."
+          },
+          "adults": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9,
+            "description": "As in the search."
+          },
+          "children": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8
+          },
+          "infants": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8
+          }
+        },
+        "required": [
+          "departureId",
+          "adults"
+        ]
+      }
+    },
+    {
       "name": "packages.search",
-      "description": "List holiday packages (flight, stay and extras sold together by Suskii) for a city, a country or a month, with the lowest price per adult. Packages marked sample are demo inventory.",
+      "description": "List holiday packages (flight, stay and extras sold together by Suskii) for a city, a country or a month, with the lowest price per adult and the next departures that have room for the travellers. Packages marked sample are demo inventory. When the traveller chooses a departure, hand its departureId and the same travellers to packages.prepare_booking; never show a departureId to the traveller.",
       "tier": "read",
       "scope": "search",
       "agents": [
@@ -1593,8 +1727,50 @@
       }
     },
     {
+      "name": "tours.prepare_booking",
+      "description": "Prepare the booking of one tour departure the traveller chose from tours.search, for the same travellers: prices it now and gives the traveller a card that opens the booking page, where they enter the travellers' details and pay. Call it only after they said which departure they want. Nothing is booked or paid by this, and no place is held: say the booking is prepared and waits for their details and payment. 'sold-out' or 'offer-unavailable' in problems means that departure can no longer be had: offer the other departures.",
+      "tier": "propose",
+      "scope": "quotes",
+      "agents": [
+        "tours"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "departureId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The departureId chosen, as returned."
+          },
+          "adults": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9,
+            "description": "As in the search."
+          },
+          "children": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8
+          },
+          "infants": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8
+          }
+        },
+        "required": [
+          "departureId",
+          "adults"
+        ]
+      }
+    },
+    {
       "name": "tours.search",
-      "description": "List tours and activities run by Suskii, by name, city or date, with the lowest price and the next departure (local time at the meeting point). Tours marked sample are demo inventory.",
+      "description": "List tours and activities run by Suskii, by name, city or date, with the lowest price and the next departures that have room for the travellers (local time at the meeting point). Tours marked sample are demo inventory. When the traveller chooses a departure, hand its departureId and the same travellers to tours.prepare_booking; never show a departureId to the traveller.",
       "tier": "read",
       "scope": "search",
       "agents": [
@@ -1754,8 +1930,114 @@
       }
     },
     {
+      "name": "trips.prepare_checkout",
+      "description": "Put everything prepared in this conversation together as one summary: each part (a flight, a stay, a car, a transfer, insurance, and any package, tour, visa assistance, eSIM or lounge access) with its price, and one total. For a signed-in traveller with a prepared flight, the flight, stay, car, transfer and insurance go on one combined trip, whose page takes each part's details and then one payment; other products keep their own booking page. Call it when the traveller has what they want for the trip, or asks for the total or to check out; pass in leaveOut what they no longer want. Nothing is booked or paid by this: say what the total covers and that each part still needs the travellers' details before the payment. 'nothing_prepared' in problems means nothing is prepared yet; parts in expired must be prepared again; 'trip_needs_flight' or 'trip_needs_return_date' means the parts keep their own cards, because a combined trip starts from a flight with a day back.",
+      "tier": "propose",
+      "scope": "quotes",
+      "agents": [
+        "flights",
+        "hotels",
+        "cars",
+        "tours",
+        "trip_builder",
+        "concierge",
+        "payments"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "leaveOut": {
+            "default": [],
+            "description": "Prepared parts the traveller no longer wants.",
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "flight",
+                "hotel",
+                "car",
+                "transfer",
+                "insurance",
+                "package",
+                "tour",
+                "visa",
+                "esim",
+                "lounge"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "visa.prepare_booking",
+      "description": "Prepare the visa assistance the traveller chose from visa.requirements, for their nationality, the purpose, the day they travel and how many apply: prices Suskii's service now and gives a card that opens the booking page, where they enter the applicants' details and pay; documents are uploaded after booking. Call it only after they said they want it. Nothing is booked, paid or applied for by this, and Suskii never promises a visa: say the assistance is prepared and waits for their details and payment. 'purpose_not_offered' or 'dates_invalid' in problems means that product does not fit: say so.",
+      "tier": "propose",
+      "scope": "quotes",
+      "agents": [
+        "tours",
+        "flights",
+        "concierge"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The productId chosen, as returned."
+          },
+          "nationality": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$",
+            "description": "The passport's country."
+          },
+          "purpose": {
+            "default": "tourism",
+            "type": "string",
+            "enum": [
+              "tourism",
+              "business",
+              "study",
+              "transit"
+            ]
+          },
+          "travelDate": {
+            "type": "string",
+            "description": "YYYY-MM-DD: the day they travel."
+          },
+          "adults": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9,
+            "description": "As in the search."
+          },
+          "children": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8
+          },
+          "infants": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8
+          }
+        },
+        "required": [
+          "productId",
+          "nationality",
+          "travelDate",
+          "adults"
+        ]
+      }
+    },
+    {
       "name": "visa.requirements",
-      "description": "Whether a traveller of one nationality needs a visa for a country, from Suskii's own rules, and the visa assistance Suskii sells for it. When the requirement is unknown there is no rule on file: say so and never guess. Always pass on the disclaimer. Use ISO 3166 two-letter country codes.",
+      "description": "Whether a traveller of one nationality needs a visa for a country, from Suskii's own rules, and the visa assistance Suskii sells for it. When the requirement is unknown there is no rule on file: say so and never guess. Always pass on the disclaimer. Use ISO 3166 two-letter country codes. When the traveller wants the assistance, hand its productId with the same nationality and purpose to visa.prepare_booking; never show a productId to the traveller.",
       "tier": "read",
       "scope": "catalog",
       "agents": [

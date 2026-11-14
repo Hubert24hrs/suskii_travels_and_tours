@@ -111,6 +111,7 @@ export {
   type RefundStatus,
 } from './payment-plans';
 export {
+  arrivingFlight,
   emptyPassenger,
   FLIGHT_NUMBER_PATTERN,
   flightFacts,
@@ -118,7 +119,10 @@ export {
   normalisePassport,
   normalisePhone,
   passengerDrafts,
+  tripFacts,
+  tripPartFacts,
   validateCheckout,
+  type ArrivingFlightInput,
   type CheckoutDraft,
   type CheckoutIssue,
   type CheckoutRules,
@@ -127,6 +131,7 @@ export {
   type GuestDraft,
   type InhouseFactsInput,
   type PassengerDraft,
+  type TripPartFactsInput,
 } from './checkout-draft';
 export {
   ADDON_DETAIL_FIELDS,

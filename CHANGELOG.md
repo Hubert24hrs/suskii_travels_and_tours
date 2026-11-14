@@ -6,6 +6,103 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### The go-live list, a documentation index and a field button fix (2026-11-14)
+
+#### Added
+
+- **`docs/owner/going-live.md`**: every stand-in the testing backend runs on (mock providers,
+  the sample catalogue and placeholder data, test builds and switches), what replaces each for
+  the public and where it is set, and the assistant's eval run to do before travellers talk to
+  it. The launch checklist, the README and CLAUDE.md link to it, and CLAUDE.md asks for a row
+  there with every new stand-in.
+- **`docs/README.md`**: an index of the documentation.
+
+#### Changed
+
+- The README says what is built, describes the testing backend and how to redeploy it, and
+  brings Ask Suskii (Gemini, the whole trip, one details form) and the deployment shapes up to
+  date.
+
+#### Fixed
+
+- A field button's value (the dates, travellers and rooms pickers) wraps and the button grows
+  instead of widening its column: with wider text spacing at 360 px, the hotel search form ran
+  3 px past the screen on some dates (WCAG 1.4.12).
+
+### One details form for the whole trip (2026-11-13, ADR-118)
+
+The owner asked for one details form for a trip Ask Suskii put together. Each prepared part
+had its own checkout, so the same travellers were typed into every one before the payment.
+
+#### Added
+
+- **`POST /v1/trips/{tripId}/book`**: the contact, every traveller and the transfer details
+  once, for every part prepared on the caller's trip. Each part is an ordinary booking with the
+  travellers its quote was priced for (a flight and an add-on by their counts, a lead guest per
+  room, the first adult for a car), then joins the trip, which is paid once as before. All or
+  nothing: when a part refuses, what the request booked is cancelled again, and the problem
+  names the part and the traveller's place in the form.
+- **The form on the website and in the app** (`/trips/{id}/details`, `/trips/built/{id}/details`),
+  from the trip page's "Enter everyone's details once": the travellers from the trip's facts
+  (the most of each kind any part takes, passports when any part goes abroad), the transfer
+  started from the flight it meets, the parts with one total, and the checks of a single
+  checkout before anything is sent.
+- `tripPartFacts()`, `tripFacts()` and `arrivingFlight()` in `@suskii/shared`.
+- Problems `trip-nothing-prepared` and `trip-travellers-short`, and the strings of the form in
+  every language.
+
+#### Changed
+
+- The `trip_handoff` note says the details are entered once for every part, in every language
+  and on WhatsApp, and `platform.guide` describes the form. No prompt or tool changed.
+- The website's and the app's checkouts read the API's issues and the transfer details through
+  one shared module each (`booking-form.ts`), which the new form uses too.
+- `BookingsService.cancel()` records why a booking is cancelled (`trip_booking_failed` for a
+  trip whose form did not go through).
+
+### Ask Suskii prepares every product and puts the whole trip together (2026-11-13, ADR-117)
+
+The owner asked for the assistant to check out every service: after a flight, a hotel there if
+the traveller wants one, a car and the other services, then a summary with the price added up.
+It could prepare a flight, a stay or a rental car, each paid on its own.
+
+#### Added
+
+- **Prepare tools for packages, tours, add-ons and visa assistance**: a package or tour
+  departure the search listed, an airport transfer, insurance, an eSIM or lounge access, or
+  Suskii's visa assistance, each quoted as the traveller and handed to its ordinary checkout.
+  The searches return the departure, add-on and product ids these take.
+- **A bus trip handed over at its seat map** (`buses.prepare_booking`): the departure is
+  checked for the seats asked for, and the traveller picks the seats, enters the details and
+  pays there. No seat is held.
+- **One summary with one total** (`trips.prepare_checkout`): each part prepared in the
+  conversation with its price, and the total. For a signed-in traveller with a flight, the
+  flight, stay, car, transfer and insurance go on one combined trip, paid once. The model
+  passes no ids: the prepare tools note their quotes for the conversation (Redis, ids only).
+- **Prepared parts on the trip page**, on the website and in the app: each with its price, a
+  badge and "Enter details", which opens its checkout and adds the booking to the trip; the
+  total with the prepared parts. The trip answer's `prepared` and `totalWithPrepared` are
+  optional, for app builds already on phones.
+- **Four notes** in every language and on WhatsApp: `choose_seats`, `trip_handoff`,
+  `trip_sign_in` and `trip_separate`.
+- In the app, the assistant's cards for a combined trip, a bus seat map, a package and a tour
+  open the app's own screens.
+
+#### Changed
+
+- The specialists offer the rest of the trip and sum it up when the traveller has what they
+  want or asks for the total (prompt versions: concierge 4, flights 5, hotels 4, cars 4,
+  tours 4, trip builder 5, payments 4). The platform guide says what the assistant prepares.
+- A refusal's own reason reaches the assistant beside its slug (`not_available_there`,
+  `children_not_allowed`), where the service gives one.
+
+#### Tests
+
+- API end to end: every new prepare tool, the seat map with no seat held, a whole trip for a
+  signed-in traveller and a guest's summary; the agent's prompt tests and three new recorded
+  safety cases; the app's trip screen and card routing. The evals against the real model are
+  the owner's run on Cloud Build.
+
 ### Real flights from Duffel's test mode on the testing backend (2026-11-13, ADR-116)
 
 The owner asked for real flight content on the testing backend, with payments left for last.

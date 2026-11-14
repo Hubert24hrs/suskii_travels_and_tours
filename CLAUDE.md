@@ -132,6 +132,22 @@ reads a hyphen or a dash. Built and tested; the three evals pass against Gemini 
 Vertex AI (ADR-112), whose first runs fixed the eval cases, the thinking limit, Markdown in
 answers and the wording of the offer after a booking.
 
+Ask Suskii for the whole trip (outside the numbered phases, ADR-117,
+`docs/phases/assistant-whole-trip.md`): the assistant prepares every product (flights, stays,
+rental cars, packages, tours, airport transfers, insurance, eSIMs, lounge access and visa
+assistance) and hands a bus trip over at its seat map, holding no seat. When the traveller has
+what they want, `trips.prepare_checkout` sums up what the conversation prepared with one total;
+for a signed-in traveller with a flight, the flight, stay, car, transfer and insurance go on one
+combined trip, whose page shows each prepared part with "Enter details" and takes one payment.
+Built and tested; the evals against the real model wait for the owner's Cloud Build run.
+
+One details form for the whole trip (outside the numbered phases, ADR-118,
+`docs/phases/trip-details-form.md`): the trip page's "Enter everyone's details once" opens one
+form (website `/trips/{id}/details`, app `/trips/built/{id}/details`) that takes the contact
+and every traveller once and books every prepared part through `POST /v1/trips/{tripId}/book`,
+all or nothing; the trip is then paid once. Bags and seats stay on the flight's own checkout.
+Built and tested.
+
 Date and time pickers (outside the numbered phases, ADR-114, `docs/phases/date-pickers.md`): the
 app's twelve typed dates (dates of birth, expiry dates, a rental's pickup and return, a ride for
 later, a transfer's arrival) are pickers: `DatePicker` in ui-native, with years, months and days,
@@ -242,9 +258,10 @@ infra/        terraform/ (GCP platform + Cloudflare edge, applied per environmen
               observability/ (Grafana dashboards, Prometheus alert rules)
 load/         k6 load test (load/k6/api.js), run in CI against the e2e stack
 scripts/      Repo-level tools: security-checklist.mjs (ASVS/MASVS checklist generator)
-docs/         decisions/ (ADRs), phases/ (plans), security/ (threat model, checklist, inventories), runbooks/,
-              guides/ (adding an agent, a web-data vendor or a site), owner/ (launch checklist, cost
-              estimate), release/ (store listing, privacy forms), deployment/ (AWS mapping)
+docs/         README.md (the index), decisions/ (ADRs), phases/ (plans), security/ (threat model, checklist,
+              inventories), runbooks/, guides/ (adding an agent, a web-data vendor or a site), owner/
+              (launch checklist, going live, the backend on Google Cloud, cost estimate), release/
+              (store listing, privacy forms), deployment/ (AWS mapping)
 ```
 
 ## Commands
@@ -433,6 +450,9 @@ Tooling notes for agents:
 - External providers sit behind abstract classes (`EmailProvider`, `SmsProvider`,
   `BreachedPasswordChecker`, `FxProvider`, `FlightSupplier`, `HotelSupplier`, `PaymentProvider`) with mock adapters for
   tests and local development. Production refuses mock adapters unless `ALLOW_MOCK_PROVIDERS=true`.
+- Every stand-in (a mock adapter, sample or placeholder data, a test-only switch) has a row in
+  `docs/owner/going-live.md`, the owner's list of what to replace before the public launch. A
+  new one gets its row in the same change, with where it is set and what replaces it.
 
 ### Money, pricing and search (apps/api, packages/shared)
 
@@ -1055,6 +1075,19 @@ Tooling notes for agents:
   first and offers to book on its own. The website's trip page is a payment page
   (`isPaymentPage()`), private and not indexed; the app's trip screen is wrapped in
   `useSensitiveScreen()`.
+- Prepared parts (ADR-117) are quotes Ask Suskii put on a trip (`trips.prepared`), written only
+  by `TripsService.prepare()` and dropped by `addPart` when the part's booking joins. They are
+  shown with their quoted price and "Enter details" (the ordinary checkout in trip mode) and
+  counted in `totalWithPrepared`, never in `due` or a payment: only bookings are paid.
+- The details form (ADR-118) books prepared parts only through `TripBookingService.book()`:
+  each part is the ordinary `BookingsService.create()` request with the travellers its quote
+  was priced for (a flight and an add-on by their counts, a lead guest per room from the
+  adults, the first adult for a car), in `TRIP_COMPONENTS` order; when one refuses, what the
+  request booked is cancelled again (`cancel(..., 'trip_booking_failed')`), and only then do
+  the parts join through `addPart`. A part's problem carries `part`, and a traveller's issue
+  the form's index. Never book a part with travellers it was not priced for, and never keep
+  part of a trip the form did not finish. The clients take the travellers from `tripFacts()`
+  over `tripPartFacts()` and send one `Idempotency-Key` per body.
 - The booking answer's `trip` field is additive; fields added to a trip answer stay optional for
   older app builds.
 
@@ -1101,7 +1134,18 @@ Tooling notes for agents:
   `carId`) come from the search tools' results, are never shown to a traveller and expire with
   the search; an option that is gone answers `problems`, never an error. A new product that the
   assistant should prepare gets such a tool, an id on its search tool's result and a case in
-  `agent-tools.e2e-spec.ts`.
+  `agent-tools.e2e-spec.ts`. Suskii's own products are prepared through `prepareInhouse()`
+  (`InhouseQuotesService.create()` as the grant's caller); a bus trip is never quoted from the
+  chat: `buses.prepare_booking` hands over its seat map with the `choose_seats` note (ADR-117).
+- What a conversation prepared (ADR-117) is noted only by the prepare tools and the trip tools,
+  in `AgentPreparedParts` (Redis `agent:prepared:{conversationId}`, ids only, six hours): the
+  newest quote per kind of part (`PREPARED_PARTS`) and the trip the conversation built. A new
+  prepare tool calls `remember()` after its quote; nothing else writes there.
+- `trips.prepare_checkout` is the only way the assistant sums up a trip: it takes no ids (only
+  `leaveOut`), reads the noted quotes again as the caller, adds the prices up per currency and,
+  for a signed-in traveller, puts the parts a trip takes on a combined trip through
+  `TripsService.prepare()`. A model never adds prices up; the summary's card leads to the trip
+  or to each part's own checkout.
 - `platform.guide` answers from `src/agent/platform-guide.ts`: plain sentences about what a
   traveller can do and where, with no price, fee, hour or promise. A change to a feature a
   traveller sees changes its topic there in the same change.
@@ -1981,6 +2025,8 @@ Tooling notes for agents:
 - [ADR-114: Date and time pickers in the app](docs/decisions/ADR-114-date-and-time-pickers-in-the-app.md)
 - [ADR-115: Session cookies on the parent domain the website, the console and the API share](docs/decisions/ADR-115-session-cookies-on-the-shared-parent-domain.md)
 - [ADR-116: Duffel's test mode on the testing backend, and no live token beside the mock payment page](docs/decisions/ADR-116-duffel-test-mode-on-the-testing-backend.md)
+- [ADR-117: Ask Suskii prepares every product and puts the whole trip together](docs/decisions/ADR-117-ask-suskii-prepares-the-whole-trip.md)
+- [ADR-118: One details form for the whole trip](docs/decisions/ADR-118-one-details-form-for-the-whole-trip.md)
 
 ## Open questions for the owner
 
@@ -2215,7 +2261,13 @@ assistant gets busy (a new project's is small), and whether the staging caps (2 
 day) and the budget alert (50 US dollars a month, which warns and stops nothing) are right.
 Added with the mailbox (ADR-113): the email provider production will send through (an account
 and terms only the owner can take out), and who besides the owner may read the testing
-backend's mailbox.
+backend's mailbox. Added with the whole trip in Ask Suskii (ADR-117): one run of the agent evals against
+the real model (`infra/gcp/cloudbuild.agent-eval.yaml`) before the new prompts answer
+travellers; and whether tours, packages, visa assistance, eSIMs and lounge access should
+become parts of a combined trip. Added with the details form (ADR-118): whether checked bags
+and seats should move into the trip's one form (today they stay on the flight's own checkout).
 Every
 owner action is listed, step by step, in
-`docs/owner/launch-checklist.md`.
+`docs/owner/launch-checklist.md`, and every stand-in to replace before the public launch (with
+the assistant's eval run to do first) in `docs/owner/going-live.md`. `docs/README.md` is the
+index of the documentation.

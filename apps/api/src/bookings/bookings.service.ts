@@ -1054,7 +1054,16 @@ export class BookingsService {
     return this.present(await this.reload(booking.id));
   }
 
-  async cancel(bookingId: string, caller: BookingCaller): Promise<BookingDto> {
+  /**
+   * Cancels an unpaid booking of the caller's. `reason` says why for the history and the audit:
+   * the traveller's own request, or a combined trip whose other part could not be booked
+   * (ADR-118), which gives back what its request booked.
+   */
+  async cancel(
+    bookingId: string,
+    caller: BookingCaller,
+    reason: 'customer_request' | 'trip_booking_failed' = 'customer_request',
+  ): Promise<BookingDto> {
     const booking = await this.load(bookingId, caller);
     await this.prisma.$transaction(async (tx) => {
       await tx.payment.updateMany({
@@ -1062,7 +1071,7 @@ export class BookingsService {
         data: { status: 'cancelled' },
       });
       await this.transitions.apply(tx, booking, 'cancel', customerActor(caller), {
-        reason: 'customer_request',
+        reason,
         data: { pendingPrice: Prisma.DbNull },
       });
     });

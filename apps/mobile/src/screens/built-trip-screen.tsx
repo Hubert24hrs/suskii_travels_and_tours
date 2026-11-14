@@ -200,6 +200,10 @@ function BuiltTrip({ tripId }: { tripId: string }) {
     trip.parts.find((part) => part.component === component);
   const live = trip.parts.filter((part) => part.state !== 'closed');
   const settled = live.some((part) => part.state === 'paid' || part.state === 'confirmed');
+  /** Parts Ask Suskii prepared (ADR-117): quotes waiting for the travellers' details. */
+  const prepared = trip.prepared ?? [];
+  const preparedFor = (component: TripComponent) =>
+    prepared.find((entry) => entry.component === component);
   const remember = (component: TripComponent) =>
     activeTrip.set({ id: trip.id, reference: trip.reference, component });
 
@@ -402,9 +406,12 @@ function BuiltTrip({ tripId }: { tripId: string }) {
         {t('trips.page.partsHeading')}
       </Text>
       {plan.components.map((component) => {
-        const part = partOf(component);
+        const found = partOf(component);
         const label = t(`trips.components.${component}`);
-        const empty = !part || part.state === 'closed';
+        const empty = !found || found.state === 'closed';
+        // A prepared part stands in for a part that was never added or has closed.
+        const ready = empty ? preparedFor(component) : undefined;
+        const part = ready ? undefined : found;
         return (
           <View key={component} testID={`trip-part-${component}`}>
             <Card className="gap-3 p-4">
@@ -422,12 +429,30 @@ function BuiltTrip({ tripId }: { tripId: string }) {
                           : format.date(part.booking.startsOn, 'medium')}
                       </Text>
                     </>
+                  ) : ready ? (
+                    <Text
+                      testID={`trip-prepared-${component}`}
+                      className="font-body text-body text-foreground"
+                    >
+                      {ready.title}
+                    </Text>
                   ) : (
                     <Text className="font-body text-body-sm text-muted">
                       {t('trips.page.notAdded')}
                     </Text>
                   )}
                 </View>
+                {ready ? (
+                  <View className="items-end gap-2">
+                    <Text
+                      testID={`trip-prepared-price-${component}`}
+                      className="font-body-bold text-body text-heading"
+                    >
+                      {format.money(ready.price)}
+                    </Text>
+                    <Badge variant="info">{t('trips.page.prepared')}</Badge>
+                  </View>
+                ) : null}
                 {part ? (
                   <View className="items-end gap-2">
                     <Text
@@ -462,7 +487,29 @@ function BuiltTrip({ tripId }: { tripId: string }) {
                   </Button>
                 </View>
               ) : null}
-              {empty ? (
+              {ready ? (
+                <View className="flex-row flex-wrap gap-2">
+                  <Button
+                    testID={`trip-enter-details-${component}`}
+                    accessibilityLabel={t('trips.page.enterDetailsLabel', { part: label })}
+                    onPress={() => {
+                      // Checkout adds the booking to this trip instead of taking payment.
+                      remember(component);
+                      router.push(`/checkout/${ready.quoteId}` as Href);
+                    }}
+                  >
+                    {t('trips.page.enterDetails')}
+                  </Button>
+                  <Button
+                    testID={`trip-choose-${component}`}
+                    variant="ghost"
+                    accessibilityLabel={t('trips.page.chooseAnotherLabel', { part: label })}
+                    onPress={() => choose(component)}
+                  >
+                    {t('trips.page.chooseAnother')}
+                  </Button>
+                </View>
+              ) : empty ? (
                 <Button testID={`trip-choose-${component}`} onPress={() => choose(component)}>
                   {t(`trips.page.choose.${component}`)}
                 </Button>
@@ -512,7 +559,7 @@ function BuiltTrip({ tripId }: { tripId: string }) {
         <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
           {t('trips.page.reviewHeading')}
         </Text>
-        {live.length === 0 ? (
+        {live.length === 0 && prepared.length === 0 ? (
           <Text className="font-body text-body-sm text-foreground">
             {t('trips.page.nothingYet')}
           </Text>
@@ -528,12 +575,33 @@ function BuiltTrip({ tripId }: { tripId: string }) {
                 </Text>
               </View>
             ))}
+            {prepared.map((entry) => (
+              <View
+                key={entry.quoteId}
+                testID={`trip-review-prepared-${entry.component}`}
+                className="flex-row justify-between gap-4"
+              >
+                <View className="flex-1">
+                  <Text className="font-body text-body-sm text-foreground">
+                    {t(`trips.components.${entry.component}`)}
+                  </Text>
+                  <Text className="font-body text-caption text-muted">
+                    {t('trips.page.prepared')}
+                  </Text>
+                </View>
+                <Text className="font-body text-body-sm text-foreground">
+                  {format.money(entry.price)}
+                </Text>
+              </View>
+            ))}
             <View className="flex-row justify-between gap-4 border-t border-border pt-2">
               <Text className="flex-1 font-body-bold text-body text-heading">
-                {t('trips.page.total')}
+                {prepared.length > 0 ? t('trips.page.totalWithPrepared') : t('trips.page.total')}
               </Text>
               <Text testID="trip-total" className="font-heading text-h4 text-heading">
-                {format.money(trip.total)}
+                {format.money(
+                  prepared.length > 0 ? (trip.totalWithPrepared ?? trip.total) : trip.total,
+                )}
               </Text>
             </View>
             {settled && trip.due.amountMinor > 0 ? (
@@ -548,6 +616,21 @@ function BuiltTrip({ tripId }: { tripId: string }) {
             ) : null}
           </View>
         )}
+        {prepared.length > 0 ? (
+          <>
+            {/* One form for every prepared part (ADR-118); each part's own checkout still works. */}
+            <Button
+              testID="trip-details-open"
+              fullWidth
+              onPress={() => router.push(`/trips/built/${trip.id}/details` as Href)}
+            >
+              {t('trips.details.open')}
+            </Button>
+            <Text testID="trip-prepared-note" className="font-body text-caption text-foreground">
+              {t('trips.page.preparedNote')}
+            </Text>
+          </>
+        ) : null}
         {open ? (
           <>
             <Text className="font-body text-body-sm text-foreground">

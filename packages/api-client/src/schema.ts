@@ -8006,6 +8006,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/trips/{tripId}/book": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Book every prepared part of the trip with one set of details
+         * @description One form for the whole trip (ADR-118): the contact and each traveller once, for every part Ask Suskii prepared (`prepared`). Each part is booked as an ordinary booking, with the travellers its quote was priced for, and joins the trip; then the trip is paid once with `startTripPayment`. All or nothing: when a part cannot be booked, nothing this request booked stays, and the problem carries `part` (the trip part) and, for a traveller's detail, `issues` whose `index` is the traveller's place in `travellers`. 409 `trip-nothing-prepared` when no part waits for details; 422 `trip-travellers-short` when a part was priced for more travellers of a kind than the form names; 410 when a prepared part's price has run out.
+         */
+        post: operations["bookTrip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/trips/{tripId}/parts": {
         parameters: {
             query?: never;
@@ -10621,6 +10641,60 @@ export interface components {
         BookingSummaryPage: {
             bookings: components["schemas"]["BookingSummary"][];
             nextCursor: string | null;
+        };
+        BookTripRequestInput: {
+            contact: {
+                email: string;
+                phone: string;
+            };
+            travellers: {
+                /** @enum {string} */
+                type: "adult" | "child" | "infant";
+                /** @enum {string} */
+                title: "mr" | "ms" | "mrs" | "miss" | "dr";
+                /** @enum {string} */
+                gender: "m" | "f";
+                givenNames: string;
+                surname: string;
+                dateOfBirth: string;
+                nationality: string;
+                document?: {
+                    number?: string | null;
+                    issuingCountry: string;
+                    expiryDate: string;
+                } | null;
+                /** @default null */
+                travellerId?: string | null;
+                /** @default false */
+                saveTraveller?: boolean;
+                /** @default null */
+                meal?: ("vegetarian" | "vegan" | "halal" | "kosher" | "gluten_free" | "diabetic" | "child") | null;
+            }[];
+            /** @default null */
+            addonDetails?: {
+                /** @default null */
+                flightNumber?: string | null;
+                /** @default null */
+                arrivalTime?: string | null;
+                /** @default null */
+                pickupAddress?: string | null;
+            } | null;
+            termsVersion: string;
+            /** @constant */
+            acceptTerms: true;
+            /**
+             * @default en-NG
+             * @enum {string}
+             */
+            locale?: "en-NG" | "en-GB" | "en-US" | "fr" | "sw" | "ar" | "pt";
+            marketing?: {
+                /** Format: uuid */
+                consentId: string;
+                fbp?: string;
+                fbc?: string;
+                ttp?: string;
+                ttclid?: string;
+            };
         };
         BusCities: {
             cities: {
@@ -15353,6 +15427,17 @@ export interface components {
             missing: ("flight" | "hotel" | "car" | "transfer" | "insurance")[];
             total: components["schemas"]["Money"];
             due: components["schemas"]["Money"];
+            prepared?: {
+                /** @enum {string} */
+                component: "flight" | "hotel" | "car" | "transfer" | "insurance";
+                /** Format: uuid */
+                quoteId: string;
+                title: string;
+                price: components["schemas"]["Money"];
+                /** Format: date-time */
+                expiresAt: string;
+            }[];
+            totalWithPrepared?: components["schemas"]["Money"];
             payment: {
                 providers: components["schemas"]["PaymentProviderOption"][];
                 methods: components["schemas"]["PaymentMethodOption"][];
@@ -31252,6 +31337,47 @@ export interface operations {
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
+        };
+    };
+    bookTrip: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key (8-128 chars) per logical operation; retries with the same key replay the first response for 24 hours. */
+                "Idempotency-Key": string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                tripId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookTripRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trip"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            410: components["responses"]["Problem410"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
         };
     };
     addTripPart: {

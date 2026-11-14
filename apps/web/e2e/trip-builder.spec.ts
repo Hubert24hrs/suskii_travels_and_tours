@@ -102,6 +102,37 @@ async function tripFromApi(page: Page, tripId: string): Promise<Trip> {
   return (await response.json()) as Trip;
 }
 
+interface Wire {
+  amountMinor: number;
+  currency: string;
+}
+interface QuoteWire {
+  quoteId: string;
+  expiresAt: string;
+  termsVersion: string;
+  price: { total: Wire } | null;
+  flight: {
+    offer: {
+      price: { total: Wire };
+      slices: {
+        segments: {
+          marketingCarrier: { code: string };
+          flightNumber: string;
+          arrivalLocal: string;
+        }[];
+      }[];
+    };
+  } | null;
+}
+
+/** The quote a checkout page is open on, as the API answers it. */
+async function quoteAt(page: Page): Promise<QuoteWire> {
+  const quoteId = new URL(page.url()).pathname.split('/').pop() ?? '';
+  const response = await page.request.get(`${API}/v1/quotes/${quoteId}`);
+  expect(response.ok()).toBe(true);
+  return (await response.json()) as QuoteWire;
+}
+
 test.describe('trip builder (ADR-099)', () => {
   test('builds Lagos to London from a flight, a hotel, a car, a transfer and insurance, and pays once', async ({
     page,
@@ -398,5 +429,150 @@ test.describe('trip builder (ADR-099)', () => {
     await expect(listed).toHaveCount(0);
     const gone = await page.request.get(`${API}/v1/trips/${tripId}`);
     expect(gone.status()).toBe(404);
+  });
+
+  test("takes everyone's details once for every part Ask Suskii prepared (ADR-118)", async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+    const depart = isoDaysFromToday(START_DAYS + 20);
+    const back = isoDaysFromToday(START_DAYS + 24);
+    await register(page, 'web-trip-details');
+    await page.goto('/trips');
+    await fillPlan(page, depart, back);
+    for (const component of ['hotel', 'car', 'insurance'] as const) {
+      await page.getByLabel(t(`trips.components.${component}`), { exact: true }).uncheck();
+    }
+    await page.getByRole('button', { name: t('trips.plan.submit') }).click();
+    await page.waitForURL(/\/trips\/[0-9a-f-]{36}$/);
+    const tripId = page.url().split('/').pop() ?? '';
+
+    // The quotes Ask Suskii would prepare: the ordinary searches, left at their checkout.
+    await startPart(page, 'flight', /\/flights\/search\?/);
+    const offers = page.getByTestId('flight-offer');
+    await expect(offers.first()).toBeVisible({ timeout: 30_000 });
+    await offers
+      .first()
+      .getByRole('button', { name: /^Select/ })
+      .click();
+    await page.waitForURL(/\/checkout\//);
+    const flight = await quoteAt(page);
+    await page.goto(`/trips/${tripId}`);
+    await startPart(page, 'transfer', /\/travel-add-ons\?/);
+    await page
+      .getByRole('button', {
+        name: t('addons.add', { title: 'Airport transfer at your destination (sample)' }),
+      })
+      .click();
+    await page.waitForURL(/\/checkout\//);
+    const transfer = await quoteAt(page);
+
+    // Only the assistant's summary puts quotes on a trip (`trips.prepare_checkout`, covered
+    // against the API with the booking itself in `trip-booking.e2e-spec.ts`). Here the trip
+    // answers as it does after one, and the booking call is answered in the browser.
+    const priceOf = (quote: QuoteWire): Wire =>
+      quote.flight?.offer.price.total ?? quote.price?.total ?? { amountMinor: 0, currency: 'NGN' };
+    const prepared = [
+      {
+        component: 'flight',
+        quoteId: flight.quoteId,
+        title: 'Lagos to London',
+        price: priceOf(flight),
+        expiresAt: flight.expiresAt,
+      },
+      {
+        component: 'transfer',
+        quoteId: transfer.quoteId,
+        title: 'Airport transfer at your destination (sample)',
+        price: priceOf(transfer),
+        expiresAt: transfer.expiresAt,
+      },
+    ];
+    const withPrepared: Wire = {
+      amountMinor: prepared.reduce((sum, item) => sum + item.price.amountMinor, 0),
+      currency: priceOf(flight).currency,
+    };
+    let sent: Record<string, unknown> | null = null;
+    await page.route(new RegExp(`/v1/trips/${tripId}(/book)?$`), async (route) => {
+      if (route.request().method() === 'POST') {
+        sent = route.request().postDataJSON() as Record<string, unknown>;
+        await route.fulfill({ status: 200, json: await tripFromApi(page, tripId) });
+        return;
+      }
+      if (route.request().method() !== 'GET') return route.fallback();
+      const response = await route.fetch();
+      const trip = (await response.json()) as Record<string, unknown>;
+      await route.fulfill({
+        response,
+        json: sent ? trip : { ...trip, prepared, totalWithPrepared: withPrepared },
+      });
+    });
+
+    await page.goto(`/trips/${tripId}`);
+    await page.getByTestId('trip-details-open').click();
+    await page.waitForURL(new RegExp(`/trips/${tripId}/details$`));
+    await expect(
+      page.getByRole('heading', { level: 1, name: t('trips.details.heading') }),
+    ).toBeVisible();
+    for (const item of prepared) {
+      await expect(page.getByTestId(`trip-details-part-${item.component}`)).toContainText(
+        format.money(item.price),
+      );
+    }
+    await expect(page.getByTestId('trip-details-total')).toHaveText(format.money(withPrepared));
+    // One traveller in the plan, named once; the transfer starts from the flight it meets.
+    await expect(page.getByTestId('passenger-0')).toBeVisible();
+    await expect(page.getByTestId('passenger-1')).toHaveCount(0);
+    const firstSlice = flight.flight?.offer.slices[0]?.segments ?? [];
+    const landing = firstSlice[firstSlice.length - 1];
+    const flightNumber = `${landing?.marketingCarrier.code ?? ''} ${landing?.flightNumber ?? ''}`;
+    await expect(page.locator('#addonDetails-flightNumber')).toHaveValue(flightNumber);
+    await expect(page.locator('#addonDetails-arrivalTime')).toHaveValue(
+      landing?.arrivalLocal.slice(0, 16) ?? '',
+    );
+    await expectNoAxeViolations(page);
+
+    // Nothing is sent while the form is incomplete.
+    await page.getByTestId('trip-details-submit').click();
+    await expect(page.getByTestId('trip-details-error')).toBeVisible();
+    expect(sent).toBeNull();
+
+    // Abroad, the traveller's passport is asked once for every part.
+    await fillTraveller(page, true);
+    await page.locator('#addonDetails-pickupAddress').fill('Heathrow Terminal 5, London');
+    await contactAndTerms(page);
+    await page.getByTestId('trip-details-submit').click();
+    await page.waitForURL(new RegExp(`/trips/${tripId}$`));
+    // The trip page has loaded the trip again: nothing waits for details any more.
+    await expect(
+      page.getByRole('heading', {
+        level: 1,
+        name: t('trips.route', { from: 'Lagos', to: 'London' }),
+      }),
+    ).toBeVisible();
+    await expect(page.getByTestId('trip-details-open')).toHaveCount(0);
+
+    expect(sent).toMatchObject({
+      contact: { email: 'ada.trip@example.com', phone: '+2348012345678' },
+      travellers: [
+        {
+          type: 'adult',
+          title: 'ms',
+          givenNames: 'Ada',
+          surname: 'Okafor',
+          nationality: 'NG',
+          document: { number: 'B1234567', issuingCountry: 'NG' },
+        },
+      ],
+      addonDetails: {
+        flightNumber,
+        arrivalTime: landing?.arrivalLocal.slice(0, 16),
+        pickupAddress: 'Heathrow Terminal 5, London',
+      },
+      termsVersion: flight.termsVersion,
+      acceptTerms: true,
+    });
+    // A read the page still has on its way must not outlive the test.
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
   });
 });
