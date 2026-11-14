@@ -1100,7 +1100,9 @@ Tooling notes for agents:
   money and the service taxes stored on each booking (`documentTaxes()`). It is never stored,
   answers 409 `trip-not-paid` before a part took a payment, and prints no name, contact or card
   detail (the payment's reference is Suskii's own id). The trip answer's `receipt` is computed in
-  `present()` with the same rule; never decide "paid" for a receipt anywhere else.
+  `present()` with the same rule; never decide "paid" for a receipt anywhere else. In the app
+  the receipt card follows the parts: nothing goes between a paid trip's notice and its parts,
+  because the phone check counts the three confirmations on one screen of a short emulator.
 
 ### Suskii Agent (apps/api/src/agent, packages/shared agent; ADR-101 to ADR-107)
 

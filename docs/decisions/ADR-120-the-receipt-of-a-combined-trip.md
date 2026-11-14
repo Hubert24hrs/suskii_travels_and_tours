@@ -49,8 +49,9 @@ gateway, so nothing proved the pieces fit for the journey the owner described.
    - On the website, the trip page shows a Receipt card under "Your trip is paid" with when and
      how much, and saves the PDF. The account's Trips page lists the combined trips first, each
      opening its trip and saving its receipt, then every booking.
-   - In the app, the trip screen shows the same card and hands the PDF to the share sheet,
-     deleting its copy when the sheet closes. The Trips tab lists the combined trips first while
+   - In the app, the trip screen shows the same card under the parts, so a paid trip still
+     opens on each part's state, and hands the PDF to the share sheet, deleting its copy when
+     the sheet closes. The Trips tab lists the combined trips first while
      the API answers; they are not kept offline.
 4. **A moment kept on record names its year**: `format.dateTime(instant, zone, { year: true })`
    for the payment on a receipt. Deadlines keep the short form.
