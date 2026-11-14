@@ -235,7 +235,7 @@ services:
   # behind the password in the secret MAILBOX_PASSWORD. Terraform refuses it in production.
   mailbox:
     <<: *hardened
-    image: axllent/mailpit:v1.31.6
+    image: axllent/mailpit:v1.33.0
     profiles: [mailbox]
     user: '1000:1000'
     command:
