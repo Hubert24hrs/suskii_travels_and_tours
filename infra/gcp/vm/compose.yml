@@ -41,7 +41,7 @@ services:
 
   # Queues need every key kept: nothing is evicted, and writes are logged to the data disk.
   redis:
-    image: redis:7.4-alpine
+    image: redis:8.0-alpine
     restart: unless-stopped
     env_file: [/run/suskii/redis.env]
     command:
