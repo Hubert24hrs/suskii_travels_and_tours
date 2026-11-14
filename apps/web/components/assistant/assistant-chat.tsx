@@ -507,7 +507,8 @@ export function AssistantChat({
               : slug === 'agent-paused'
                 ? t('assistant.notices.paused')
                 : slug === 'agent-budget'
-                  ? t('assistant.notices.limit')
+                  ? // The day's spend cap. The `limit` notice is a run that used its steps.
+                    t('assistant.errors.budget')
                   : slug === 'agent-unavailable'
                     ? t('assistant.notices.unavailable')
                     : t('assistant.errors.send'),

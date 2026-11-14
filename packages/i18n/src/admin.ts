@@ -2132,7 +2132,7 @@ export const adminMessages = {
     notices: {
       greeting: 'Hello. Ask what is waiting, how sales stand, or have something prepared.',
       cannot_answer: 'I cannot answer that with what I can read.',
-      limit: "Today's limit for the assistant is reached.",
+      limit: 'I could not finish that in one go. Ask again, one thing at a time.',
       timeout: 'That took too long. Ask again.',
       unavailable: 'The assistant cannot answer right now.',
       paused: 'The assistant is paused.',

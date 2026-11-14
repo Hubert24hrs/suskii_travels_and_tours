@@ -205,6 +205,64 @@ test('an answer is read with its note, in words, whatever the assistant wrote', 
   await expectNoAxeViolations(page);
 });
 
+test.describe('the two limits', () => {
+  // The day's spend cap is answered with 429 on purpose.
+  test.use({ allowedConsoleErrors: [/status of 429/] });
+
+  test("a run that used its steps and the day's spend cap say different things", async ({
+    page,
+  }) => {
+    test.skip(OFF, WHY);
+    await page.goto('/assistant');
+    const chat = page.getByTestId('assistant-chat');
+    await chat.getByLabel(t('assistant.messageLabel')).fill(QUESTION);
+    await chat.getByTestId('assistant-send').click();
+    const answer = chat.getByTestId('assistant-message-assistant');
+    await expect(answer).toContainText(/sample assistant/, { timeout: 20_000 });
+
+    // A run that used its steps or tool calls ends in the `limit` notice. The sample assistant
+    // never runs out, so its stored answer becomes that notice on the way to the page.
+    await page.route('**/v1/agent/conversations/*', async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.fallback();
+        return;
+      }
+      const response = await route.fetch();
+      const body = (await response.json()) as {
+        messages: { role: string; kind: string; text: string; notice: string | null }[];
+      };
+      for (const message of body.messages) {
+        if (message.role !== 'assistant') continue;
+        Object.assign(message, { kind: 'notice', text: '', notice: 'limit', cards: [] });
+      }
+      await route.fulfill({ response, json: body });
+    });
+    // The day's spend cap refuses the next message before a run starts.
+    await page.route('**/v1/agent/chat', (route) =>
+      route.fulfill({
+        status: 429,
+        contentType: 'application/problem+json',
+        json: {
+          type: 'urn:suskii:problem:agent-budget',
+          title: "The assistant has reached today's limit",
+          status: 429,
+        },
+      }),
+    );
+    await page.goto('/assistant');
+
+    // The run's notice asks for one thing at a time and says nothing about the day.
+    await expect(answer).toContainText(t('assistant.notices.limit'));
+    await expect(chat.getByText(t('assistant.errors.budget'))).toHaveCount(0);
+
+    await chat.getByLabel(t('assistant.messageLabel')).fill('And a hotel in Abuja?');
+    await chat.getByTestId('assistant-send').click();
+    await expect(chat.getByText(t('assistant.errors.budget'))).toBeVisible();
+    await expect(answer).toHaveCount(1);
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+  });
+});
+
 test('a price seen on another site is marked indicative, with where and when it was seen', async ({
   page,
 }) => {
