@@ -405,44 +405,6 @@ function BuiltTrip({ tripId }: { tripId: string }) {
       {trip.state === 'closed' ? (
         <Text className="font-body text-body-sm text-foreground">{t('trips.page.closed')}</Text>
       ) : null}
-      {trip.receipt ? (
-        <Card testID="trip-receipt-card" className="gap-3 p-4">
-          <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
-            {t('trips.receipt.heading')}
-          </Text>
-          <View className="flex-row justify-between gap-4">
-            <Text className="flex-1 font-body text-body-sm text-foreground">
-              {t('trips.receipt.paidOn')}
-            </Text>
-            <Text
-              testID="trip-receipt-paid-on"
-              className="font-body-bold text-body-sm text-foreground"
-            >
-              {format.dateTime(trip.receipt.paidAt, undefined, { year: true })}
-            </Text>
-          </View>
-          <View className="flex-row justify-between gap-4">
-            <Text className="flex-1 font-body text-body-sm text-foreground">
-              {t('trips.receipt.amount')}
-            </Text>
-            <Text
-              testID="trip-receipt-amount"
-              className="font-body-bold text-body-sm text-foreground"
-            >
-              {format.money(trip.receipt.amount)}
-            </Text>
-          </View>
-          <Text className="font-body text-caption text-foreground">{t('trips.receipt.note')}</Text>
-          <Button
-            testID="trip-receipt"
-            fullWidth
-            loading={busy === 'receipt'}
-            onPress={() => void saveReceipt()}
-          >
-            {t('trips.receipt.download')}
-          </Button>
-        </Card>
-      ) : null}
       {trip.currency !== currency && trip.state !== 'paid' && trip.state !== 'closed' ? (
         <Text
           testID="trip-currency-note"
@@ -609,6 +571,46 @@ function BuiltTrip({ tripId }: { tripId: string }) {
           </View>
         );
       })}
+
+      {/* Under the parts, so a paid trip still opens on each part's state (ADR-120). */}
+      {trip.receipt ? (
+        <Card testID="trip-receipt-card" className="gap-3 p-4">
+          <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
+            {t('trips.receipt.heading')}
+          </Text>
+          <View className="flex-row justify-between gap-4">
+            <Text className="flex-1 font-body text-body-sm text-foreground">
+              {t('trips.receipt.paidOn')}
+            </Text>
+            <Text
+              testID="trip-receipt-paid-on"
+              className="font-body-bold text-body-sm text-foreground"
+            >
+              {format.dateTime(trip.receipt.paidAt, undefined, { year: true })}
+            </Text>
+          </View>
+          <View className="flex-row justify-between gap-4">
+            <Text className="flex-1 font-body text-body-sm text-foreground">
+              {t('trips.receipt.amount')}
+            </Text>
+            <Text
+              testID="trip-receipt-amount"
+              className="font-body-bold text-body-sm text-foreground"
+            >
+              {format.money(trip.receipt.amount)}
+            </Text>
+          </View>
+          <Text className="font-body text-caption text-foreground">{t('trips.receipt.note')}</Text>
+          <Button
+            testID="trip-receipt"
+            fullWidth
+            loading={busy === 'receipt'}
+            onPress={() => void saveReceipt()}
+          >
+            {t('trips.receipt.download')}
+          </Button>
+        </Card>
+      ) : null}
 
       <Card className="gap-3 p-4">
         <Text accessibilityRole="header" className="font-heading text-h4 text-heading">

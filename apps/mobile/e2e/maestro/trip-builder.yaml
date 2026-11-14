@@ -264,7 +264,9 @@ tags:
 
 # The verified webhook settles every booking, and each part is then confirmed by its own
 # supplier: three parts, three labels. (`childOf: trip-part-flight` found nothing here with the
-# label on the screen, so the labels are counted.)
+# label on the screen, so the labels are counted.) They must fit on one screen of the phone
+# check's emulator, which is shorter than CI's: nothing goes between the paid notice and the
+# parts (the receipt card follows them).
 - scrollUntilVisible:
     element:
       id: built-trip-paid

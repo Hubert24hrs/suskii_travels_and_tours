@@ -19,8 +19,8 @@ All notable changes to this project are documented here. The format follows
 - Website: the trip page shows a Receipt card once the trip is paid, with when and how much, and
   saves the PDF. The account's Trips page lists combined trips first, each with its receipt,
   then every booking.
-- App: the trip screen shows the same card and shares the PDF through the share sheet (no copy is
-  kept). The Trips tab lists combined trips first.
+- App: the trip screen shows the same card under the trip's parts and shares the PDF through the
+  share sheet (no copy is kept). The Trips tab lists combined trips first.
 - `format.dateTime(instant, zone, { year: true })`: a moment kept on record (a payment on a
   receipt) names its year.
 - An end-to-end test of the whole journey through Ask Suskii (`agent-whole-trip.e2e-spec.ts`):
