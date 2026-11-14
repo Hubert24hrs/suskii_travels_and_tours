@@ -59,9 +59,10 @@ export interface Formatters {
   dateRange(start: string, end: string, style?: DateStyle): string;
   /**
    * A moment (deadline, due date) in the viewer's time zone, with the zone shown: "Thu, 10 Dec,
-   * 14:30 WAT". Browser-only use: the server does not know the viewer's zone.
+   * 14:30 WAT". Browser-only use: the server does not know the viewer's zone. `year` adds the
+   * year, for a moment kept on record (a payment on a receipt) rather than one coming up.
    */
-  dateTime(instant: string | Date, timeZone?: string): string;
+  dateTime(instant: string | Date, timeZone?: string, options?: { year?: boolean }): string;
   /** "2 hours ago", "yesterday"; `now` is injectable for tests and stable server renders. */
   relativeTime(instant: string | Date, now?: Date): string;
   number(value: number): string;
@@ -111,14 +112,15 @@ export function createFormatters(locale: string): Formatters {
       const word = RANGE_WORD[locale.slice(0, 2).toLowerCase()] ?? 'to';
       return `${format.format(calendarDate(start))} ${word} ${format.format(calendarDate(end))}`;
     },
-    dateTime(instant, timeZone) {
-      const key = timeZone ?? '';
+    dateTime(instant, timeZone, options) {
+      const key = `${timeZone ?? ''}|${options?.year ? 'year' : ''}`;
       let format = dateTimeFormats.get(key);
       if (!format) {
         format = new Intl.DateTimeFormat(intl, {
           weekday: 'short',
           day: 'numeric',
           month: 'short',
+          ...(options?.year ? { year: 'numeric' } : {}),
           hour: '2-digit',
           minute: '2-digit',
           timeZoneName: 'short',

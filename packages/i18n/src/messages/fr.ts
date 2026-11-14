@@ -2738,6 +2738,9 @@ export const fr: Messages = {
       empty: 'Les voyages réservés en étant connecté apparaissent ici.',
       open: 'Ouvrir le voyage {reference}',
       more: 'Afficher plus',
+      combinedHeading: 'Voyages combinés',
+      combinedIntro:
+        'Des voyages composés de plusieurs éléments et payés en une fois. Chaque élément figure aussi plus bas comme une réservation à part.',
     },
     travellers: {
       heading: 'Voyageurs enregistrés',
@@ -3570,6 +3573,15 @@ export const fr: Messages = {
     intro:
       'Réunissez un vol, un hôtel, une voiture de location, un transfert aéroport et une assurance voyage, ou seulement ce dont vous avez besoin. Vous voyez un prix pour chaque élément et un total, et vous payez une seule fois.',
     pdf: 'Enregistrer ce programme en PDF',
+    receipt: {
+      heading: 'Reçu',
+      paidOn: 'Payé le',
+      amount: 'Montant payé',
+      download: 'Enregistrer le reçu en PDF',
+      downloadLabel: 'Enregistrer le reçu du voyage {reference} en PDF',
+      note: 'Il indique votre paiement et le prix de chaque élément. Les billets et les bons se trouvent dans la réservation de chaque élément.',
+      failed: 'Échec du téléchargement du reçu. Réessayez.',
+    },
     details: {
       title: 'Les informations de votre voyage',
       heading: 'Saisissez les informations de chacun une seule fois',

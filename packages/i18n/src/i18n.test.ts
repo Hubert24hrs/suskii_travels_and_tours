@@ -126,6 +126,11 @@ describe('formatters', () => {
     expect(lagos).toContain('10 Dec');
     expect(format.dateTime(deadline, 'UTC')).toContain('13:30');
     expect(createFormatters('en-US').dateTime(deadline, 'America/New_York')).toMatch(/08:30\sAM/);
+    // A moment kept on record (a receipt's payment) names its year; a deadline does not.
+    expect(lagos).not.toContain('2026');
+    const kept = format.dateTime(deadline, 'Africa/Lagos', { year: true });
+    expect(kept).toContain('10 Dec 2026');
+    expect(kept).toContain('14:30');
   });
 
   it('describes how long ago a fare was checked', () => {

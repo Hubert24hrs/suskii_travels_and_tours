@@ -2722,6 +2722,9 @@ export const pt: Messages = {
       empty: 'As viagens que reservar com sessão iniciada aparecem aqui.',
       open: 'Abrir viagem {reference}',
       more: 'Mostrar mais',
+      combinedHeading: 'Viagens combinadas',
+      combinedIntro:
+        'Viagens com várias partes, pagas uma só vez. Cada parte também aparece abaixo como uma reserva própria.',
     },
     travellers: {
       heading: 'Viajantes guardados',
@@ -3537,6 +3540,15 @@ export const pt: Messages = {
     intro:
       'Junte um voo, um hotel, um carro de aluguer, um transfer do aeroporto e um seguro de viagem, ou só as partes que quiser. Vê um preço por cada parte e um total, e paga uma única vez.',
     pdf: 'Guardar este plano em PDF',
+    receipt: {
+      heading: 'Recibo',
+      paidOn: 'Pago em',
+      amount: 'Valor pago',
+      download: 'Guardar o recibo em PDF',
+      downloadLabel: 'Guardar o recibo da viagem {reference} em PDF',
+      note: 'Mostra o seu pagamento e o custo de cada parte. Os bilhetes e os vouchers estão na reserva de cada parte.',
+      failed: 'Não foi possível obter o recibo. Tente novamente.',
+    },
     details: {
       title: 'Os dados da sua viagem',
       heading: 'Introduza os dados de todos uma só vez',

@@ -2637,6 +2637,9 @@ export const en = {
       empty: 'Trips you book while signed in appear here.',
       open: 'Open trip {reference}',
       more: 'Show more',
+      combinedHeading: 'Combined trips',
+      combinedIntro:
+        'Trips put together from several parts and paid once. Each part is also listed below as a booking of its own.',
     },
     travellers: {
       heading: 'Saved travellers',
@@ -3445,6 +3448,15 @@ export const en = {
     intro:
       'Put a flight, a hotel, a rental car, an airport transfer and travel insurance together, or only the parts you want. You see a price for each part and one total, and you pay once.',
     pdf: 'Save this plan as a PDF',
+    receipt: {
+      heading: 'Receipt',
+      paidOn: 'Paid on',
+      amount: 'Amount paid',
+      download: 'Save the receipt as a PDF',
+      downloadLabel: 'Save the receipt for trip {reference} as a PDF',
+      note: 'It shows your payment and what each part cost. Tickets and vouchers are on each part’s own booking.',
+      failed: 'We could not get the receipt. Try again.',
+    },
     details: {
       title: 'Your trip’s details',
       heading: 'Enter everyone’s details once',
