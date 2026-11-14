@@ -79,6 +79,8 @@ locals {
     "MAILBOX_PASSWORD",
     "OBJECT_STORAGE_ACCESS_KEY_ID",
     "OBJECT_STORAGE_SECRET_ACCESS_KEY",
+    # The owner's own (ADR-119): read only while payments go through Paystack's test mode.
+    "PAYSTACK_SECRET_KEY",
     "POSTGRES_AGENT_PASSWORD",
     "POSTGRES_APP_PASSWORD",
     "POSTGRES_OWNER_PASSWORD",
@@ -464,6 +466,7 @@ resource "google_compute_instance" "backend" {
       sample_catalogue   = var.sample_catalogue
       flight_suppliers   = var.flight_suppliers
       hotel_suppliers    = var.hotel_suppliers
+      payment_providers  = var.payment_providers
       mailbox            = var.mailbox
       mail_host          = local.mail_host
     })

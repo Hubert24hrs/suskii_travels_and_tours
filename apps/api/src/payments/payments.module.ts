@@ -24,6 +24,7 @@ function providerList(config: AppConfig, mock: MockPaymentProvider): PaymentProv
         return new PaystackPaymentProvider({
           secretKey: config.PAYSTACK_SECRET_KEY ?? '',
           baseUrl: config.PAYSTACK_API_URL,
+          currencies: config.PAYSTACK_CURRENCIES,
           timeoutMs,
         });
       case 'flutterwave':

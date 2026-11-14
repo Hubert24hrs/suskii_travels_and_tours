@@ -181,8 +181,9 @@ off. Its email lands in a mailbox on the machine and goes no further (ADR-113,
 cookies go on `endpoints.suskii-travels-staging.cloud.goog`, the parent of the machine's names,
 so the website and the console keep someone signed in (ADR-115). Its flights (and hotels)
 can come from Duffel's test mode with the owner's test token (`FLIGHT_SUPPLIERS=duffel` on
-the deploy, ADR-116); payments stay on the stand-in. The owner's
-guide is `docs/owner/deploy-backend-on-google-cloud.md`.
+the deploy, ADR-116), and its naira payments from Paystack's test mode with the owner's test
+key (`PAYMENT_PROVIDERS=paystack`, ADR-119); the stand-in page takes the other payments. The
+owner's guide is `docs/owner/deploy-backend-on-google-cloud.md`.
 
 Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
 hotel merging, affiliate partner offers with click and conversion tracking. Built; each partner
@@ -534,7 +535,8 @@ Tooling notes for agents:
 - Providers implement `PaymentProvider` in `src/payments/<vendor>`: hosted checkout only, webhook
   signature over the raw body, `verify()` against the provider before an outcome counts (Paystack,
   Flutterwave), refunds with an idempotency key where the provider supports one. `PaymentProviders`
-  routes by currency in `PAYMENT_PROVIDERS` order. Vendor payloads never leave the adapter; parse
+  routes by currency in `PAYMENT_PROVIDERS` order; Paystack offers only `PAYSTACK_CURRENCIES`,
+  the currencies its account settles (ADR-119). Vendor payloads never leave the adapter; parse
   provider amounts with `parseMoney`, never floats.
 - Checkout offers methods, not providers (ADR-074): each adapter declares `methodsFor(currency)`
   and maps a method to its own channel name, kept inside the adapter, and
@@ -1854,9 +1856,16 @@ Tooling notes for agents:
   never switch rides on there (no demo drivers in production mode, ADR-056).
 - The machine's suppliers are the settings `flight_suppliers` and `hotel_suppliers` (`mock` or
   `duffel`, ADR-116). Duffel's token is the owner's, in the secret `DUFFEL_API_TOKEN`, read
-  only while Duffel is chosen. Beside the mock payment page the API takes only a `duffel_test_`
-  token (the env schema refuses any other): never weaken that rule, which keeps a testing
-  backend from booking real tickets nobody paid for.
+  only while Duffel is chosen. Duffel runs in the mode of the payments (`paymentModes()` in
+  the env schema, ADR-119): beside test payments (the mock page or a provider's test key) the
+  API takes only a `duffel_test_` token, beside live payments only a live one. Never weaken
+  that rule: it keeps a testing backend from booking real tickets nobody paid for, and real
+  money from buying tickets that do not exist.
+- The machine's payments are the setting `payment_providers` (`mock` or `paystack`, ADR-119):
+  with `paystack` the API gets `PAYMENT_PROVIDERS=paystack,mock` and `PAYSTACK_CURRENCIES=NGN`,
+  so naira goes to Paystack's test checkout and the stand-in page takes the rest. The key is the
+  owner's, in the secret `PAYSTACK_SECRET_KEY`, read only while Paystack is chosen, and the
+  machine refuses any key but a `sk_test_` one: a testing backend never takes real money.
 - The assistant's model on the machine is the setting `assistant_model` (ADR-112): `vertex`,
   the default, with no key (Terraform grants the machine `suskiiModelCaller` only then);
   `gemini` or `anthropic` with a key in `LLM_API_KEY`; or `mock`. Its daily caps there are the
@@ -2031,6 +2040,7 @@ Tooling notes for agents:
 - [ADR-116: Duffel's test mode on the testing backend, and no live token beside the mock payment page](docs/decisions/ADR-116-duffel-test-mode-on-the-testing-backend.md)
 - [ADR-117: Ask Suskii prepares every product and puts the whole trip together](docs/decisions/ADR-117-ask-suskii-prepares-the-whole-trip.md)
 - [ADR-118: One details form for the whole trip](docs/decisions/ADR-118-one-details-form-for-the-whole-trip.md)
+- [ADR-119: Paystack's test mode on the testing backend, and Duffel in the mode of the payments](docs/decisions/ADR-119-paystack-test-mode-on-the-testing-backend.md)
 
 ## Open questions for the owner
 
@@ -2270,6 +2280,10 @@ the real model (`infra/gcp/cloudbuild.agent-eval.yaml`) before the new prompts a
 travellers; and whether tours, packages, visa assistance, eSIMs and lounge access should
 become parts of a combined trip. Added with the details form (ADR-118): whether checked bags
 and seats should move into the trip's one form (today they stay on the flight's own checkout).
+Added with Paystack's test mode (ADR-119): a Paystack account, its test secret key in
+`PAYSTACK_SECRET_KEY` and the test webhook address on its dashboard, then one test payment
+per method on the testing backend (ADR-074); and the currencies the live account will settle
+(`PAYSTACK_CURRENCIES`: NGN, and USD once Paystack enables it).
 Every
 owner action is listed, step by step, in
 `docs/owner/launch-checklist.md`, and every stand-in to replace before the public launch (with

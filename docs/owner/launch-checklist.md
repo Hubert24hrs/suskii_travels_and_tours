@@ -53,12 +53,15 @@ Check: `pnpm smoke --api https://<api host> --web https://<web host> --admin htt
 
 1. Open the account in the company's name and finish the provider's business checks.
 2. Put the **test** keys in staging's Secret Manager and `PAYMENT_PROVIDERS` in `api_env`;
-   register the webhook URL in the provider's dashboard.
+   register the webhook URL in the provider's dashboard. On the testing backend that runs on
+   one machine, Paystack's test mode is one deploy away: see "Payments from Paystack's test
+   mode" in [the backend on Google Cloud](./deploy-backend-on-google-cloud.md) (ADR-119).
 3. Make **one test payment per method** (card, transfer, USSD, mobile money, Apple or Google
    Pay) on staging and tell Claude: the channel names are then confirmed (ADR-074).
 4. Flutterwave only: turn off **Enable Dashboard Payment Options**.
-5. Then the **live** keys in production. Do not remove a provider later to pause it: use
-   `PAYMENT_PROVIDERS_PAUSED`.
+5. Then the **live** keys in production, with `PAYSTACK_CURRENCIES` set to the currencies the
+   Paystack account settles (NGN, and USD once Paystack enables it). Do not remove a provider
+   later to pause it: use `PAYMENT_PROVIDERS_PAUSED`.
 
 ### 1.3 Flights (and hotels) from Duffel
 

@@ -41,6 +41,43 @@ const csv = <T extends z.ZodType<unknown, string>>(item: T) =>
 
 const originOf = (url: string): string => new URL(url).origin;
 
+/** The currencies Paystack's adapter takes (ADR-016); an account settles some of them. */
+export const PAYSTACK_SETTLEMENT_CURRENCIES = ['NGN', 'GHS', 'ZAR', 'KES', 'USD'] as const;
+
+/**
+ * Whether the enabled payment providers take test payments (the mock page, or a provider's test
+ * key) or real money (any other key). Keys a listed provider lacks are reported elsewhere.
+ */
+function paymentModes(env: {
+  PAYMENT_PROVIDERS: readonly string[];
+  PAYSTACK_SECRET_KEY?: string | undefined;
+  FLUTTERWAVE_SECRET_KEY?: string | undefined;
+  STRIPE_SECRET_KEY?: string | undefined;
+}): { test: boolean; live: boolean } {
+  const keys: Record<string, { key: string | undefined; test: (key: string) => boolean }> = {
+    paystack: { key: env.PAYSTACK_SECRET_KEY, test: (key) => key.startsWith('sk_test_') },
+    // Flutterwave's test keys read FLWSECK_TEST-..., its live keys FLWSECK-...
+    flutterwave: { key: env.FLUTTERWAVE_SECRET_KEY, test: (key) => key.includes('_TEST') },
+    stripe: {
+      key: env.STRIPE_SECRET_KEY,
+      test: (key) => key.startsWith('sk_test_') || key.startsWith('rk_test_'),
+    },
+  };
+  let test = false;
+  let live = false;
+  for (const name of env.PAYMENT_PROVIDERS) {
+    if (name === 'mock') {
+      test = true;
+      continue;
+    }
+    const entry = keys[name];
+    if (!entry?.key) continue;
+    if (entry.test(entry.key)) test = true;
+    else live = true;
+  }
+  return { test, live };
+}
+
 /** SMS adapters (ADR-091); `mock` keeps texts in memory. */
 export const SMS_PROVIDERS = ['mock', 'termii', 'africastalking'] as const;
 export type SmsProviderName = (typeof SMS_PROVIDERS)[number];
@@ -435,6 +472,14 @@ export const envSchema = z
     ),
     PAYSTACK_SECRET_KEY: z.string().min(16).optional(),
     PAYSTACK_API_URL: z.url().default('https://api.paystack.co'),
+    /**
+     * The currencies this Paystack account settles (ADR-119): a Nigerian account takes naira, and
+     * USD once Paystack has enabled it. A booking in another currency goes to the next provider
+     * in PAYMENT_PROVIDERS. Unset: every currency the adapter takes.
+     */
+    PAYSTACK_CURRENCIES: csv(z.enum(PAYSTACK_SETTLEMENT_CURRENCIES)).default([
+      ...PAYSTACK_SETTLEMENT_CURRENCIES,
+    ]),
     FLUTTERWAVE_SECRET_KEY: z.string().min(16).optional(),
     /** The "secret hash" set on the Flutterwave dashboard, sent back in `verif-hash`. */
     FLUTTERWAVE_WEBHOOK_HASH: z.string().min(16).optional(),
@@ -1068,15 +1113,20 @@ export const envSchema = z
     ) {
       require('DUFFEL_API_TOKEN', 'is required when FLIGHT_SUPPLIERS or HOTEL_SUPPLIERS includes duffel');
     }
-    // The mock payment page completes every payment, so beside it Duffel may only book test
-    // orders: a live token would issue real tickets that nobody paid for (ADR-116).
+    // Duffel and the payments run in the same mode. Test payments (the mock page, or a
+    // provider's test key) move no money, so beside them a live token would issue real tickets
+    // that nobody paid for (ADR-116); live payments take real money, so beside them a test token
+    // would sell tickets that do not exist (ADR-119).
     if (
       (env.FLIGHT_SUPPLIERS.includes('duffel') || env.HOTEL_SUPPLIERS.includes('duffel')) &&
-      env.PAYMENT_PROVIDERS.includes('mock') &&
-      env.DUFFEL_API_TOKEN &&
-      !env.DUFFEL_API_TOKEN.startsWith('duffel_test_')
+      env.DUFFEL_API_TOKEN
     ) {
-      require('DUFFEL_API_TOKEN', 'must be a Duffel test token (duffel_test_) while PAYMENT_PROVIDERS includes mock');
+      const testToken = env.DUFFEL_API_TOKEN.startsWith('duffel_test_');
+      const payments = paymentModes(env);
+      if (payments.test && !testToken)
+        require('DUFFEL_API_TOKEN', 'must be a Duffel test token (duffel_test_) while payments are test payments (the mock page or a test key)');
+      if (payments.live && testToken)
+        require('DUFFEL_API_TOKEN', 'must be a live Duffel token while payments take real money');
     }
     if (env.WHATSAPP_SUPPORT_PROVIDER !== 'none') {
       // Every delivery is checked against the app secret; the handshake needs the verify token.
@@ -1124,6 +1174,8 @@ export const envSchema = z
       require('PAYMENT_PROVIDERS_PAUSED', 'may only name providers in PAYMENT_PROVIDERS');
     if (env.PAYMENT_PROVIDERS.includes('paystack') && !env.PAYSTACK_SECRET_KEY)
       require('PAYSTACK_SECRET_KEY', 'is required when PAYMENT_PROVIDERS includes paystack');
+    if (env.PAYMENT_PROVIDERS.includes('paystack') && env.PAYSTACK_CURRENCIES.length === 0)
+      require('PAYSTACK_CURRENCIES', 'list at least one currency the Paystack account settles');
     if (env.PAYMENT_PROVIDERS.includes('flutterwave')) {
       if (!env.FLUTTERWAVE_SECRET_KEY)
         require('FLUTTERWAVE_SECRET_KEY', 'is required when PAYMENT_PROVIDERS includes flutterwave');

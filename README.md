@@ -342,9 +342,10 @@ console in containers beside PostgreSQL, Redis and Caddy.
   Cloud Build and releases them through the machine's metadata; settings given once (such as
   `FLIGHT_SUPPLIERS=duffel`) are remembered.
 - **What is real there**: Ask Suskii answers with Gemini on Vertex AI under a cap of 2 US
-  dollars a day, and flights come from Duffel's test mode. Everything else is a stand-in:
-  payments approve on a test page, exchange rates are made up, the catalogue is samples, and
-  email stays in the mailbox. `docs/owner/going-live.md` lists each one and what replaces it.
+  dollars a day, flights come from Duffel's test mode, and naira payments can go through
+  Paystack's test mode (`PAYMENT_PROVIDERS=paystack`, ADR-119). Everything else is a stand-in:
+  other payments approve on a test page, exchange rates are made up, the catalogue is
+  samples, and email stays in the mailbox. `docs/owner/going-live.md` lists each one and what replaces it.
 - **The phone**: the `Mobile test APK` workflow, started with the testing backend's API and
   website addresses, publishes a test build that talks to it.
 

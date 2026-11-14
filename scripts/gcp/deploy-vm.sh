@@ -32,6 +32,10 @@
 #   FLIGHT_SUPPLIERS=mock|duffel            where flights come from: duffel needs Duffel's test
 #                                           token in the secret DUFFEL_API_TOKEN (ADR-116)
 #   HOTEL_SUPPLIERS=mock|duffel             the same for hotels, once Duffel Stays is on
+#   PAYMENT_PROVIDERS=mock|paystack         how travellers pay: paystack takes naira through
+#                                           Paystack's test mode, with its test secret key in the
+#                                           secret PAYSTACK_SECRET_KEY (ADR-119); the stand-in
+#                                           page takes everything else
 # And for one run only:
 #   SUSKII_TAG=<tag>                        release images that are built already
 set -euo pipefail
@@ -153,6 +157,11 @@ for supplier in FLIGHT_SUPPLIERS HOTEL_SUPPLIERS; do
     *) stop "$supplier must be mock or duffel." ;;
   esac
 done
+case "${PAYMENT_PROVIDERS:-}" in
+  "") ;;
+  mock | paystack) set_setting payment_providers "\"$PAYMENT_PROVIDERS\"" ;;
+  *) stop "PAYMENT_PROVIDERS must be mock or paystack." ;;
+esac
 if [ -n "${TURNSTILE_SITE_KEY:-}" ]; then
   [[ "$TURNSTILE_SITE_KEY" =~ ^[A-Za-z0-9_-]+$ ]] || stop "TURNSTILE_SITE_KEY does not look like a Turnstile site key."
   set_setting turnstile_site_key "\"$TURNSTILE_SITE_KEY\""
@@ -197,6 +206,11 @@ has_value LLM_API_KEY || printf 'not-set' | gcloud secrets versions add LLM_API_
 # Flights or hotels from Duffel (ADR-116) need its test token, which only the owner can give.
 if [ "$(setting flight_suppliers)" = "duffel" ] || [ "$(setting hotel_suppliers)" = "duffel" ]; then
   has_value DUFFEL_API_TOKEN || stop "flights or hotels come from Duffel, and the secret DUFFEL_API_TOKEN is empty. Open https://console.cloud.google.com/security/secret-manager/secret/DUFFEL_API_TOKEN/versions?project=$PROJECT, press New version, paste Duffel's test token (it starts with duffel_test_), save, and run this again. To go back to the stand-in: FLIGHT_SUPPLIERS=mock HOTEL_SUPPLIERS=mock."
+fi
+# Payments through Paystack's test mode (ADR-119) need its test secret key, which only the owner
+# can give. The machine refuses a live key: a testing backend never takes real money.
+if [ "$(setting payment_providers)" = "paystack" ]; then
+  has_value PAYSTACK_SECRET_KEY || stop "payments go through Paystack's test mode, and the secret PAYSTACK_SECRET_KEY is empty. Open https://console.cloud.google.com/security/secret-manager/secret/PAYSTACK_SECRET_KEY/versions?project=$PROJECT, press New version, paste Paystack's test secret key (it starts with sk_test_), save, and run this again. To go back to the stand-in: PAYMENT_PROVIDERS=mock."
 fi
 
 # --- 5. Images, built by Cloud Build from this checkout ---------------------------------------
@@ -329,6 +343,8 @@ $(if [ "$SITES_ON" = "true" ]; then printf '  Website              %s\n  Admin c
   Sample catalogue     $(if [ "$(setting sample_catalogue)" = "true" ]; then echo on; else echo off; fi)
   Flights from         $(if [ "$(setting flight_suppliers)" = "duffel" ]; then echo "Duffel (test mode)"; else echo "the stand-in"; fi)
   Hotels from          $(if [ "$(setting hotel_suppliers)" = "duffel" ]; then echo "Duffel (test mode)"; else echo "the stand-in"; fi)
+  Payments             $(if [ "$(setting payment_providers)" = "paystack" ]; then echo "Paystack (test mode) for naira, the stand-in for the rest"; else echo "the stand-in"; fi)
+$(if [ "$(setting payment_providers)" = "paystack" ]; then printf '  Paystack webhook     %s/v1/payments/webhooks/paystack (Paystack: Settings, API Keys and Webhooks, Test Webhook URL)\n' "$API_URL"; fi)
   Mailbox              $(if [ -n "$(terraform output -raw mailbox_url)" ]; then echo "$(terraform output -raw mailbox_url) (user suskii, password in the secret MAILBOX_PASSWORD)"; else echo off; fi)
   Last release         $outcome
 
@@ -343,6 +359,9 @@ To open the website's sign-up and guest forms: create a Turnstile widget for the
   TURNSTILE_SITE_KEY=<its site key> bash scripts/gcp/deploy-vm.sh $PROJECT $REGION $ZONE
 To take flights from Duffel's test mode (its test token in the secret DUFFEL_API_TOKEN first):
   FLIGHT_SUPPLIERS=duffel bash scripts/gcp/deploy-vm.sh $PROJECT $REGION $ZONE
+To take naira through Paystack's test mode (its test secret key in the secret
+  PAYSTACK_SECRET_KEY first, and the webhook address above set on Paystack's dashboard):
+  PAYMENT_PROVIDERS=paystack bash scripts/gcp/deploy-vm.sh $PROJECT $REGION $ZONE
 To show sample packages, tours, buses and rental cars on this testing backend (or to stop):
   SAMPLE_CATALOGUE=true bash scripts/gcp/deploy-vm.sh $PROJECT $REGION $ZONE
 To keep every email the API sends in a mailbox on the machine, on a testing backend:
