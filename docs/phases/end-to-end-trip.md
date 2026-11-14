@@ -103,4 +103,5 @@ Found and fixed on the way:
 CI ran the same suites on the pull requests and passed (`ci.yml` and `mobile.yml`, the Android
 build with the Maestro flows and the iOS simulator build). The phone check runs the test APK on
 its emulator and the website's trip builder against the online test server before the APK is
-published (`mobile-test-apk.yml`). With the card moved, it passed on the fix's own build.
+published (`mobile-test-apk.yml`). With the card moved, it passed on the fix's own build and
+then on the build from the merged code, which was published as the test APK.
