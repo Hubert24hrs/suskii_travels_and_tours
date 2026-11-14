@@ -94,7 +94,13 @@ Found and fixed on the way:
   typecheck (fields missing from their local types); fixed before the commits.
 - Prisma's pg adapter overlaps a transaction's queries, which pg 9 will refuse; pg is held at
   major 8 (ADR-002).
+- The phone check (the test APK on its emulator against the online test server, ADR-100) failed
+  once the work was merged. The flow counts the three parts' "Confirmed" on one screen, and the
+  app's receipt card, then between the paid notice and the parts, pushed the third part off that
+  emulator's shorter screen. CI's emulator is taller and never saw it. The card now follows the
+  parts, and CLAUDE.md says why nothing goes between the notice and the parts.
 
-CI runs the same suites on the pushed branch (`ci.yml` and `mobile.yml`, the Android build with
-the Maestro flows and the iOS simulator build); the phone check against the hosted test server
-is the owner's to start.
+CI ran the same suites on the pull requests and passed (`ci.yml` and `mobile.yml`, the Android
+build with the Maestro flows and the iOS simulator build). The phone check runs the test APK on
+its emulator and the website's trip builder against the online test server before the APK is
+published (`mobile-test-apk.yml`). With the card moved, it passed on the fix's own build.
