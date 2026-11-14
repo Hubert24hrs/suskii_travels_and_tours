@@ -151,6 +151,12 @@ On one machine the separation of ADR-101 is kept by other means than separate se
 their values, builds the four images with Cloud Build, names the release, waits for the
 machine's own report and checks the public address. It can be stopped and run again.
 
+On the machine, a release makes room before it pulls: only the running release's images and
+its own stay, and once it stands only its own (the sample catalogue's nightly run needs its
+`ops` image). The 30 GB system disk holds about two releases; keeping two days of them, as at
+first, filled it after a busy day (2026-11-14). A failure at any step is reported with the
+step and the space left, so the command stops at once instead of waiting for a report.
+
 ## What this shape gives up
 
 Said plainly, because the owner chose it for its price:

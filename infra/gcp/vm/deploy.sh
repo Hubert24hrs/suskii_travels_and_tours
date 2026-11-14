@@ -4,9 +4,9 @@
 # again> [<tag of the website's and the console's images>]".
 #
 # In order: the stack's files from the instance metadata, the keys from Secret Manager into
-# memory-only env files, the images, a dump of the database, the database step, then the new
-# containers. The platform first, the assistant after it: an assistant that does not come up
-# never fails the release.
+# memory-only env files, room on the system disk, the images, a dump of the database, the
+# database step, then the new containers. The platform first, the assistant after it: an
+# assistant that does not come up never fails the release.
 # The outcome is written where the operator can read it without a login: the serial console and
 # the instance's guest attribute `suskii/status`, which names the whole release so that the
 # report of an earlier one is never taken for this one's. No secret is printed.
@@ -21,14 +21,24 @@ status() {
   curl -sf -X PUT --data "$*" -H 'Metadata-Flavor: Google' \
     "$MD/instance/guest-attributes/suskii/status" >/dev/null || true
 }
+# What is left on the system disk, where Docker keeps the images ("24G").
+free_disk() { df -BG --output=avail / 2>/dev/null | tail -n 1 | tr -d ' ' || true; }
 STEP=start
-trap 'status "failed $RELEASE at $STEP"' ERR
+# Any way out but the end is a failure, reported with its step and the room left on the system
+# disk. An EXIT trap, not an ERR trap: a function (compose, md) does not inherit an ERR trap, so
+# a failure inside one ended the release without a word and the operator waited for nothing.
+report_failure() {
+  local code=$?
+  if [ "$code" -ne 0 ]; then status "failed $RELEASE at $STEP; disk: $(free_disk) free"; fi
+}
+trap report_failure EXIT
 
 STEP=files
 install -d -m 0700 /run/suskii
 md instance/attributes/suskii-compose >/opt/suskii/compose.yml
 md instance/attributes/suskii-settings >/opt/suskii/settings.json
 setting() { python3 -c 'import json, sys; print(json.load(open("/opt/suskii/settings.json")).get(sys.argv[1], ""))' "$1"; }
+REGISTRY="$(setting registry)"
 # The website and the console run here when the settings say so and their images are named.
 SITES=false
 if [ "$(setting sites)" = "True" ] && [ -n "${SITES_TAG:-}" ]; then SITES=true; fi
@@ -175,6 +185,25 @@ PY
 
 compose() { docker compose --env-file /opt/suskii/compose.env -f /opt/suskii/compose.yml "$@"; }
 
+# keep_images <release>...: removes this registry's images that none of the named releases uses
+# (each "<tag> <number> [<sites tag>]"), then layers no image refers to. An image a container
+# uses is never removed, because `docker image rm` refuses it. The system disk (30 GB) holds
+# about two releases: keeping two days of them filled it after a busy day of releases, and the
+# next release could not unpack its images. Best effort: it never fails a release by itself.
+keep_images() {
+  local keep=" " release tag sites
+  for release in "$@"; do
+    read -r tag _ sites <<<"$release" || true
+    keep+="${tag:-} ${sites:-} "
+  done
+  docker image ls --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | while IFS= read -r image; do
+    case "$image" in "$REGISTRY"/*) ;; *) continue ;; esac
+    case "$keep" in *" ${image##*:} "*) continue ;; esac
+    docker image rm "$image" >/dev/null 2>&1 || true
+  done || true
+  docker image prune -f >/dev/null 2>&1 || true
+}
+
 # Operator commands, for a person logged in to the machine: sudo /opt/suskii/ops <script> [...]
 cat >/opt/suskii/ops <<'OPS'
 #!/usr/bin/env bash
@@ -207,6 +236,14 @@ cmp -s /opt/suskii/Caddyfile.new /opt/suskii/Caddyfile || CADDY_CHANGED=true
 touch /opt/suskii/Caddyfile && chmod 0600 /opt/suskii/Caddyfile
 cat /opt/suskii/Caddyfile.new >/opt/suskii/Caddyfile
 rm -f /opt/suskii/Caddyfile.new
+
+# Room for this release before anything is pulled: the images of the release that is running
+# and of this one stay; earlier releases' go, and so do the half-pulled images of one that
+# failed.
+STEP=room
+RUNNING=""
+if [ -f /run/suskii/deployed ]; then RUNNING="$(cat /run/suskii/deployed)"; fi
+keep_images "$RELEASE" "$RUNNING"
 
 STEP=images
 PROFILES=(--profile release)
@@ -350,8 +387,10 @@ if [ "$MAILBOX" = true ]; then
   esac
 fi
 
+# Only this release's images stay (the sample catalogue's nightly run needs its `ops` image,
+# which no container keeps in use). A rollback pulls its images again.
 STEP=tidy
-docker image prune -af --filter until=48h >/dev/null 2>&1 || true
+keep_images "$RELEASE"
 echo "$RELEASE" >/run/suskii/deployed
 MEMORY="$(free -m | awk '/^Mem:/ { print $3 " of " $2 " MB in use" }')"
-status "ok $RELEASE; assistant: $ASSISTANT; https://$HOST: $DOOR$SITES_DOOR$MAIL_DOOR$SAMPLE; memory: $MEMORY"
+status "ok $RELEASE; assistant: $ASSISTANT; https://$HOST: $DOOR$SITES_DOOR$MAIL_DOOR$SAMPLE; memory: $MEMORY; disk: $(free_disk) free"

@@ -286,6 +286,10 @@ done
 echo "  $outcome"
 case "$outcome" in
   "ok $RELEASE"*) ;;
+  "failed $RELEASE"*)
+    serial 40
+    stop "the release failed on the machine (${outcome#"failed $RELEASE "}). The lines above are from its console; the whole console: gcloud compute instances get-serial-port-output $INSTANCE --zone $ZONE. If they say \"no space left on device\", see \"If a deploy stops with an error\" in docs/owner/deploy-backend-on-google-cloud.md."
+    ;;
   *)
     serial 40
     stop "the machine did not report the release as done. The lines above are from its console; the whole console: gcloud compute instances get-serial-port-output $INSTANCE --zone $ZONE"

@@ -6,6 +6,21 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### The testing backend's disk no longer fills with old releases (2026-11-14)
+
+#### Fixed
+
+- A release on the one machine (ADR-111) kept every image built in the last 48 hours, and a
+  busy day of releases filled the 30 GB system disk: the next release could not unpack its
+  images ("no space left on device"). `deploy.sh` now makes room before it pulls (only the
+  running release's images and its own stay) and keeps only its own once it stands
+  (`keep_images`); the nightly sample catalogue's `ops` image is part of the release and stays.
+- A failure inside a function (pulling the images, starting a container) ended the release
+  without a report, because a function does not inherit an ERR trap, and `deploy-vm.sh`
+  waited 20 minutes for nothing. Every failure is now reported by an EXIT trap with its step
+  and the free disk space, and `deploy-vm.sh` stops at once with that step.
+- The owner guide says how to free the space by hand and retry, should it happen again.
+
 ### Ask Suskii's two limits in their own words (2026-11-14)
 
 #### Fixed

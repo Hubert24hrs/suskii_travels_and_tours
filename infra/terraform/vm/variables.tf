@@ -28,7 +28,7 @@ variable "machine_type" {
 }
 
 variable "boot_disk_gb" {
-  description = "The system disk: the operating system and the images of the last releases."
+  description = "The system disk: the operating system and the images of the running release and the next one (each release removes earlier ones)."
   type        = number
   default     = 30
 }
