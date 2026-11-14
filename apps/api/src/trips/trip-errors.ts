@@ -39,6 +39,14 @@ export const tripHasPayments = (): ProblemDetailsException =>
     'A trip with a payment, started or made, is kept with its bookings.',
   );
 
+export const tripNotPaid = (): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.CONFLICT,
+    'trip-not-paid',
+    'This trip has not been paid yet',
+    'Its receipt is ready once a payment for the trip has gone through.',
+  );
+
 export const tripNothingToPay = (): ProblemDetailsException =>
   new ProblemDetailsException(
     HttpStatus.CONFLICT,

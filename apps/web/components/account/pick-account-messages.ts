@@ -11,4 +11,9 @@ export const pickAccountMessages = (messages: Messages): AccountMessages => ({
   common: messages.common,
   booking: messages.booking,
   cabins: messages.cabins,
+  trips: {
+    route: messages.trips.route,
+    states: messages.trips.states,
+    receipt: messages.trips.receipt,
+  },
 });

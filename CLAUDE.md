@@ -74,7 +74,9 @@ rental car, an airport transfer and travel insurance, or only the parts they wan
 per part with one total and pays once. Built on the API, the website and the app
 (`docs/phases/trip-builder.md`); a discount for a combined trip waits for the owner. The phone
 check (ADR-100) runs it in the published test APK and on the website against the online test
-server.
+server. A paid trip has a receipt (ADR-120, `docs/phases/end-to-end-trip.md`) on its page and in
+the account's trips on both clients, and the whole journey, Ask Suskii included, runs end to end
+in `agent-whole-trip.e2e-spec.ts`.
 
 Suskii Agent (outside the numbered phases; the owner's LangGraph.js agent system and the
 price-intelligence layer, ADR-101 to ADR-107): sub-phase A (baseline, findings, plan and
@@ -1092,6 +1094,13 @@ Tooling notes for agents:
   over `tripPartFacts()` and send one `Idempotency-Key` per body.
 - The booking answer's `trip` field is additive; fields added to a trip answer stay optional for
   older app builds.
+- A paid trip's receipt (ADR-120) is `GET /v1/trips/{tripId}/receipt`, drawn by
+  `renderTripReceiptPdf()` from the trip's succeeded payments (`TripsService.receipt()`): each
+  payment that went through and was not refunded for a wrong amount, the shares that kept their
+  money and the service taxes stored on each booking (`documentTaxes()`). It is never stored,
+  answers 409 `trip-not-paid` before a part took a payment, and prints no name, contact or card
+  detail (the payment's reference is Suskii's own id). The trip answer's `receipt` is computed in
+  `present()` with the same rule; never decide "paid" for a receipt anywhere else.
 
 ### Suskii Agent (apps/api/src/agent, packages/shared agent; ADR-101 to ADR-107)
 
@@ -1391,6 +1400,11 @@ Tooling notes for agents:
   stays wrong: the tests name them.
 - `apps/api/test/agent-service.e2e-spec.ts` starts this service from source (tsx) beside the
   API and runs the whole chain; it needs no build of this workspace.
+  `agent-whole-trip.e2e-spec.ts` starts `src/test/scripted-service.ts` instead: the same
+  `runAgentService()` (`src/service.ts`) with `MockAgentModel` playing a script named by
+  `AGENT_TEST_SCRIPT` (`whole-trip`), which reads ids from the tools' real results as a model
+  must. Scripts live in `src/test` only (never built, refused in production); keep `main.ts` a
+  thin caller of `runAgentService()` so the test runs what ships.
 - A candidate (`CANDIDATE_PROMPTS`) has the id of the prompt it would replace and a higher
   version, and answers nobody. A shadow turn (`runs.ts`) starts from where the live turn
   started, keeps its checkpoints in memory and has a gateway that only replays what the live
@@ -2041,6 +2055,7 @@ Tooling notes for agents:
 - [ADR-117: Ask Suskii prepares every product and puts the whole trip together](docs/decisions/ADR-117-ask-suskii-prepares-the-whole-trip.md)
 - [ADR-118: One details form for the whole trip](docs/decisions/ADR-118-one-details-form-for-the-whole-trip.md)
 - [ADR-119: Paystack's test mode on the testing backend, and Duffel in the mode of the payments](docs/decisions/ADR-119-paystack-test-mode-on-the-testing-backend.md)
+- [ADR-120: The receipt of a combined trip, and the whole trip run end to end](docs/decisions/ADR-120-the-receipt-of-a-combined-trip.md)
 
 ## Open questions for the owner
 
@@ -2284,6 +2299,9 @@ Added with Paystack's test mode (ADR-119): a Paystack account, its test secret k
 `PAYSTACK_SECRET_KEY` and the test webhook address on its dashboard, then one test payment
 per method on the testing backend (ADR-074); and the currencies the live account will settle
 (`PAYSTACK_CURRENCIES`: NGN, and USD once Paystack enables it).
+Added with the trip receipt (ADR-120): whether the receipt should also be emailed when a trip is
+paid, and the accountant's view on whether it must be a tax invoice in some markets (the
+seller's legal name, address and registration on it, from `TAX_SELLER_COUNTRY`'s rules).
 Every
 owner action is listed, step by step, in
 `docs/owner/launch-checklist.md`, and every stand-in to replace before the public launch (with

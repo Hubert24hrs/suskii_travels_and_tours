@@ -117,6 +117,8 @@ interface Fixture {
   /** Combined trips (ADR-099): the owner's trip and the unpaid flight in it. */
   tripId: string;
   tripBookingId: string;
+  /** Another trip of the owner's, paid once: it has a receipt. */
+  paidTripId: string;
   /** The assistant (ADR-101): the owner's conversation, a finished run and its answer. */
   agentConversationId: string;
   agentRunId: string;
@@ -262,6 +264,7 @@ const CASES: Record<string, Case> = {
   },
   getTrip: { path: (f) => `/v1/trips/${f.tripId}` },
   downloadTripPlan: { path: (f) => `/v1/trips/${f.tripId}/pdf` },
+  downloadTripReceipt: { path: (f) => `/v1/trips/${f.paidTripId}/receipt` },
   deleteTrip: { path: (f) => `/v1/trips/${f.tripId}` },
   addTripPart: {
     path: (f) => `/v1/trips/${f.tripId}/parts`,
@@ -676,32 +679,31 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
       .expect(201);
 
     // A trip with one unpaid flight in it.
+    const tripPlan = {
+      origin: {
+        code: 'LOS',
+        name: 'Murtala Muhammed International Airport',
+        cityName: 'Lagos',
+        countryCode: 'NG',
+      },
+      destination: {
+        code: 'ABV',
+        name: 'Nnamdi Azikiwe International Airport',
+        cityName: 'Abuja',
+        countryCode: 'NG',
+        cityId: null,
+      },
+      departDate: inDays(30),
+      returnDate: inDays(33),
+      adults: 1,
+      children: 0,
+      components: ['flight', 'hotel'],
+    };
     const combined = await ctx
       .http()
       .post('/v1/trips')
       .set(auth)
-      .send({
-        plan: {
-          origin: {
-            code: 'LOS',
-            name: 'Murtala Muhammed International Airport',
-            cityName: 'Lagos',
-            countryCode: 'NG',
-          },
-          destination: {
-            code: 'ABV',
-            name: 'Nnamdi Azikiwe International Airport',
-            cityName: 'Abuja',
-            countryCode: 'NG',
-            cityId: null,
-          },
-          departDate: inDays(30),
-          returnDate: inDays(33),
-          adults: 1,
-          children: 0,
-          components: ['flight', 'hotel'],
-        },
-      })
+      .send({ plan: tripPlan })
       .expect(201);
     const tripFlight = await createFlightBooking(owner);
     await ctx
@@ -710,6 +712,36 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
       .set(auth)
       .send({ bookingId: tripFlight.bookingId })
       .expect(200);
+
+    // Another trip, of one flight, paid once through its own checkout: it has a receipt.
+    const paidTrip = await ctx
+      .http()
+      .post('/v1/trips')
+      .set(auth)
+      .send({ plan: { ...tripPlan, components: ['flight'] } })
+      .expect(201);
+    const paidFlight = await createFlightBooking(owner);
+    await ctx
+      .http()
+      .post(`/v1/trips/${paidTrip.body.id as string}/parts`)
+      .set(auth)
+      .send({ bookingId: paidFlight.bookingId })
+      .expect(200);
+    const tripPayment = await ctx
+      .http()
+      .post(`/v1/trips/${paidTrip.body.id as string}/payments`)
+      .set(auth)
+      .set('Idempotency-Key', idempotencyKey())
+      .send({})
+      .expect(201);
+    await ctx
+      .http()
+      .post(
+        `/v1/payments/mock/${(tripPayment.body.checkoutUrl as string).split('/').pop() ?? ''}/complete`,
+      )
+      .send({ outcome: 'succeeded' })
+      .expect(200);
+    await ctx.background.drain();
 
     // A conversation with the assistant, with one answered message.
     const chat = await ctx.http().post('/v1/agent/conversations').set(auth).send({}).expect(201);
@@ -767,6 +799,7 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
       agentMessageId: answer?.id ?? '',
       tripId: combined.body.id as string,
       tripBookingId: tripFlight.bookingId,
+      paidTripId: paidTrip.body.id as string,
       supportConversationId: conversation.body.conversation.id as string,
       companyBookingId: companyTrip.bookingId,
       companyMemberId: members.body.members[0].id as string,

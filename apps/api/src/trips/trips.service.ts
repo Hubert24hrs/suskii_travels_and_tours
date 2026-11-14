@@ -38,6 +38,7 @@ import {
   tooManyTrips,
   TRIP_PART_ISSUES,
   tripHasPayments,
+  tripNotPaid,
   tripPartInvalid,
   tripPartPaid,
 } from './trip-errors';
@@ -45,15 +46,22 @@ import { tripPreparedPartSchema, type TripDto, type TripPreparedPart } from './t
 
 type Tx = Prisma.TransactionClient;
 
-/** A trip with what its page shows: the bookings in it and a checkout still open. */
+/** A payment for the whole trip that went through, with the shares it paid (the receipt). */
+export type TripReceiptPayment = Prisma.TripPaymentGetPayload<{
+  include: { shares: { include: { booking: true } } };
+}>;
+
+/**
+ * A trip with what its page shows: the bookings in it, a checkout still open and the payments
+ * that went through (its receipt).
+ */
 export const TRIP_INCLUDE = {
   bookings: {
     include: { items: { orderBy: { createdAt: 'asc' } }, paymentPlan: true },
   },
   payments: {
-    where: { status: 'pending' },
+    where: { status: { in: ['pending', 'succeeded'] } },
     orderBy: { createdAt: 'desc' },
-    take: 1,
   },
 } satisfies Prisma.TripInclude;
 export type TripRecord = Prisma.TripGetPayload<{ include: typeof TRIP_INCLUDE }>;
@@ -289,9 +297,10 @@ export class TripsService {
       include: TRIP_INCLUDE,
     });
     if (trip?.userId !== userId || trip.currency !== input.currency) return null;
-    // Paid, or with a checkout open: that trip is under way; the new parts start another.
+    // Paid, or with a checkout open: that trip is under way; the new parts start another. (A
+    // payment that went through shows in its settled bookings; one refunded in full does not.)
     if (
-      trip.payments.length > 0 ||
+      trip.payments.some((payment) => payment.status === 'pending') ||
       trip.bookings.some((booking) => SETTLED.includes(booking.status))
     )
       return null;
@@ -310,6 +319,39 @@ export class TripsService {
 
   async get(tripId: string, userId: string): Promise<TripDto> {
     return this.present(await this.load(tripId, userId));
+  }
+
+  /**
+   * What the caller's paid trip came to (ADR-099): each payment that went through for exactly
+   * what it asked, with its shares. A share flagged for refund is money the booking could not
+   * keep, refunded automatically. 404 for another account's trip, 409 before a payment.
+   */
+  async receipt(
+    tripId: string,
+    userId: string,
+  ): Promise<{ trip: TripDto; payments: TripReceiptPayment[] }> {
+    const trip = await this.load(tripId, userId);
+    const payments = await this.prisma.tripPayment.findMany({
+      where: {
+        tripId: trip.id,
+        status: 'succeeded',
+        succeededAt: { not: null },
+        receivedMinor: null,
+      },
+      orderBy: { succeededAt: 'asc' },
+      include: {
+        shares: {
+          where: { status: 'succeeded' },
+          orderBy: { createdAt: 'asc' },
+          include: { booking: true },
+        },
+      },
+    });
+    const paid = payments.filter((payment) =>
+      payment.shares.some((share) => !share.requiresRefund),
+    );
+    if (paid.length === 0) throw tripNotPaid();
+    return { trip: this.present(trip), payments: paid };
   }
 
   async list(userId: string): Promise<{ trips: TripDto[] }> {
@@ -534,7 +576,24 @@ export class TripsService {
       });
     const live = parts.filter((part) => part.state !== 'closed');
     const sum = (amounts: Money[]): Money => amounts.reduce(add, zero(trip.currency));
-    const open = trip.payments[0];
+    // Payments for the whole trip that went through for exactly what they asked: its receipt.
+    const settled = trip.payments.filter(
+      (payment) => payment.status === 'succeeded' && payment.receivedMinor === null,
+    );
+    const paidTimes = settled.flatMap((payment) =>
+      payment.succeededAt ? [payment.succeededAt.getTime()] : [],
+    );
+    const receipt =
+      paidTimes.length > 0 &&
+      live.some((part) => part.state === 'paid' || part.state === 'confirmed')
+        ? {
+            paidAt: new Date(Math.max(...paidTimes)).toISOString(),
+            amount: toWire(
+              sum(settled.map((payment) => money(payment.amountMinor, payment.currency))),
+            ),
+          }
+        : null;
+    const open = trip.payments.find((payment) => payment.status === 'pending');
     // Each part in the trip's currency (checked when it joined), so the sums are exact.
     const total = sum(
       live.map((part) => money(BigInt(part.booking.total.amountMinor), trip.currency)),
@@ -579,6 +638,7 @@ export class TripsService {
               }
             : null,
       },
+      receipt,
     };
   }
 }

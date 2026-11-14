@@ -15,6 +15,7 @@ import { chosenMethod, MethodChoice, type PaymentMethodName } from '../checkout/
 import { ResultsLoading } from '../results/result-states';
 
 import { useTripT } from './trip-messages';
+import { saveTripReceipt } from './trip-receipt';
 import { TRIP_PART_VARIANT, TRIP_STATE_VARIANT } from './trip-states';
 
 type Trip = Schemas['Trip'];
@@ -218,6 +219,14 @@ export function TripView({
     }
   };
 
+  /** Once paid: the receipt of what the trip's payment came to and what each part took. */
+  const saveReceipt = async () => {
+    setBusy('receipt');
+    setError(null);
+    if (!(await saveTripReceipt(trip))) setError(t('trips.receipt.failed'));
+    setBusy(null);
+  };
+
   const deleteTrip = async () => {
     setBusy('delete');
     setError(null);
@@ -291,6 +300,38 @@ export function TripView({
         <p role="status" className="font-body text-body-sm text-foreground">
           {t('trips.page.closed')}
         </p>
+      ) : null}
+      {trip.receipt ? (
+        <Card asChild className="flex flex-col gap-3 p-4">
+          <section aria-labelledby="trip-receipt-heading" data-testid="trip-receipt-card">
+            <h2 id="trip-receipt-heading" className="font-heading text-h3 font-bold text-heading">
+              {t('trips.receipt.heading')}
+            </h2>
+            <dl className="flex flex-col gap-3 font-body text-body-sm text-foreground md:flex-row md:gap-8">
+              <div className="flex flex-col gap-1">
+                <dt>{t('trips.receipt.paidOn')}</dt>
+                <dd className="font-bold" data-testid="trip-receipt-paid-on">
+                  {format.dateTime(trip.receipt.paidAt, undefined, { year: true })}
+                </dd>
+              </div>
+              <div className="flex flex-col gap-1">
+                <dt>{t('trips.receipt.amount')}</dt>
+                <dd className="font-bold" data-testid="trip-receipt-amount">
+                  {format.money(trip.receipt.amount)}
+                </dd>
+              </div>
+            </dl>
+            <p className="font-body text-caption text-foreground">{t('trips.receipt.note')}</p>
+            <Button
+              className="self-start"
+              loading={busy === 'receipt'}
+              onClick={() => void saveReceipt()}
+              data-testid="trip-receipt"
+            >
+              {t('trips.receipt.download')}
+            </Button>
+          </section>
+        </Card>
       ) : null}
       {trip.currency !== currency && trip.state !== 'paid' && trip.state !== 'closed' ? (
         <p

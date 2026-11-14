@@ -15,6 +15,7 @@ import {
   type PaymentMethodName,
 } from '../components/booking/payment-options';
 import { Loading, Notice } from '../components/states';
+import { TRIP_STATE_VARIANT } from '../components/trips/built-trip-card';
 import { useSensitiveScreen } from '../hooks/use-sensitive-screen';
 import { isNetworkError, problemSlug } from '../lib/api';
 import { attestationHeader } from '../lib/attestation';
@@ -22,8 +23,6 @@ import { openHostedCheckout } from '../lib/payment';
 import { sharePlanPdf } from '../lib/plan-pdf';
 import { activeTrip, tripSearchPath } from '../lib/trip-builder';
 import { useApp, useT } from '../providers/app-provider';
-
-import { TRIP_STATE_VARIANT } from './trip-plan-screen';
 
 type Trip = Schemas['Trip'];
 type Part = Trip['parts'][number];
@@ -311,6 +310,24 @@ function BuiltTrip({ tripId }: { tripId: string }) {
     }
   };
 
+  /** Once paid: the receipt of what the trip's payment came to and what each part took. */
+  const saveReceipt = async () => {
+    setBusy('receipt');
+    setError(null);
+    try {
+      await sharePlanPdf(
+        session,
+        `/v1/trips/${trip.id}/receipt`,
+        `suskii-receipt-${trip.reference}.pdf`,
+        t('trips.receipt.download'),
+      );
+    } catch {
+      setError(t('trips.receipt.failed'));
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const deleteTrip = async () => {
     setBusy('delete');
     setError(null);
@@ -387,6 +404,44 @@ function BuiltTrip({ tripId }: { tripId: string }) {
       ) : null}
       {trip.state === 'closed' ? (
         <Text className="font-body text-body-sm text-foreground">{t('trips.page.closed')}</Text>
+      ) : null}
+      {trip.receipt ? (
+        <Card testID="trip-receipt-card" className="gap-3 p-4">
+          <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
+            {t('trips.receipt.heading')}
+          </Text>
+          <View className="flex-row justify-between gap-4">
+            <Text className="flex-1 font-body text-body-sm text-foreground">
+              {t('trips.receipt.paidOn')}
+            </Text>
+            <Text
+              testID="trip-receipt-paid-on"
+              className="font-body-bold text-body-sm text-foreground"
+            >
+              {format.dateTime(trip.receipt.paidAt, undefined, { year: true })}
+            </Text>
+          </View>
+          <View className="flex-row justify-between gap-4">
+            <Text className="flex-1 font-body text-body-sm text-foreground">
+              {t('trips.receipt.amount')}
+            </Text>
+            <Text
+              testID="trip-receipt-amount"
+              className="font-body-bold text-body-sm text-foreground"
+            >
+              {format.money(trip.receipt.amount)}
+            </Text>
+          </View>
+          <Text className="font-body text-caption text-foreground">{t('trips.receipt.note')}</Text>
+          <Button
+            testID="trip-receipt"
+            fullWidth
+            loading={busy === 'receipt'}
+            onPress={() => void saveReceipt()}
+          >
+            {t('trips.receipt.download')}
+          </Button>
+        </Card>
       ) : null}
       {trip.currency !== currency && trip.state !== 'paid' && trip.state !== 'closed' ? (
         <Text

@@ -33801,6 +33801,61 @@
         }
       }
     },
+    "/v1/trips/{tripId}/receipt": {
+      "get": {
+        "operationId": "downloadTripReceipt",
+        "summary": "The receipt of one of my paid trips as a PDF",
+        "description": "Each payment for the trip that went through (when, the amount, the method the provider reported, its reference and anything refunded at once), each part it paid (its booking reference, what it is, the amount and the taxes on our service inside it) and the total paid. 409 `trip-not-paid` until a payment has gone through. No name, contact or card detail is printed on it.",
+        "tags": [
+          "Trips"
+        ],
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/visa/documents/{documentId}/content": {
       "get": {
         "operationId": "getVisaDocumentContent",
@@ -71526,6 +71581,30 @@
               "open"
             ],
             "additionalProperties": false
+          },
+          "receipt": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "paidAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "amount": {
+                    "$ref": "#/components/schemas/Money"
+                  }
+                },
+                "required": [
+                  "paidAt",
+                  "amount"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [

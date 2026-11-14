@@ -2712,6 +2712,9 @@ export const sw: Messages = {
       empty: 'Safari unazohifadhi ukiwa umeingia huonekana hapa.',
       open: 'Fungua safari {reference}',
       more: 'Onyesha zaidi',
+      combinedHeading: 'Safari zilizounganishwa',
+      combinedIntro:
+        'Safari zenye sehemu kadhaa zilizolipiwa mara moja. Kila sehemu pia imeorodheshwa hapa chini kama uhifadhi wake.',
     },
     travellers: {
       heading: 'Wasafiri waliohifadhiwa',
@@ -3526,6 +3529,15 @@ export const sw: Messages = {
     intro:
       'Unganisha ndege, hoteli, gari la kukodi, usafiri wa uwanja wa ndege na bima ya safari, au sehemu unazotaka tu. Unaona bei ya kila sehemu na jumla moja, kisha unalipa mara moja.',
     pdf: 'Hifadhi mpango huu kama PDF',
+    receipt: {
+      heading: 'Risiti',
+      paidOn: 'Imelipwa tarehe',
+      amount: 'Kiasi kilicholipwa',
+      download: 'Hifadhi risiti kama PDF',
+      downloadLabel: 'Hifadhi risiti ya safari {reference} kama PDF',
+      note: 'Inaonyesha malipo yako na gharama ya kila sehemu. Tiketi na vocha ziko kwenye uhifadhi wa kila sehemu.',
+      failed: 'Hatukuweza kupata risiti. Jaribu tena.',
+    },
     details: {
       title: 'Taarifa za safari yako',
       heading: 'Weka taarifa za kila mtu mara moja',

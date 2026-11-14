@@ -79,6 +79,10 @@ the real data.
 - **Test switches**: `MOCK_REPRICE_RULES`, `MOCK_SCHEDULE_CHANGE_RULES`, `MOCK_FLIGHT_STATUS_RULES`,
   demo drivers (`rides:demo`, `E2E_DEMO_DRIVERS`) and the phone check flows run on test stacks
   only.
+- **The scripted Ask Suskii** (`apps/agent/src/test/scripted-service.ts`, `AGENT_TEST_SCRIPT`,
+  ADR-120): the agent service with a script in place of the model, started only by the API's
+  end-to-end test of a whole trip. The build leaves it out of the image and it refuses to start
+  in production; nothing to replace.
 
 ## 4. Before travellers talk to Ask Suskii
 

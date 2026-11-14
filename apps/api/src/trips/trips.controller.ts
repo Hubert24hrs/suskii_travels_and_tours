@@ -13,16 +13,31 @@ import {
 } from '@nestjs/common';
 import type { z } from 'zod';
 
-import { fromWire, type TripComponent, type TripPartState } from '@suskii/shared';
+import {
+  add,
+  fromWire,
+  money,
+  subtract,
+  TRIP_COMPONENTS,
+  zero,
+  type Money,
+  type TripComponent,
+  type TripPartState,
+} from '@suskii/shared';
 
 import { DeviceAttested } from '../attestation/attestation.guard';
 import { ATTESTATION_HEADER } from '../attestation/attestation.schemas';
 import { CurrentAuth, type AuthContext, type AuthenticatedRequest } from '../auth/auth-context';
 import { bookingCaller } from '../bookings/booking-caller';
+import { documentTaxes } from '../bookings/booking-documents.service';
 import { requestContext } from '../common/request-context';
 import { APP_CONFIG, type AppConfig } from '../config/config';
 import { Contract, fileResponse } from '../contract/contract';
-import { renderTripPlanPdf } from '../documents/plan-pdf';
+import {
+  renderTripPlanPdf,
+  renderTripReceiptPdf,
+  type TripReceiptDocument,
+} from '../documents/plan-pdf';
 import { BOOKING_LIMITS, RateLimit } from '../rate-limit/rate-limit.decorator';
 
 import { TripBookingService } from './trip-booking.service';
@@ -181,6 +196,79 @@ export class TripsController {
     return new StreamableFile(bytes, {
       type: 'application/pdf',
       disposition: `attachment; filename="suskii-trip-${trip.reference}.pdf"`,
+      length: bytes.byteLength,
+    });
+  }
+
+  @Get('trips/:tripId/receipt')
+  @Contract({
+    operationId: 'downloadTripReceipt',
+    summary: 'The receipt of one of my paid trips as a PDF',
+    description:
+      'Each payment for the trip that went through (when, the amount, the method the provider reported, its reference and anything refunded at once), each part it paid (its booking reference, what it is, the amount and the taxes on our service inside it) and the total paid. 409 `trip-not-paid` until a payment has gone through. No name, contact or card detail is printed on it.',
+    tags: TAGS,
+    params: tripIdParamsSchema,
+    responses: { 200: fileResponse('application/pdf') },
+    errors: [404, 409],
+  })
+  async receipt(
+    @Param('tripId') tripId: string,
+    @CurrentAuth() auth: AuthContext,
+  ): Promise<StreamableFile> {
+    const { trip, payments } = await this.trips.receipt(tripId, auth.userId);
+    const order = (component: string | null): number =>
+      TRIP_COMPONENTS.indexOf(component as TripComponent);
+    const parts: { order: number; line: TripReceiptDocument['parts'][number] }[] = [];
+    let total: Money = zero(trip.currency);
+    const paid = payments.map((payment) => {
+      const amount = money(payment.amountMinor, payment.currency);
+      let kept: Money = zero(payment.currency);
+      for (const share of payment.shares) {
+        if (share.requiresRefund) continue;
+        const taken = money(share.amountMinor, share.currency);
+        kept = add(kept, taken);
+        const part = trip.parts.find((entry) => entry.booking.id === share.bookingId);
+        const component = TRIP_COMPONENTS.find(
+          (item) => item === (part?.component ?? share.booking.tripComponent),
+        );
+        parts.push({
+          order: order(component ?? null),
+          line: {
+            part: component ? PART_NAMES[component] : 'Booking',
+            booking: part?.booking.reference ?? share.booking.reference,
+            what: part ? partLine(part.booking) : share.booking.reference,
+            amount: taken,
+            taxes: documentTaxes(share.booking),
+          },
+        });
+      }
+      total = add(total, kept);
+      const refunded = subtract(amount, kept);
+      return {
+        paidAt: payment.succeededAt ?? payment.updatedAt,
+        reference: payment.providerReference,
+        method: payment.method,
+        amount,
+        refunded: refunded.minor > 0n ? refunded : null,
+      };
+    });
+    const bytes = await renderTripReceiptPdf({
+      reference: trip.reference,
+      issuedAt: new Date(),
+      link: `${this.config.WEB_APP_URL.replace(/\/$/, '')}/trips/${trip.id}`,
+      origin: place(trip.plan.origin),
+      destination: place(trip.plan.destination),
+      departDate: trip.plan.departDate,
+      returnDate: trip.plan.returnDate,
+      adults: trip.plan.adults,
+      children: trip.plan.children,
+      payments: paid,
+      parts: parts.sort((a, b) => a.order - b.order).map((entry) => entry.line),
+      total,
+    });
+    return new StreamableFile(bytes, {
+      type: 'application/pdf',
+      disposition: `attachment; filename="suskii-receipt-${trip.reference}.pdf"`,
       length: bytes.byteLength,
     });
   }

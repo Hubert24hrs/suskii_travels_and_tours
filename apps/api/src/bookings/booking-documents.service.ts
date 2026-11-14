@@ -423,7 +423,8 @@ export class BookingDocumentsService {
  * The taxes on our service the booking was priced with (ADR-072), from its stored price; a price
  * stored before tax lines existed has none.
  */
-function documentTaxes(booking: { price: unknown }): DocumentTax[] {
+/** The taxes on Suskii's service a booking's stored price holds (ADR-072), as documents print them. */
+export function documentTaxes(booking: { price: unknown }): DocumentTax[] {
   const lines = (bookingPrice(booking) as Partial<BookingPriceDto>).serviceTaxes ?? [];
   return lines.map((line) => ({
     label: line.label,

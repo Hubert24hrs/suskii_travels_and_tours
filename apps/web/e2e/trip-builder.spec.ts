@@ -1,4 +1,6 @@
-import type { Locator, Page } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
+
+import type { Download, Locator, Page } from '@playwright/test';
 import { createFormatters } from '@suskii/i18n';
 
 import { expect, expectNoAxeViolations, isoDaysFromToday, t, test } from './fixtures';
@@ -24,14 +26,23 @@ const newEmail = (label: string): string =>
 
 interface Trip {
   id: string;
+  reference: string;
   state: string;
+  receipt?: { paidAt: string; amount: { amountMinor: number; currency: string } } | null;
   total: { amountMinor: number; currency: string };
   due: { amountMinor: number; currency: string };
   parts: {
     component: string;
     state: string;
-    booking: { id: string; total: { amountMinor: number; currency: string } };
+    booking: { id: string; reference: string; total: { amountMinor: number; currency: string } };
   }[];
+}
+
+/** A saved PDF: its file name is ours, and the file is a PDF. */
+async function expectPdf(file: Download, name: string): Promise<void> {
+  expect(file.suggestedFilename()).toBe(name);
+  const path = await file.path();
+  expect((await readFile(path)).subarray(0, 5).toString()).toBe('%PDF-');
 }
 
 async function register(page: Page, label: string): Promise<void> {
@@ -336,6 +347,19 @@ test.describe('trip builder (ADR-099)', () => {
     const paid = await tripFromApi(page, tripId);
     expect(paid.due.amountMinor).toBe(0);
     await expect(page.getByRole('button', { name: t('trips.page.delete') })).toHaveCount(0);
+
+    // The receipt: when the trip was paid and what the payment came to, saved as a PDF.
+    expect(paid.receipt?.amount).toEqual(paid.total);
+    const receipt = page.getByTestId('trip-receipt-card');
+    await expect(receipt.getByRole('heading', { name: t('trips.receipt.heading') })).toBeVisible();
+    await expect(page.getByTestId('trip-receipt-amount')).toHaveText(total);
+    await expect(page.getByTestId('trip-receipt-paid-on')).not.toBeEmpty();
+    const [saved] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByTestId('trip-receipt').click(),
+    ]);
+    await expectPdf(saved, `suskii-receipt-${paid.reference}.pdf`);
+    await expect(page.getByText(t('trips.receipt.failed'))).toHaveCount(0);
     await expectNoAxeViolations(page);
 
     // Each part is an ordinary booking with its own page.
@@ -352,6 +376,33 @@ test.describe('trip builder (ADR-099)', () => {
       .getByRole('link', { name: t('booking.builtTrip.open') })
       .click();
     await page.waitForURL(new RegExp(`/trips/${tripId}$`));
+
+    // The account keeps the trip with its receipt, and every part as a booking of its own.
+    await page.goto('/account/trips');
+    const kept = page.getByTestId(`account-combined-trip-${paid.reference}`);
+    await expect(kept.getByText(t('trips.states.paid'))).toBeVisible();
+    await expect(kept.getByText(total)).toBeVisible();
+    const [again] = await Promise.all([
+      page.waitForEvent('download'),
+      kept
+        .getByRole('button', {
+          name: t('trips.receipt.downloadLabel', { reference: paid.reference }),
+        })
+        .click(),
+    ]);
+    await expectPdf(again, `suskii-receipt-${paid.reference}.pdf`);
+    await expect(page.getByText(t('trips.receipt.failed'))).toHaveCount(0);
+    const bookings = page.getByTestId('account-trips');
+    for (const item of paid.parts) {
+      await expect(bookings.getByText(item.booking.reference, { exact: false })).toBeVisible();
+    }
+    await expectNoAxeViolations(page);
+    // From the account back to the trip.
+    await kept
+      .getByRole('link', { name: t('account.trips.open', { reference: paid.reference }) })
+      .click();
+    await page.waitForURL(new RegExp(`/trips/${tripId}$`));
+    await expect(page.getByTestId('trip-receipt-card')).toBeVisible();
   });
 
   test('keeps a plan through sign-up, takes only the parts wanted and can be deleted', async ({

@@ -80,3 +80,7 @@ updates:
         update-types: ['version-update:semver-major']
       - dependency-name: 'eslint-config-expo'
         update-types: ['version-update:semver-major']
+      # Prisma's pg adapter can overlap the queries of one transaction, which pg 9 refuses
+      # (ADR-002): pg majors wait for an adapter that sends one query at a time.
+      - dependency-name: 'pg'
+        update-types: ['version-update:semver-major']
