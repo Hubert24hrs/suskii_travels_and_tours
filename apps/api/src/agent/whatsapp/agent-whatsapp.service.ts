@@ -93,6 +93,12 @@ export const AGENT_WHATSAPP_NOTES: Record<AgentCardNote, string> = {
     'Please note: to pay for all of this at once, sign in on our website or in our app and ask Ask Suskii there. You can also book each part from its own link.',
   trip_separate:
     'Please note: packages, tours, visa assistance, eSIMs and lounge access are not in the trip’s single payment: book each one from its own link.',
+  places_google:
+    'Please note: places, addresses and ratings are from Google Maps. Check opening hours with the place before you go.',
+  distance_straight:
+    'Please note: distances are in a straight line, not by road, so the trip there is longer.',
+  driving_estimate:
+    'Please note: driving times are estimates for a car without traffic, so allow more time at busy hours.',
 };
 
 /** One card as lines of plain text: what it is, its facts, its price and where to open it. */

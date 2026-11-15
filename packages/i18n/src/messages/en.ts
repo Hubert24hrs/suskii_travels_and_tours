@@ -3246,6 +3246,12 @@ export const en = {
         'To pay for all of this at once, sign in and ask again. You can also book each part from its own card.',
       trip_separate:
         'Packages, tours, visa assistance, eSIMs and lounge access are not in the trip’s single payment: book each one from its own card.',
+      places_google:
+        'Places, addresses and ratings are from Google Maps. Check opening hours with the place before you go.',
+      distance_straight:
+        'Distances are in a straight line, not by road, so the trip there is longer.',
+      driving_estimate:
+        'Driving times are estimates for a car without traffic, so allow more time at busy hours.',
     },
     memory: {
       heading: 'What the assistant remembers',

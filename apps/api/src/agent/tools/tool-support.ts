@@ -139,6 +139,18 @@ export function durationText(minutes: number): string {
   return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`;
 }
 
+/**
+ * "850 m", "4.2 km" or "38 km": a distance as a person reads it (ADR-122), so a model never
+ * converts or rounds one itself.
+ */
+export function distanceText(metres: number): string {
+  const whole = Math.max(0, Math.round(metres));
+  const tens = Math.max(10, Math.round(whole / 10) * 10);
+  if (tens < 1000) return `${tens} m`;
+  if (whole < 9950) return `${(whole / 1000).toFixed(1).replace(/\.0$/, '')} km`;
+  return `${Math.round(whole / 1000)} km`;
+}
+
 /** "2026-12-01T10:25" to "2026-12-01 10:25": a wall time, wherever the clock is. */
 export const wallTime = (local: string): string => local.replace('T', ' ').slice(0, 16);
 

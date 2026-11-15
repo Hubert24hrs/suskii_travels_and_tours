@@ -3337,6 +3337,12 @@ export const pt: Messages = {
         'Para pagar tudo de uma só vez, inicie sessão e peça de novo. Também pode reservar cada parte a partir do seu próprio cartão.',
       trip_separate:
         'Os pacotes, os passeios, a assistência com vistos, os eSIM e o acesso a salas VIP não entram no pagamento único da viagem: reserve cada um a partir do seu próprio cartão.',
+      places_google:
+        'Os locais, os endereços e as avaliações vêm do Google Maps. Confirme o horário de funcionamento com o local antes de ir.',
+      distance_straight:
+        'As distâncias são em linha reta e não pela estrada, por isso o percurso real é mais longo.',
+      driving_estimate:
+        'Os tempos de condução são estimativas sem trânsito, por isso conte com mais tempo nas horas de ponta.',
     },
     memory: {
       heading: 'O que o assistente guarda',

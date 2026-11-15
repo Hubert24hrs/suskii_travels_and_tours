@@ -3326,6 +3326,12 @@ export const sw: Messages = {
         'Ili kulipia vyote kwa mara moja, ingia kwenye akaunti yako na uulize tena. Unaweza pia kuweka kila sehemu kutoka kwenye kadi yake.',
       trip_separate:
         'Vifurushi, ziara, msaada wa visa, eSIM na kuingia kwenye sebule hazimo kwenye malipo moja ya safari: weka kila kimoja kutoka kwenye kadi yake.',
+      places_google:
+        'Maeneo, anwani na alama za tathmini zinatoka Google Maps. Thibitisha saa za kufungua na mahali husika kabla ya kwenda.',
+      distance_straight:
+        'Umbali umepimwa kwa mstari ulionyooka, si kwa barabara, kwa hiyo safari halisi ni ndefu zaidi.',
+      driving_estimate:
+        'Muda wa kuendesha gari ni makadirio bila msongamano wa magari, kwa hiyo weka muda zaidi wakati wa msongamano.',
     },
     memory: {
       heading: 'Mambo ambayo msaidizi anakumbuka',

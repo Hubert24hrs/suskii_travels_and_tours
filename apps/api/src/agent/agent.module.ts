@@ -14,6 +14,7 @@ import { DealsModule } from '../deals/deals.module';
 import { DocumentsModule } from '../documents/documents.module';
 import { GroundModule } from '../ground/ground.module';
 import { InhouseModule } from '../inhouse/inhouse.module';
+import { LocationModule } from '../location/location.module';
 import { PriceIntelModule } from '../price-intel/price-intel.module';
 import { PrivacyModule } from '../privacy/privacy.module';
 import { RentalsModule } from '../rentals/rentals.module';
@@ -62,7 +63,9 @@ import { CheckoutTools } from './tools/checkout-tools';
 import { CommitTools } from './tools/commit-tools';
 import { DisruptionTools } from './tools/disruption-tools';
 import { KnowledgeTools } from './tools/knowledge-tools';
+import { LocationTools } from './tools/location-tools';
 import { MemoryTools } from './tools/memory-tools';
+import { AgentPlaceRefs } from './tools/place-refs';
 import { PlanningTools } from './tools/planning-tools';
 import { PlatformTools } from './tools/platform-tools';
 import { AgentPreparedParts } from './tools/prepared-parts';
@@ -97,6 +100,7 @@ import { AgentWhatsApp } from './whatsapp/agent-whatsapp.service';
     DocumentsModule,
     GroundModule,
     InhouseModule,
+    LocationModule,
     PriceIntelModule,
     PrivacyModule,
     RentalsModule,
@@ -134,6 +138,8 @@ import { AgentWhatsApp } from './whatsapp/agent-whatsapp.service';
     PlanningTools,
     CatalogTools,
     SearchTools,
+    AgentPlaceRefs,
+    LocationTools,
     AgentPreparedParts,
     CheckoutTools,
     TripCheckoutTools,

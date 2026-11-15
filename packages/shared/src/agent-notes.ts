@@ -27,6 +27,13 @@ export const AGENT_CARD_NOTES = [
   // What a combined trip does not take (packages, tours, visa assistance, eSIMs, lounges) is
   // booked and paid on its own page.
   'trip_separate',
+  // Places, addresses and ratings from Google Maps (ADR-122): the attribution Google's terms
+  // ask for wherever its places are shown without its map.
+  'places_google',
+  // A distance measured in a straight line (ADR-122): the road is longer.
+  'distance_straight',
+  // Driving times from a router without traffic (ADR-122): estimates, longer at busy hours.
+  'driving_estimate',
 ] as const;
 export type AgentCardNote = (typeof AGENT_CARD_NOTES)[number];
 

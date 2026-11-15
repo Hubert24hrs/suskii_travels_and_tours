@@ -63,6 +63,7 @@ describe('customer agent tools (e2e)', () => {
       AGENT_TOOLS_TOKEN: TOOLS_TOKEN,
       AGENT_RUN_TOKEN: RUN_TOKEN,
       AGENT_RUN_MAX_TOOL_CALLS: 40,
+      PLACES_PROVIDER: 'mock',
     });
     grants = ctx.app.get(AgentGrants);
   });
@@ -235,6 +236,10 @@ describe('customer agent tools (e2e)', () => {
       'packages.prepare_booking',
       'packages.search',
       'payments.options',
+      'places.airports_near',
+      'places.compare_proximity',
+      'places.find',
+      'places.nearby',
       'platform.guide',
       'platform.status',
       'prices.indicative',
@@ -466,6 +471,97 @@ describe('customer agent tools (e2e)', () => {
     );
     expect(backwards.result?.problems).toContain('check_out_not_after_check_in');
     expect(backwards.result).toMatchObject({ found: 0, hotels: [] });
+  });
+
+  it('finds places, measures hotels from a place and names the nearest airports, from references the platform holds (ADR-122)', async () => {
+    const cityId =
+      (await ctx.prisma.airport.findUniqueOrThrow({ where: { iataCode: 'ABV' } })).cityId ?? '';
+    // One run: the places one call finds are what the next call may measure from.
+    const grant = await guestGrant();
+    const search = await call<{ hotels: { rateId: string; name: string }[] }>(
+      'hotels.search',
+      'hotels',
+      { cityId, checkIn: inDays(30), checkOut: inDays(33), rooms: [{ adults: 2 }], limit: 3 },
+      grant,
+    );
+    const hotels = search.result?.hotels ?? [];
+    const rateIds = hotels.map((hotel) => hotel.rateId);
+    expect(rateIds.length).toBeGreaterThan(1);
+
+    // Around the first hotel: sample places, each with a reference and a straight-line distance.
+    const nearby = await call<{
+      around: string | null;
+      places: { place: string; name: string; distance: string | null; sample: boolean }[];
+    }>('places.nearby', 'hotels', { hotel: rateIds[0], kind: 'restaurants', limit: 3 }, grant);
+    expect(nearby.status).toBe('ok');
+    expect(nearby.result?.around).toBe(hotels[0]?.name);
+    expect(nearby.result?.places).toHaveLength(3);
+    for (const place of nearby.result?.places ?? []) {
+      expect(place.place).toMatch(/^place_\d+$/);
+      expect(place.name).toMatch(/^Sample restaurant \d$/);
+      expect(place.distance).toMatch(/^\d+(\.\d)? k?m$/);
+      expect(place.sample).toBe(true);
+    }
+    expect(nearby.result?.cards?.map((card) => card.title)).toEqual(['distance_straight']);
+
+    // A landmark by name, then the hotels measured from it, nearest first, by the mock's road.
+    const found = await call<{ places: { place: string; name: string }[] }>(
+      'places.find',
+      'hotels',
+      { query: 'National Mosque, Abuja', nearCityId: cityId },
+      grant,
+    );
+    const place = found.result?.places[0]?.place;
+    expect(place).toMatch(/^place_\d+$/);
+    expect(found.result?.places[0]?.name).toBe('National Mosque, Abuja (sample)');
+    const compared = await call<{
+      hotels: {
+        rateId: string;
+        distance: string | null;
+        distanceMetres: number | null;
+        drivingTime: string | null;
+        measured: string;
+      }[];
+      sampleFigures: boolean;
+    }>('places.compare_proximity', 'hotels', { hotels: rateIds, place }, grant);
+    const rows = compared.result?.hotels ?? [];
+    expect(rows.map((row) => row.rateId).sort()).toEqual([...rateIds].sort());
+    for (const row of rows) {
+      expect(row).toMatchObject({ measured: 'by_road' });
+      expect(row.drivingTime).toMatch(/min|h/);
+    }
+    const metres = rows.map((row) => row.distanceMetres ?? 0);
+    expect(metres).toEqual([...metres].sort((a, b) => a - b));
+    expect(compared.result?.sampleFigures).toBe(true);
+    expect(compared.result?.cards?.map((card) => card.title)).toEqual(['driving_estimate']);
+
+    // The nearest airports come from our own list, with a driving time.
+    const airports = await call<{
+      around: string | null;
+      airports: { code: string; distance: string | null; drivingTime: string | null }[];
+    }>('places.airports_near', 'hotels', { hotel: rateIds[0], limit: 2 }, grant);
+    expect(airports.result?.around).toBe(hotels[0]?.name);
+    expect(airports.result?.airports[0]?.code).toBe('ABV');
+    expect(airports.result?.airports[0]?.drivingTime).toMatch(/min|h/);
+
+    // Exactly one thing to measure from; a place of another run, or a hotel of no search, is
+    // not one; and only the agents that talk about stays and trips ask.
+    const problems = async (tool: string, args: Record<string, unknown>, using = grant) =>
+      (await call(tool, 'hotels', args, using)).result?.problems;
+    expect(await problems('places.nearby', { kind: 'shopping' })).toEqual(['anchor_required']);
+    expect(await problems('places.nearby', { airport: 'ABV', place, kind: 'shopping' })).toEqual([
+      'anchor_required',
+    ]);
+    expect(
+      await problems('places.nearby', { place, kind: 'shopping' }, await guestGrant()),
+    ).toEqual(['place_unknown']);
+    expect(
+      await problems('places.compare_proximity', { hotels: ['nope.nope.r0'], airport: 'ABV' }),
+    ).toEqual(['search_expired']);
+    expect(await problems('places.find', { query: '+234 803 123 4567' })).toEqual(['query_empty']);
+    expect(
+      await call('places.nearby', 'flights', { airport: 'ABV', kind: 'shopping' }, grant),
+    ).toMatchObject({ status: 'denied', reason: 'agent' });
   });
 
   it('prepares the booking of a chosen flight: a quote and a card to the booking page, nothing booked', async () => {

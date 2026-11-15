@@ -3368,6 +3368,12 @@ export const fr: Messages = {
         'Pour tout payer en une seule fois, connectez-vous et demandez à nouveau. Vous pouvez aussi réserver chaque partie depuis sa propre carte.',
       trip_separate:
         'Les forfaits, les visites, l’aide au visa, les eSIM et l’accès aux salons ne font pas partie du paiement unique du voyage : réservez chacun depuis sa propre carte.',
+      places_google:
+        'Les lieux, les adresses et les notes proviennent de Google Maps. Vérifiez les horaires d’ouverture auprès du lieu avant d’y aller.',
+      distance_straight:
+        'Les distances sont mesurées à vol d’oiseau et non par la route : le trajet réel est plus long.',
+      driving_estimate:
+        'Les temps de trajet en voiture sont des estimations sans circulation : prévoyez plus de temps aux heures de pointe.',
     },
     memory: {
       heading: "Ce que l'assistant retient",

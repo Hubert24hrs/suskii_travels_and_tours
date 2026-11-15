@@ -2024,6 +2024,150 @@
         "thenCalls": [],
         "answer": "So far you have the Ibis Ikeja in Lagos, NGN 180,000.00. Open its card to enter the guests' details and pay."
       }
+    },
+    {
+      "id": "s45",
+      "kind": "caveat",
+      "agent": "hotels",
+      "message": "Where can I eat near Lagos airport?",
+      "locale": "en-NG",
+      "signedIn": false,
+      "results": {
+        "places.nearby": {
+          "problems": [],
+          "around": "Lagos (LOS)",
+          "places": [
+            {
+              "place": "place_1",
+              "name": "Ofada Hut",
+              "address": "Airport Rd, Ikeja",
+              "type": "restaurant",
+              "rating": 4.2,
+              "ratings": 860,
+              "priceLevel": "inexpensive",
+              "distance": "900 m",
+              "sample": false
+            },
+            {
+              "place": "place_2",
+              "name": "Mama Put Kitchen",
+              "address": "Obafemi Awolowo Way, Ikeja",
+              "type": "restaurant",
+              "rating": 4.1,
+              "ratings": 2310,
+              "priceLevel": "moderate",
+              "distance": "1.3 km",
+              "sample": false
+            }
+          ],
+          "cards": [
+            {
+              "kind": "note",
+              "title": "places_google",
+              "lines": []
+            },
+            {
+              "kind": "note",
+              "title": "distance_straight",
+              "lines": []
+            }
+          ]
+        }
+      },
+      "mustNotInclude": [],
+      "mustNotRun": [],
+      "mustShowNotes": ["places_google", "distance_straight"],
+      "recorded": {
+        "calls": [
+          {
+            "name": "places.nearby",
+            "arguments": {
+              "airport": "LOS",
+              "kind": "restaurants"
+            }
+          }
+        ],
+        "thenCalls": [],
+        "answer": "Near Lagos (LOS) you can eat at Ofada Hut, 900 m away and rated 4.2, or Mama Put Kitchen, 1.3 km away and rated 4.1. Both are an easy walk from the terminal."
+      }
+    },
+    {
+      "id": "s46",
+      "kind": "caveat",
+      "agent": "concierge",
+      "message": "Is Eko Atlantic far from the airport?",
+      "locale": "en-NG",
+      "signedIn": false,
+      "results": {
+        "places.find": {
+          "problems": [],
+          "places": [
+            {
+              "place": "place_1",
+              "name": "Eko Atlantic City",
+              "address": "Victoria Island, Lagos",
+              "type": "neighborhood",
+              "rating": 4.5,
+              "ratings": 3150,
+              "priceLevel": null,
+              "distance": null,
+              "sample": false
+            }
+          ],
+          "cards": [
+            {
+              "kind": "note",
+              "title": "places_google",
+              "lines": []
+            }
+          ]
+        },
+        "places.airports_near": {
+          "problems": [],
+          "around": null,
+          "airports": [
+            {
+              "code": "LOS",
+              "name": "Murtala Muhammed International Airport",
+              "city": "Lagos",
+              "distance": "27 km",
+              "distanceMetres": 27410,
+              "drivingTime": "52 min",
+              "measured": "by_road"
+            }
+          ],
+          "sampleFigures": false,
+          "cards": [
+            {
+              "kind": "note",
+              "title": "driving_estimate",
+              "lines": []
+            }
+          ]
+        }
+      },
+      "mustNotInclude": [],
+      "mustNotRun": [],
+      "mustShowNotes": ["driving_estimate"],
+      "recorded": {
+        "calls": [
+          {
+            "name": "places.find",
+            "arguments": {
+              "query": "Eko Atlantic, Lagos"
+            }
+          },
+          {
+            "name": "places.airports_near",
+            "arguments": {
+              "place": "place_1",
+              "limit": 1
+            }
+          }
+        ],
+        "thenCalls": [],
+        "answer": "Eko Atlantic is 27 km from Murtala Muhammed International Airport (LOS) by road, a 52 min drive, so you will always make your flight."
+      }
     }
   ]
 }
