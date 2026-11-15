@@ -208,11 +208,19 @@ function Header({
  * app has a screen for opens there (a prepared booking its checkout, Home its tabs), and only a
  * page the app lacks opens on the website. A card never leads anywhere else.
  */
-function ResultCard({ card }: { card: CardData }) {
+function ResultCard({
+  card,
+  onChoose,
+}: {
+  card: CardData;
+  /** Sends the traveller's choice of this option (ADR-123); only on the newest answer. */
+  onChoose?: ((text: string) => void) | undefined;
+}) {
   const { t } = useT();
   const format = useFormatters();
   const router = useRouter();
   const target = card.href ? assistantCardTarget(card.href, appConfig.webBaseUrl) : null;
+  const chooseable = card.choose !== undefined && onChoose !== undefined;
   const open = (to: AssistantCardTarget) => {
     if ('screen' in to) router.push(to.screen);
     else void openBrowserAsync(to.web);
@@ -241,7 +249,7 @@ function ResultCard({ card }: { card: CardData }) {
           </Text>
         </>
       ) : null}
-      {target ? (
+      {target && !chooseable ? (
         <View className="flex-row items-center gap-1 self-end pt-1">
           <Text className="font-body-bold text-body-sm text-primary">
             {t('assistant.cards.view')}
@@ -251,6 +259,42 @@ function ResultCard({ card }: { card: CardData }) {
       ) : null}
     </>
   );
+  // An option of the newest answer is chosen here, in the chat: the trip goes on from it.
+  if (chooseable && card.choose !== undefined) {
+    const option = card.choose;
+    return (
+      <View
+        testID={`assistant-option-${String(option)}`}
+        className="gap-1 rounded-lg border border-border bg-surface p-4"
+      >
+        {body}
+        <View className="flex-row items-center justify-end gap-3 pt-2">
+          {target ? (
+            <Pressable
+              accessibilityRole="link"
+              accessibilityLabel={`${card.title}, ${t('assistant.cards.view')}`}
+              hitSlop={8}
+              onPress={() => open(target)}
+              className="min-h-12 justify-center px-2"
+            >
+              <Text className="font-body-bold text-body-sm text-primary">
+                {t('assistant.cards.view')}
+              </Text>
+            </Pressable>
+          ) : null}
+          <Button
+            testID={`assistant-choose-${String(option)}`}
+            accessibilityLabel={t('assistant.cards.chooseLabel', { title: card.title })}
+            onPress={() =>
+              onChoose?.(t('assistant.cards.chosen', { option: String(option), title: card.title }))
+            }
+          >
+            {t('assistant.cards.choose')}
+          </Button>
+        </View>
+      </View>
+    );
+  }
   if (!target) {
     return <View className="gap-1 rounded-lg border border-border bg-surface p-4">{body}</View>;
   }
@@ -525,10 +569,13 @@ function Bubble({
   message,
   conversationId,
   onDecided,
+  onChoose,
 }: {
   message: Message;
   conversationId: string;
   onDecided: () => void;
+  /** Given to the newest answer only, while nothing is being answered. */
+  onChoose?: ((text: string) => void) | undefined;
 }) {
   const { t } = useT();
   const router = useRouter();
@@ -589,7 +636,7 @@ function Bubble({
         {message.cards.map((card, index) =>
           card.kind === 'note' ? null : (
             // Cards have no id of their own and never reorder within a message.
-            <ResultCard key={`${message.id}-${String(index)}`} card={card} />
+            <ResultCard key={`${message.id}-${String(index)}`} card={card} onChoose={onChoose} />
           ),
         )}
         {message.confirmationId ? (
@@ -846,6 +893,11 @@ export function AssistantScreen() {
   const answering = Boolean(current?.activeRunId);
   const closed = current?.status === 'closed';
   const canSend = !closed && !answering && !busy && text.trim() !== '';
+  // Options are chosen from the newest answer only: an older list's "option 2" could name
+  // another hotel than the one the traveller sees (ADR-123).
+  const newest = messages.at(-1);
+  const choosing =
+    !closed && !answering && !busy && newest?.role === 'assistant' ? newest.id : null;
 
   return (
     <View testID="assistant-screen" className="flex-1 bg-background">
@@ -876,6 +928,7 @@ export function AssistantScreen() {
                     message={message}
                     conversationId={current?.id ?? ''}
                     onDecided={() => void queryClient.invalidateQueries({ queryKey: key })}
+                    onChoose={message.id === choosing ? (words) => void send(words) : undefined}
                   />
                 ))}
               </>

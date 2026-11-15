@@ -3224,6 +3224,9 @@ export const en = {
       indicativeNote:
         'Seen on another website, not a Suskii price. A person confirms the live price before anything is paid.',
       source: 'From our documents',
+      choose: 'Choose',
+      chooseLabel: 'Choose {title}',
+      chosen: 'I choose option {option}: {title}',
     },
     // What an answer is read with (ADR-107): shown whatever the assistant wrote.
     notes: {

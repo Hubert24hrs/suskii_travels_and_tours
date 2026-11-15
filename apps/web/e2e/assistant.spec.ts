@@ -200,6 +200,80 @@ test('an answer is read with its note, in words, whatever the assistant wrote', 
   await expectNoAxeViolations(page);
 });
 
+test('an option is chosen with its button, on the newest answer only (ADR-123)', async ({
+  page,
+}) => {
+  test.skip(OFF, WHY);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/assistant');
+  const chat = page.getByTestId('assistant-chat');
+  await chat.getByLabel(t('assistant.messageLabel')).fill('Plan my trip from Lagos to London');
+  await chat.getByTestId('assistant-send').click();
+  const answers = chat.getByTestId('assistant-message-assistant');
+  await expect(answers.first()).toContainText(/sample assistant/, { timeout: 20_000 });
+
+  // A step of a trip planned part by part, as the trip planner leaves it: each option carries
+  // its number to choose. The sample assistant plans no trip, so the options are put on the
+  // API's own answers on their way to the page.
+  await page.route('**/v1/agent/conversations/*', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.fallback();
+      return;
+    }
+    const response = await route.fetch();
+    const body = (await response.json()) as {
+      messages: { role: string; kind: string; cards: unknown[] }[];
+    };
+    for (const message of body.messages) {
+      if (message.role !== 'assistant' || message.kind !== 'text') continue;
+      message.cards = [
+        {
+          kind: 'hotel',
+          title: 'Harbour View Hotel',
+          lines: ['4★'],
+          price: { amountMinor: 8_500_000, currency: 'NGN' },
+          href: '/hotels',
+          choose: 1,
+        },
+        {
+          kind: 'hotel',
+          title: 'Marina Suites',
+          lines: ['3★'],
+          price: { amountMinor: 6_200_000, currency: 'NGN' },
+          choose: 2,
+        },
+      ];
+    }
+    await route.fulfill({ response, json: body });
+  });
+  await page.goto('/assistant');
+
+  const first = answers.first();
+  await expect(first.getByRole('listitem')).toHaveCount(2);
+  const marina = first.getByRole('button', {
+    name: t('assistant.cards.chooseLabel', { title: 'Marina Suites' }),
+  });
+  await expect(marina).toHaveText(t('assistant.cards.choose'));
+  // An option keeps the link to its own page beside the button.
+  await expect(first.getByRole('link', { name: t('assistant.cards.view') })).toHaveCount(1);
+  await expectNoAxeViolations(page);
+
+  // The choice is sent as the traveller's own words, and the next answer comes.
+  await marina.click();
+  await expect(chat.getByTestId('assistant-message-user').last()).toContainText(
+    t('assistant.cards.chosen', { option: '2', title: 'Marina Suites' }),
+  );
+  await expect(answers).toHaveCount(2, { timeout: 20_000 });
+  await expect(answers.last()).toContainText(/sample assistant/, { timeout: 20_000 });
+
+  // Only the newest answer's options can be chosen: an older list may no longer be current.
+  await expect(answers.last().getByTestId('assistant-choose-2')).toBeVisible();
+  await expect(first.getByRole('button', { name: t('assistant.cards.choose') })).toHaveCount(0);
+  await expect(first.getByTestId('assistant-choose-1')).toHaveCount(0);
+  await expect(first.getByRole('link', { name: t('assistant.cards.view') })).toHaveCount(1);
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
 test.describe('the two limits', () => {
   // The day's spend cap is answered with 429 on purpose.
   test.use({ allowedConsoleErrors: [/status of 429/] });

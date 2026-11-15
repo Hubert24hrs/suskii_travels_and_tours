@@ -48,9 +48,17 @@ const actionLabel = (action: string) =>
     ? ACTION_LABELS[action as keyof typeof ACTION_LABELS]
     : 'assistant.confirm.actions.fallback';
 
-function ResultCard({ card }: { card: CardData }) {
+function ResultCard({
+  card,
+  onChoose,
+}: {
+  card: CardData;
+  /** Sends the traveller's choice of this option (ADR-123); only on the newest answer. */
+  onChoose?: ((words: string) => void) | undefined;
+}) {
   const { t } = useAssistantT();
   const format = useFormatters();
+  const option = card.choose;
   return (
     <li className="flex flex-col gap-1 rounded-md border border-border bg-surface p-3">
       {card.kind === 'source' ? (
@@ -75,14 +83,29 @@ function ResultCard({ card }: { card: CardData }) {
           </span>
         </>
       ) : null}
-      {card.href ? (
-        <AppLink
-          href={card.href}
-          className="inline-flex min-h-6 items-center font-body text-body-sm font-bold text-primary underline focus-visible:focus-ring"
-        >
-          {t('assistant.cards.view')}
-        </AppLink>
-      ) : null}
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        {card.href ? (
+          <AppLink
+            href={card.href}
+            className="inline-flex min-h-6 items-center font-body text-body-sm font-bold text-primary underline focus-visible:focus-ring"
+          >
+            {t('assistant.cards.view')}
+          </AppLink>
+        ) : null}
+        {option !== undefined && onChoose ? (
+          // The trip goes on from this option, in the chat (ADR-123).
+          <Button
+            type="button"
+            data-testid={`assistant-choose-${String(option)}`}
+            aria-label={t('assistant.cards.chooseLabel', { title: card.title })}
+            onClick={() =>
+              onChoose(t('assistant.cards.chosen', { option: String(option), title: card.title }))
+            }
+          >
+            {t('assistant.cards.choose')}
+          </Button>
+        ) : null}
+      </div>
     </li>
   );
 }
@@ -427,13 +450,17 @@ export function AssistantChat({
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    const words = text.trim();
-    if (!words || busy || answering) return;
+    if (await sendWords(text.trim())) setText('');
+  };
+
+  /** Sends the traveller's words (typed, or a Choose button's); true once they are taken. */
+  const sendWords = async (words: string): Promise<boolean> => {
+    if (!words || busy || answering) return false;
     setBusy(true);
     setError(null);
     try {
       const open = conversation ?? (await start());
-      if (!open) return;
+      if (!open) return false;
       const { data, error: problem } = await browserApi().POST('/v1/agent/chat', {
         headers: agentHeaders(open.id),
         body: { conversationId: open.id, text: words },
@@ -454,15 +481,16 @@ export function AssistantChat({
                     ? t('assistant.notices.unavailable')
                     : t('assistant.errors.send'),
         );
-        return;
+        return false;
       }
-      setText('');
       setConversation((current) =>
         current ? { ...current, messages: [...current.messages, data.message] } : current,
       );
       void follow(open.id);
+      return true;
     } catch {
       setError(t('assistant.errors.send'));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -477,6 +505,11 @@ export function AssistantChat({
   const messages = conversation?.messages ?? [];
   const headers = conversation ? agentHeaders(conversation.id) : {};
   const closed = conversation?.status === 'closed';
+  // Options are chosen from the newest answer only: an older list's "option 2" could name
+  // another hotel than the one the traveller sees (ADR-123).
+  const newest = messages.at(-1);
+  const choosing =
+    !closed && !busy && !answering && newest?.role === 'assistant' ? newest.id : null;
   return (
     <div className="flex flex-col gap-4" data-testid="assistant-chat">
       <p className="font-body text-body-sm text-muted">{t('assistant.disclosure')}</p>
@@ -534,7 +567,13 @@ export function AssistantChat({
                     {message.cards.map((card, index) =>
                       card.kind === 'note' ? null : (
                         // Cards have no id of their own and never reorder within a message.
-                        <ResultCard key={`${message.id}-${String(index)}`} card={card} />
+                        <ResultCard
+                          key={`${message.id}-${String(index)}`}
+                          card={card}
+                          onChoose={
+                            message.id === choosing ? (words) => void sendWords(words) : undefined
+                          }
+                        />
                       ),
                     )}
                   </ul>

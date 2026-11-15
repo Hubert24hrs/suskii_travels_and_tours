@@ -3304,6 +3304,9 @@ export const sw: Messages = {
       indicativeNote:
         'Imeonekana kwenye tovuti nyingine, si bei ya Suskii. Mtu huthibitisha bei halisi kabla ya malipo yoyote.',
       source: 'Kutoka kwenye nyaraka zetu',
+      choose: 'Chagua',
+      chooseLabel: 'Chagua {title}',
+      chosen: 'Nachagua chaguo la {option}: {title}',
     },
     // What an answer is read with (ADR-107): shown whatever the assistant wrote.
     notes: {

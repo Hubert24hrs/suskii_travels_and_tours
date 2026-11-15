@@ -586,6 +586,52 @@ describe('AssistantScreen', () => {
     expect(openBrowserAsync).toHaveBeenCalledWith('https://www.suskii.test/visa');
   });
 
+  it('chooses an option of the newest answer with its button, and offers none on an older one (ADR-123)', async () => {
+    await assistantSession.remember(ID);
+    const flights = answer({
+      id: '0193a000-0000-7000-8000-0000000000f1',
+      text: 'Here are the flights.',
+      cards: [{ kind: 'flight', title: 'Air Peace', lines: [], choose: 1 }],
+    });
+    const chose = message({ id: '0193a000-0000-7000-8000-0000000000f2', text: 'Option 1' });
+    const hotels = answer({
+      id: '0193a000-0000-7000-8000-0000000000f3',
+      text: 'Now choose where to stay.',
+      cards: [
+        { kind: 'hotel', title: 'Eko Signature', lines: ['5\u2605'], choose: 1 },
+        { kind: 'hotel', title: 'Lagoon View Suites', lines: ['4\u2605'], choose: 2 },
+      ],
+    });
+    const asked = message({ text: 'I choose option 2: Lagoon View Suites' });
+    const { calls } = mockApi({
+      'GET /v1/agent/status': available,
+      'POST /v1/agent/chat': () => json({ runId: RUN, message: asked }, 202),
+      [`GET /v1/agent/conversations/${ID}`]: () =>
+        json(conversation({ messages: [message(), flights, chose, hotels] })),
+    });
+    await renderWithApp(<AssistantScreen />);
+
+    // The newest answer's options have buttons; the flights shown earlier have none.
+    expect(await screen.findByTestId('assistant-choose-2')).toBeOnTheScreen();
+    expect(screen.getAllByTestId(/^assistant-choose-/)).toHaveLength(2);
+
+    await fireEvent.press(
+      screen.getByRole('button', {
+        name: m.assistant.cards.chooseLabel.replace('{title}', 'Lagoon View Suites'),
+      }),
+    );
+    await waitFor(() =>
+      expect(calls.some((call) => call.url.endsWith('/v1/agent/chat'))).toBe(true),
+    );
+    const chat = calls.find((call) => call.url.endsWith('/v1/agent/chat'));
+    expect(await chat?.json()).toEqual({
+      conversationId: ID,
+      text: m.assistant.cards.chosen
+        .replace('{option}', '2')
+        .replace('{title}', 'Lagoon View Suites'),
+    });
+  });
+
   it('tells a traveller whose asked-for conversation is gone, without starting another', async () => {
     params.mockReturnValue({ conversation: ID });
     const { calls } = mockApi({

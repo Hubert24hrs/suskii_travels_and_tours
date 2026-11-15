@@ -10,6 +10,8 @@ describe('assistantCardTarget', () => {
     expect(target(`/checkout/${ID}`)).toEqual({ screen: `/checkout/${id}` });
     // A combined trip is the app's trip screen; the app's `/trips/{id}` is a booking.
     expect(target(`/trips/${ID}`)).toEqual({ screen: `/trips/built/${id}` });
+    // A trip planned in the chat is checked out on its details form (ADR-123).
+    expect(target(`/trips/${ID}/details`)).toEqual({ screen: `/trips/built/${id}/details` });
     expect(target(`/bookings/${ID}`)).toEqual({ screen: `/trips/${id}` });
     expect(target(`/buses/trips/${ID}`)).toEqual({ screen: `/buses/trips/${id}` });
     expect(target(`/support/${ID}`)).toEqual({ screen: `/support/${id}` });

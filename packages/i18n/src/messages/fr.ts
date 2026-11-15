@@ -3346,6 +3346,9 @@ export const fr: Messages = {
       indicativeNote:
         'Vu sur un autre site, ce n’est pas un prix Suskii. Une personne confirme le prix réel avant tout paiement.',
       source: 'D’après nos documents',
+      choose: 'Choisir',
+      chooseLabel: 'Choisir {title}',
+      chosen: 'Je choisis l’option {option} : {title}',
     },
     // What an answer is read with (ADR-107): shown whatever the assistant wrote.
     notes: {

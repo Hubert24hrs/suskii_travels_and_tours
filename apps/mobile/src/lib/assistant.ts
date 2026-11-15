@@ -71,6 +71,11 @@ const ITEM_SCREENS: readonly [RegExp, (key: string) => string][] = [
   [new RegExp(`^/checkout/${UUID_PART}$`, 'i'), (id) => `/checkout/${id.toLowerCase()}`],
   // A combined trip it put together: the app's trip screen, where each part is booked (ADR-117).
   [new RegExp(`^/trips/${UUID_PART}$`, 'i'), (id) => `/trips/built/${id.toLowerCase()}`],
+  // The checkout of a trip planned in the chat: everyone's details once, then one payment.
+  [
+    new RegExp(`^/trips/${UUID_PART}/details$`, 'i'),
+    (id) => `/trips/built/${id.toLowerCase()}/details`,
+  ],
   // A booking of the account: the app's screen for it is under its Trips.
   [new RegExp(`^/bookings/${UUID_PART}$`, 'i'), (id) => `/trips/${id.toLowerCase()}`],
   // A bus trip it found: the seat map, where the traveller chooses the seats (ADR-117).

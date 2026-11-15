@@ -3495,6 +3495,9 @@ export const ar: Messages = {
       indicative: 'سعر تقريبي',
       indicativeNote: 'شوهد على موقع آخر وليس سعر Suskii. يؤكد شخص السعر الفعلي قبل دفع أي مبلغ.',
       source: 'من مستنداتنا',
+      choose: 'اختيار',
+      chooseLabel: 'اختيار {title}',
+      chosen: 'أختار الخيار {option}: {title}',
     },
     // What an answer is read with (ADR-107): shown whatever the assistant wrote.
     notes: {
