@@ -16,7 +16,7 @@ import { tripBookingLine } from '../lib/trip-builder';
 import { useApp, useT } from '../providers/app-provider';
 
 type Receipt = Schemas['TripReceipt'];
-type Loaded = { kind: 'ready'; receipt: Receipt } | { kind: 'missing' } | { kind: 'not_paid' };
+type Loaded = { kind: 'ready'; receipt: Receipt } | { kind: 'not_paid' };
 
 /** The channels a payment provider reports that the receipt puts into words (ADR-120). */
 const METHODS = [
@@ -69,7 +69,9 @@ function TripReceipt({ tripId }: { tripId: string }) {
       });
       if (data) return { kind: 'ready', receipt: data };
       if (response.status === 409) return { kind: 'not_paid' };
-      if (response.status === 404 || response.status === 400) return { kind: 'missing' };
+      // The screen opens from a trip the account just read, so a 404 is more likely a server
+      // older than the receipt's data than a trip that is gone, and the two answer alike: say
+      // only that the receipt could not be read, never that the trip is not there.
       throw new Error('receipt unavailable');
     },
   });
@@ -79,13 +81,12 @@ function TripReceipt({ tripId }: { tripId: string }) {
   if (!query.data)
     return (
       <Notice
+        testID="trip-receipt-error"
         body={isNetworkError(query.error) ? t('mobile.networkError') : t('trips.receipt.loadError')}
         action={t('trips.page.retry')}
         onAction={() => void refetch()}
       />
     );
-  if (query.data.kind === 'missing')
-    return <Notice testID="trip-receipt-missing" body={t('trips.page.missing')} />;
   if (query.data.kind === 'not_paid')
     return <Notice testID="trip-receipt-not-paid" body={t('trips.receipt.notPaid')} />;
 

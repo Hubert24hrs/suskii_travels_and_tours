@@ -702,10 +702,15 @@ describe('TripReceiptScreen (ADR-120)', () => {
     );
   });
 
-  it('says so when the trip is not the account’s', async () => {
+  it('says only that the receipt could not be read when the server answers 404', async () => {
+    // Another account's trip, or a server older than the receipt's data: they answer alike.
     mockApi({ [RECEIPT_PATH]: () => json({ status: 404 }, 404) });
     await renderWithApp(<TripReceiptScreen />, await signedInSession());
-    expect(await screen.findByTestId('trip-receipt-missing')).toBeOnTheScreen();
+    expect(await screen.findByTestId('trip-receipt-error')).toHaveTextContent(
+      m.trips.receipt.loadError,
+      { exact: false },
+    );
+    expect(screen.queryByText(m.trips.page.missing)).toBeNull();
   });
 
   it('hands the receipt to the share sheet as a PDF, and keeps no copy on the phone', async () => {
