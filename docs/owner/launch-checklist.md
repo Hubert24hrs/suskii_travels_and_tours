@@ -466,6 +466,34 @@ these steps. Do them on staging first. The runbook for the people on call is
    model on staging; then production, when you have read real conversations and are content.
    Pausing takes seconds and needs no code (7.4, item 6).
 
+### 7.7 Places and driving times from Google Maps (optional)
+
+Ask Suskii can say what is near a hotel or a landmark, how far each hotel of a search is from
+a place or an airport, and which airports are nearest (ADR-122). On the testing machine it
+does that with sample places today, each saying it is a sample. Nothing calls Google, and
+nothing is billed, until you do these steps.
+
+1. **Turn on the two APIs and create the key.** In the Google Cloud console of the project
+   (APIs and services), enable the Places API (New) and the Routes API. Then Credentials,
+   Create credentials, API key. Restrict it before you use it:
+   - API restrictions: only the Places API (New) and the Routes API.
+   - Application restrictions: the machine's address (the "IP addresses" restriction).
+2. **Store it, never share it.** Secret Manager, the secret `GOOGLE_MAPS_SERVER_KEY`, New
+   version, paste the key. It stays on the API: the website and the app never see it.
+3. **Set a budget alert** on the project (Billing, Budgets and alerts), and decide the daily
+   caps. The testing machine stops asking Google after 200 searches for places and 1,000
+   measured distances a day; production's defaults are 300 and 2,000.
+4. **Switch it on for the testing machine:**
+   `LOCATION_PROVIDER=google bash scripts/gcp/deploy-vm.sh suskii-travels-staging`.
+   `LOCATION_PROVIDER=mock` goes back to the samples.
+5. **Before production:** counsel's reading of Google's terms (Google is listed as an optional
+   processor in `docs/privacy/records-of-processing.md`; its Maps services have no regional
+   endpoint), and your privacy policy naming Google Maps. Then add the key to
+   `extra_secrets` and the settings in `production.tfvars.example`.
+
+The maps on the website and in the app (parts 2 and 3 of `docs/phases/google-maps.md`) need
+two more keys of their own, restricted to the website's addresses and to the app.
+
 ## 8. Legal and compliance
 
 1. **Data protection registration**: the NDPC (Nigeria), and the ODPC (Kenya) and the

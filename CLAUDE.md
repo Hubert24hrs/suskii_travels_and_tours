@@ -156,6 +156,15 @@ later, a transfer's arrival) are pickers: `DatePicker` in ui-native, with years,
 and hours and minutes on the 24 hour clock. The screens send the same ISO values as before, and no
 string shows a date in that form. Built and tested; the phone flows run on the emulator in CI.
 
+Google Maps Platform (outside the numbered phases, ADR-122, `docs/phases/google-maps.md`): part
+1, Ask Suskii's places and distances, is built: places behind `PlacesProvider` (`none`, `mock`,
+`google`, the Places API, New), Google's Routes API behind the existing `MapsProvider`, one
+`LocationService` with daily caps, and four read tools (`places.find`, `places.nearby`,
+`places.compare_proximity`, `places.airports_near`). The testing machine answers with samples
+(`LOCATION_PROVIDER=mock`) until the owner's restricted server key is in
+`GOOGLE_MAPS_SERVER_KEY` and `LOCATION_PROVIDER=google` is deployed; nothing calls Google before.
+Parts 2 and 3, Google maps on the website and in the app, are next.
+
 The backend on Google Cloud (outside the numbered phases, ADR-110): the owner asked for the
 backend and the assistant's backend to be deployed on Google's services. Built:
 `scripts/gcp/deploy-backend.sh <project>`, run by the owner in Cloud Shell, and
@@ -1038,6 +1047,28 @@ Tooling notes for agents:
   a link or a default by the visitor's or the device's calendar: late in a Lagos evening it is
   already tomorrow in Dubai, and the search refuses that date as in the past. A test of such a
   date pins the clock (`page.clock.setFixedTime`): a suite that only runs by day never meets it.
+
+### Places and distances (apps/api/src/location, agent/tools/location-tools.ts; ADR-122)
+
+- Places come only through `PlacesProvider` and routes only through `MapsProvider`, both asked by
+  `LocationService`: the day's cap for a Google API is counted in Redis before the call and fails
+  closed, a breaker stops a failing provider, search text goes through `scrubQuery()`. Never call
+  Google from anywhere else, and never send it a traveller, a booking or an account.
+- Nothing from Google is cached or stored but a place's id and point (`AgentPlaceRefs`, six
+  hours, as Google's terms allow). A name, address, rating or route a traveller reads comes from
+  a call made for that answer.
+- A distance a traveller reads is by road from a real router, or the straight line with no time
+  and said as such (`distance_straight`). The mock router answers only where mocks are allowed
+  and its figures are `sample`. Never estimate a road distance or a driving time.
+- A hotel at its city's point or at 0,0 has no position of its own (`HotelSearchService
+.positions()`): never measure from it. Tools take references the platform holds (a `rateId`,
+  an airport code, a `place_n`), never coordinates a model wrote.
+- Places from Google carry `places_google` (Google's attribution) and are never drawn on a map
+  that is not Google's, our drawn pin map included. No public route asks Google: a list on every
+  hotel page would bill a call per view. The server key never reaches a client; the maps on the
+  website and in the app (parts 2 and 3) get keys of their own, restricted to them.
+- A new kind of place is a value in `PLACE_KINDS` with its radius (`PLACE_RADIUS_METRES`) and
+  Google's types (`GOOGLE_PLACE_TYPES`).
 
 ### Combined trips (apps/api/src/trips, packages/shared trips; ADR-099)
 
@@ -2072,6 +2103,7 @@ Tooling notes for agents:
 - [ADR-119: Paystack's test mode on the testing backend, and Duffel in the mode of the payments](docs/decisions/ADR-119-paystack-test-mode-on-the-testing-backend.md)
 - [ADR-120: The receipt of a combined trip, and the whole trip run end to end](docs/decisions/ADR-120-the-receipt-of-a-combined-trip.md)
 - [ADR-121: The Ask Suskii chat in the app: its own header, a message box on the keyboard, cards that open the app, and no score](docs/decisions/ADR-121-the-ask-suskii-chat-in-the-app.md)
+- [ADR-122: Google Maps Platform for Ask Suskii's places and distances, behind our own providers](docs/decisions/ADR-122-google-maps-places-and-distances-for-ask-suskii.md)
 
 ## Open questions for the owner
 
@@ -2318,6 +2350,11 @@ per method on the testing backend (ADR-074); and the currencies the live account
 Added with the trip receipt (ADR-120): whether the receipt should also be emailed when a trip is
 paid, and the accountant's view on whether it must be a tax invoice in some markets (the
 seller's legal name, address and registration on it, from `TAX_SELLER_COUNTRY`'s rules).
+Added with Google Maps (ADR-122): a server key restricted to the Places API (New) and the Routes
+API and to the API's addresses (`GOOGLE_MAPS_SERVER_KEY`), a budget alert and the daily caps,
+counsel's reading of Google's terms and of where the Maps Platform processes requests, the
+privacy policy naming Google Maps, and whether hotel pages should list nearby places (a billed
+call per page view).
 Every
 owner action is listed, step by step, in
 `docs/owner/launch-checklist.md`, and every stand-in to replace before the public launch (with

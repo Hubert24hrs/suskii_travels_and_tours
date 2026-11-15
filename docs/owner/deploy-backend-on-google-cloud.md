@@ -163,6 +163,41 @@ The machine refuses any key but a test one (it must start with `sk_test_`): this
 takes real money. A live key goes only into production, after launch checklist 1.2. To go back
 to the stand-in page, deploy with `PAYMENT_PROVIDERS=mock`; the key stays in its secret.
 
+### Places and driving times from Google Maps
+
+Ask Suskii can say what is near a hotel or a landmark, how far each hotel of a search is from a
+place or an airport, and which airports are nearest (ADR-122). Out of the box the machine
+answers with sample places and sample distances, and says they are samples. With your own key
+the answers come from Google Maps. Google bills each search for places and each measured
+distance; the machine stops asking after 200 searches and 1,000 distances a day, and then
+answers that places are unavailable and gives distances in a straight line.
+
+1. In the Google Cloud console of `suskii-travels-staging`, **APIs and services**, enable the
+   **Places API (New)** and the **Routes API**.
+2. **Credentials**, **Create credentials**, **API key**. Before you use it, edit it:
+   - under **API restrictions**, choose **Restrict key** and tick only the Places API (New) and
+     the Routes API;
+   - under **Application restrictions**, choose **IP addresses** and add the machine's address
+     (the summary's "Machine" line shows it).
+     The key is a password: never paste it anywhere but the page in step 3.
+3. In Cloud Shell, deploy with Google:
+
+   ```bash
+   cd ~/suskii_travels_and_tours && git pull && LOCATION_PROVIDER=google bash scripts/gcp/deploy-vm.sh suskii-travels-staging
+   ```
+
+   The first time, it stops and prints the page to paste the key on,
+   <https://console.cloud.google.com/security/secret-manager/secret/GOOGLE_MAPS_SERVER_KEY/versions?project=suskii-travels-staging>.
+   Press **New version**, paste the key, save, and run the same command again. The summary
+   says "Places and distances: Google".
+
+4. Ask Ask Suskii for a hotel, then "which restaurants are near the first one?" or "how far
+   are these from the airport?". Each answer that holds Google's places shows "from Google
+   Maps" beside it.
+
+Set a budget alert on the project first (Billing, Budgets and alerts). To go back to the
+samples, deploy with `LOCATION_PROVIDER=mock`; the key stays in its secret.
+
 ### What this shape does not give you
 
 - It is one machine. When Google restarts it, or it is updated, the backend is down for about

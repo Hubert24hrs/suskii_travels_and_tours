@@ -6,6 +6,34 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Places and distances from Google Maps for Ask Suskii (2026-11-15, ADR-122)
+
+Part 1 of `docs/phases/google-maps.md`: the backend and the assistant. The maps on the website
+and in the app follow in their own parts.
+
+#### Added
+
+- API: places behind `PlacesProvider` (`none`, `mock`, `google`: the Places API, New, with a
+  field mask) and Google's Routes API behind the existing `MapsProvider` (`google`, with a
+  `matrix()` for several hotels or airports at once). One `LocationService` decides every call:
+  daily caps per Google API counted in Redis before the call and failing closed, a breaker,
+  timeouts, scrubbed search text, and no caching of Google's content.
+- Ask Suskii: `places.find`, `places.nearby`, `places.compare_proximity` and
+  `places.airports_near` for the concierge, hotels and trip builder agents. They measure only
+  from references the platform holds (a hotel of a search, an airport, a place a tool returned),
+  give distances and times as text, fall back to the straight line and say so, and attach notes
+  the clients word in every language: Google Maps' attribution, straight-line distances and
+  driving times without traffic. Airports nearby come from our own catalog.
+- The testing machine's `LOCATION_PROVIDER` (`mock` by default; `google` with the owner's
+  restricted key in `GOOGLE_MAPS_SERVER_KEY`, capped at 200 searches and 1,000 distances a day).
+- Eval cases for routing, grounding and safety; the prompts of the concierge (5), hotels (5),
+  trip builder (6) and the router (2) change version.
+
+#### Fixed
+
+- A hotel whose supplier gave no position is no longer measured from the city's point: it is
+  listed as of unknown position.
+
 ### The Ask Suskii chat in the app, redesigned (2026-11-15, ADR-121)
 
 #### Changed
