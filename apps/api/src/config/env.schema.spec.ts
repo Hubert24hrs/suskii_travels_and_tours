@@ -430,6 +430,40 @@ describe('parseEnv', () => {
     expect(plaintext).toContain('TIKTOK_EVENTS_API_URL: must use https');
   });
 
+  it('needs the server key for Google maps, and no mock places in production (ADR-122)', () => {
+    expect(parseEnv(base).PLACES_PROVIDER).toBe('none');
+    expect(() => parseEnv({ ...base, PLACES_PROVIDER: 'google' })).toThrow(
+      /GOOGLE_MAPS_SERVER_KEY: is required when PLACES_PROVIDER is google/,
+    );
+    expect(() => parseEnv({ ...base, MAPS_PROVIDER: 'google' })).toThrow(
+      /GOOGLE_MAPS_SERVER_KEY: is required when MAPS_PROVIDER is google/,
+    );
+    const key = { GOOGLE_MAPS_SERVER_KEY: 'test-server-key-0123456789' };
+    expect(parseEnv({ ...base, ...key, PLACES_PROVIDER: 'google' }).GOOGLE_PLACES_DAILY_CALLS).toBe(
+      300,
+    );
+    const production = (overrides: Record<string, string>) => {
+      try {
+        parseEnv({ ...base, NODE_ENV: 'production', ...overrides });
+        return '';
+      } catch (error) {
+        return (error as Error).message;
+      }
+    };
+    expect(production({ PLACES_PROVIDER: 'mock' })).toContain(
+      'PLACES_PROVIDER: the mock invents places',
+    );
+    expect(production({ PLACES_PROVIDER: 'mock', ALLOW_MOCK_PROVIDERS: 'true' })).not.toContain(
+      'PLACES_PROVIDER',
+    );
+    const plaintext = production({
+      GOOGLE_PLACES_API_URL: 'http://places.googleapis.com/v1',
+      GOOGLE_ROUTES_API_URL: 'http://routes.googleapis.com',
+    });
+    expect(plaintext).toContain('GOOGLE_PLACES_API_URL: must use https');
+    expect(plaintext).toContain('GOOGLE_ROUTES_API_URL: must use https');
+  });
+
   it('needs the webhook secrets for whatsapp support, the token for cloud, and no mock in production (ADR-084)', () => {
     expect(parseEnv(base).WHATSAPP_SUPPORT_PROVIDER).toBe('none');
     expect(() => parseEnv({ ...base, WHATSAPP_SUPPORT_PROVIDER: 'mock' })).toThrow(

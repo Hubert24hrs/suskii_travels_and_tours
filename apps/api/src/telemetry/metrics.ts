@@ -320,3 +320,12 @@ export const priceIntelObservations = meter.createCounter('suskii.price_intel.ob
 export const priceIntelAlerts = meter.createCounter('suskii.price_intel.alerts', {
   description: 'Price intelligence alerts by kind and level',
 });
+
+/**
+ * Calls Ask Suskii's location tools made to a places or routing provider (ADR-122), by api
+ * (places, routes), provider and outcome (ok, failed, capped, breaker_open): the spend is
+ * Google's when the provider is `google`.
+ */
+export const locationCalls = meter.createCounter('suskii.location.calls', {
+  description: 'Places and routing calls for the assistant by api, provider and outcome',
+});

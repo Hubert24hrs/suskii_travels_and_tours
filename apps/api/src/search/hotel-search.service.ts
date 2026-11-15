@@ -80,6 +80,17 @@ interface StoredHotel {
   hotel: SupplierHotel;
 }
 
+/** Where a hotel of a search is, for Ask Suskii's distances (ADR-122). */
+export interface HotelPosition {
+  rateId: string;
+  name: string;
+  cityName: string;
+  /** Null when the supplier gave the hotel no position of its own. */
+  point: { lat: number; lng: number } | null;
+  /** Demo inventory (the mock supplier). */
+  sample: boolean;
+}
+
 export interface HotelListOptions extends HotelFilters {
   sort: HotelSort;
   currency: string;
@@ -322,6 +333,59 @@ export class HotelSearchService {
         .sort((a, b) => Number(a.price.total.minor - b.price.total.minor))
         .map((rate) => toHotelRateDto(rate, nights, fx)),
     };
+  }
+
+  /**
+   * The hotels behind these rate ids (from a search answer), as their suppliers placed them, for
+   * Ask Suskii's distances (ADR-122). A rate id whose search has expired, or that names no
+   * hotel, is missing from the answer. A supplier that sends no position puts the hotel at the
+   * city's own point (or at 0,0), so such a hotel has `point: null`: no distance is measured
+   * from a guess.
+   */
+  async positions(rateIds: readonly string[]): Promise<Map<string, HotelPosition>> {
+    const cities = new Map<
+      string,
+      Promise<{ latitude: number | null; longitude: number | null } | null>
+    >();
+    const found = await Promise.all(
+      [...new Set(rateIds)].map(async (rateId): Promise<HotelPosition | null> => {
+        const dot = rateId.lastIndexOf('.');
+        if (dot <= 0) return null;
+        const hotelId = rateId.slice(0, dot);
+        const searchId = hotelId.split('.')[0] ?? '';
+        const [meta, item] = await Promise.all([
+          this.store.meta<HotelSearchRequest>('hotels', searchId),
+          this.store.item<StoredHotel>('hotels', searchId, hotelId),
+        ]);
+        if (!meta || !item) return null;
+        const cityId = meta.request.destination.cityId;
+        if (!cities.has(cityId)) cities.set(cityId, this.catalog.city(cityId));
+        const city = await cities.get(cityId);
+        const { latitude, longitude } = item.hotel;
+        const atCity =
+          typeof city?.latitude === 'number' &&
+          typeof city.longitude === 'number' &&
+          Math.abs(latitude - city.latitude) < 1e-6 &&
+          Math.abs(longitude - city.longitude) < 1e-6;
+        const unknown =
+          !Number.isFinite(latitude) ||
+          !Number.isFinite(longitude) ||
+          (latitude === 0 && longitude === 0) ||
+          atCity;
+        return {
+          rateId,
+          name: item.hotel.name,
+          cityName: item.hotel.cityName,
+          point: unknown ? null : { lat: latitude, lng: longitude },
+          sample: item.hotel.supplier === 'mock',
+        };
+      }),
+    );
+    return new Map(
+      found
+        .filter((position): position is HotelPosition => position !== null)
+        .map((position) => [position.rateId, position]),
+    );
   }
 
   async quote(rateId: string, currency: string, client: ClientContext): Promise<HotelQuoteDto> {
