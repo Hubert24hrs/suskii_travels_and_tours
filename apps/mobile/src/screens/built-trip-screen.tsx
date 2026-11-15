@@ -21,7 +21,7 @@ import { isNetworkError, problemSlug } from '../lib/api';
 import { attestationHeader } from '../lib/attestation';
 import { openHostedCheckout } from '../lib/payment';
 import { sharePlanPdf } from '../lib/plan-pdf';
-import { activeTrip, tripSearchPath } from '../lib/trip-builder';
+import { activeTrip, tripBookingLine, tripSearchPath } from '../lib/trip-builder';
 import { useApp, useT } from '../providers/app-provider';
 
 type Trip = Schemas['Trip'];
@@ -349,18 +349,6 @@ function BuiltTrip({ tripId }: { tripId: string }) {
     setConfirmDelete(false);
   };
 
-  const describe = (part: Part): string => {
-    const { flight, hotel, product } = part.booking;
-    if (flight)
-      return t('trips.page.flightLine', {
-        from: flight.origin.cityName ?? flight.origin.code,
-        to: flight.destination.cityName ?? flight.destination.code,
-        airline: flight.airline,
-      });
-    if (hotel) return `${hotel.name}, ${hotel.cityName}`;
-    return product?.title ?? part.booking.reference;
-  };
-
   const travellers = [
     t('trips.adults', { count: plan.adults }),
     ...(plan.children > 0 ? [t('trips.children', { count: plan.children })] : []),
@@ -439,7 +427,9 @@ function BuiltTrip({ tripId }: { tripId: string }) {
                   </Text>
                   {part ? (
                     <>
-                      <Text className="font-body text-body text-foreground">{describe(part)}</Text>
+                      <Text className="font-body text-body text-foreground">
+                        {tripBookingLine(part.booking, t)}
+                      </Text>
                       <Text className="font-body text-body-sm text-muted">
                         {part.booking.endsOn
                           ? format.dateRange(part.booking.startsOn, part.booking.endsOn, 'medium')
@@ -601,8 +591,18 @@ function BuiltTrip({ tripId }: { tripId: string }) {
             </Text>
           </View>
           <Text className="font-body text-caption text-foreground">{t('trips.receipt.note')}</Text>
+          {/* Read here in full; the PDF goes to the share sheet to keep or send on. */}
+          <Button
+            testID="trip-receipt-view"
+            fullWidth
+            accessibilityLabel={t('trips.receipt.viewLabel', { reference: trip.reference })}
+            onPress={() => router.push(`/trips/built/${trip.id}/receipt` as Href)}
+          >
+            {t('trips.receipt.view')}
+          </Button>
           <Button
             testID="trip-receipt"
+            variant="ghost"
             fullWidth
             loading={busy === 'receipt'}
             onPress={() => void saveReceipt()}

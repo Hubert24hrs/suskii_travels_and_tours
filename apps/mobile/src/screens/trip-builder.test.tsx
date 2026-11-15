@@ -21,6 +21,7 @@ import {
 import { BuiltTripScreen } from './built-trip-screen';
 import { TripDetailsScreen } from './trip-details-screen';
 import { TripPlanScreen } from './trip-plan-screen';
+import { TripReceiptScreen } from './trip-receipt-screen';
 
 jest.mock('../config', () => ({
   appConfig: { apiBaseUrl: 'http://api.test', attestation: 'mock', playIntegrityProject: '' },
@@ -511,6 +512,11 @@ describe('BuiltTripScreen', () => {
     expect(screen.queryByTestId('trip-pay')).toBeNull();
     expect(screen.queryByTestId('trip-delete')).toBeNull();
     expect(screen.queryByTestId('trip-remove-flight')).toBeNull();
+    // The whole receipt opens in the app, named for the trip.
+    const view = screen.getByTestId('trip-receipt-view');
+    expect(view).toHaveAccessibleName(m.trips.receipt.viewLabel.replace('{reference}', 'T-AB12CD'));
+    await fireEvent.press(view);
+    expect(router.push).toHaveBeenCalledWith(`/trips/built/${TRIP_ID}/receipt`);
     // Each part is an ordinary booking with its own screen.
     await fireEvent.press(screen.getByTestId('trip-view-flight'));
     expect(router.push).toHaveBeenCalledWith(`/trips/${FLIGHT_ID}`);
@@ -584,6 +590,140 @@ describe('BuiltTripScreen', () => {
     expect(screen.getByText(m.trips.page.deleteConfirm)).toBeOnTheScreen();
     await fireEvent.press(screen.getByTestId('trip-delete-yes'));
     await waitFor(() => expect(router.back).toHaveBeenCalled());
+  });
+});
+
+describe('TripReceiptScreen (ADR-120)', () => {
+  beforeEach(() => {
+    jest.mocked(useLocalSearchParams).mockReturnValue({ tripId: TRIP_ID });
+  });
+
+  const RECEIPT_PATH = `GET /v1/trips/${TRIP_ID}/receipt/details`;
+  const receiptAnswer = (patch: Partial<Schemas['TripReceipt']> = {}): Schemas['TripReceipt'] => ({
+    tripId: TRIP_ID,
+    reference: 'T-AB12CD',
+    plan: PLAN,
+    payments: [
+      {
+        paidAt: '2026-11-14T10:20:00.000Z',
+        reference: 'PAY-TRIP-0001',
+        method: 'card',
+        amount: ngn(155_000_000),
+        refunded: null,
+      },
+    ],
+    parts: [
+      {
+        component: 'flight',
+        bookingId: FLIGHT_ID,
+        bookingReference: 'SK7Q2M',
+        booking: flightPart().booking,
+        amount: ngn(95_000_000),
+        serviceTaxes: [],
+      },
+      {
+        component: 'hotel',
+        bookingId: HOTEL_ID,
+        bookingReference: 'SK8H3N',
+        booking: hotelPart().booking,
+        amount: ngn(60_000_000),
+        serviceTaxes: [
+          { label: 'VAT', rateBps: 750, amount: ngn(450_000), registrationNumber: 'TIN-0001' },
+        ],
+      },
+    ],
+    total: ngn(155_000_000),
+    ...patch,
+  });
+
+  it('shows each payment, what each part cost with the taxes inside, and the total paid', async () => {
+    mockApi({ [RECEIPT_PATH]: () => json(receiptAnswer()) });
+    await renderWithApp(<TripReceiptScreen />, await signedInSession());
+
+    expect(await screen.findByRole('header', { name: m.trips.receipt.heading })).toBeOnTheScreen();
+    expect(screen.getByTestId('trip-receipt-reference')).toHaveTextContent(/T-AB12CD/);
+
+    const payment = screen.getByTestId('trip-receipt-payment-0');
+    expect(within(payment).getByText(m.trips.receipt.methods.card)).toBeOnTheScreen();
+    expect(within(payment).getByText('PAY-TRIP-0001')).toBeOnTheScreen();
+    expect(within(payment).getByText(/1,550,000/)).toBeOnTheScreen();
+    expect(within(payment).getByText(/2026/)).toBeOnTheScreen();
+    expect(within(payment).queryByText(m.trips.receipt.refundStarted)).toBeNull();
+
+    const flight = screen.getByTestId('trip-receipt-part-flight');
+    expect(within(flight).getByText(m.trips.components.flight)).toBeOnTheScreen();
+    expect(within(flight).getByText(/Lagos.*London.*Mock Airways/)).toBeOnTheScreen();
+    expect(within(flight).getByText(/SK7Q2M/)).toBeOnTheScreen();
+    expect(within(flight).getByText(/950,000/)).toBeOnTheScreen();
+
+    const hotel = screen.getByTestId('trip-receipt-part-hotel');
+    expect(within(hotel).getByText('Paddington Court, London')).toBeOnTheScreen();
+    expect(within(hotel).getByText(/SK8H3N/)).toBeOnTheScreen();
+    expect(within(hotel).getByText('Includes VAT (7.5%)')).toBeOnTheScreen();
+    expect(within(hotel).getByText(/4,500/)).toBeOnTheScreen();
+
+    expect(screen.getByTestId('trip-receipt-total')).toHaveTextContent(/1,550,000/);
+    expect(screen.getByText('TIN-0001')).toBeOnTheScreen();
+  });
+
+  it('leaves out a payment channel it cannot name, and shows money refunded at once', async () => {
+    mockApi({
+      [RECEIPT_PATH]: () =>
+        json(
+          receiptAnswer({
+            payments: [
+              {
+                paidAt: '2026-11-14T10:20:00.000Z',
+                reference: 'PAY-TRIP-0002',
+                method: 'pay_by_bank',
+                amount: ngn(160_000_000),
+                refunded: ngn(5_000_000),
+              },
+            ],
+          }),
+        ),
+    });
+    await renderWithApp(<TripReceiptScreen />, await signedInSession());
+
+    const payment = await screen.findByTestId('trip-receipt-payment-0');
+    expect(within(payment).queryByText(m.trips.receipt.method)).toBeNull();
+    expect(within(payment).queryByText('pay_by_bank')).toBeNull();
+    expect(screen.getByTestId('trip-receipt-refund-0')).toHaveTextContent(/50,000/);
+  });
+
+  it('says there is no receipt before a payment has gone through', async () => {
+    mockApi({
+      [RECEIPT_PATH]: () =>
+        json({ type: 'urn:suskii:problem:trip-not-paid', title: 'Not paid', status: 409 }, 409),
+    });
+    await renderWithApp(<TripReceiptScreen />, await signedInSession());
+    expect(await screen.findByTestId('trip-receipt-not-paid')).toHaveTextContent(
+      m.trips.receipt.notPaid,
+    );
+  });
+
+  it('says so when the trip is not the account’s', async () => {
+    mockApi({ [RECEIPT_PATH]: () => json({ status: 404 }, 404) });
+    await renderWithApp(<TripReceiptScreen />, await signedInSession());
+    expect(await screen.findByTestId('trip-receipt-missing')).toBeOnTheScreen();
+  });
+
+  it('hands the receipt to the share sheet as a PDF, and keeps no copy on the phone', async () => {
+    mockApi({ [RECEIPT_PATH]: () => json(receiptAnswer()) });
+    const shared = jest.mocked(shareAsync);
+    const downloaded = jest.mocked(File.downloadFileAsync);
+    shared.mockClear();
+    downloaded.mockClear();
+    await renderWithApp(<TripReceiptScreen />, await signedInSession());
+
+    await fireEvent.press(await screen.findByTestId('trip-receipt-save'));
+    await waitFor(() => expect(shared).toHaveBeenCalledTimes(1));
+    const [url, , options] = downloaded.mock.calls[0] ?? [];
+    expect(url).toBe(`http://api.test/v1/trips/${TRIP_ID}/receipt`);
+    expect(options).toMatchObject({ headers: { Authorization: 'Bearer access-token' } });
+    await waitFor(() =>
+      expect(new File('file:///data/cache/suskii-receipt-T-AB12CD.pdf').exists).toBe(false),
+    );
   });
 });
 

@@ -1,3 +1,5 @@
+import type { Schemas } from '@suskii/api-client';
+import type { Messages, Translator } from '@suskii/i18n';
 import { tripSearchQuery, type TripComponent, type TripPlan } from '@suskii/shared';
 import { useSyncExternalStore } from 'react';
 
@@ -74,4 +76,23 @@ export function tripSearchPath(
 ): string | null {
   const query = tripSearchQuery(plan, component);
   return query === null ? null : `${SEARCH_SCREENS[component]}?${query}`;
+}
+
+/**
+ * What a part of a trip is, in one line: a route and its airline, a hotel and its city, or a
+ * product's title. The trip screen and the receipt say it the same way.
+ */
+export function tripBookingLine(
+  booking: Schemas['BookingSummary'],
+  t: Translator<Messages>['t'],
+): string {
+  const { flight, hotel, product } = booking;
+  if (flight)
+    return t('trips.page.flightLine', {
+      from: flight.origin.cityName ?? flight.origin.code,
+      to: flight.destination.cityName ?? flight.destination.code,
+      airline: flight.airline,
+    });
+  if (hotel) return `${hotel.name}, ${hotel.cityName}`;
+  return product?.title ?? booking.reference;
 }
