@@ -2,7 +2,7 @@
   "tools": [
     {
       "name": "addons.prepare_booking",
-      "description": "Prepare one travel add-on the traveller chose from addons.search (an airport transfer, travel insurance, an eSIM or lounge access) for their dates and travellers: prices it now and gives a card that opens the booking page, where they enter the details it needs and pay. For a transfer or a lounge visit the start and end are the same day; insurance and an eSIM cover the days of the trip. Pass the destination's cityId from catalog.places when you have it: a lounge or a local eSIM needs it. Call it only after they said which one they want. Nothing is booked or paid by this: say it is prepared and waits for their details and payment. 'not_available_there' in problems means it is not sold for that place.",
+      "description": "Prepare one travel add-on the traveller chose (from addons.search, or from next in a trip being planned), by its option number: an airport transfer, travel insurance, an eSIM or lounge access, for their dates and travellers. It prices it now and gives a card that opens the booking page, where they enter the details it needs and pay. For a transfer or a lounge visit the start and end are the same day; insurance and an eSIM cover the days of the trip. In a trip being planned part by part the dates, the place and the travellers come from the trip and need not be passed, and next holds the next part's options: show them at once. Otherwise pass the dates, the travellers and the destination's cityId from catalog.places (a lounge or a local eSIM needs it). Call it only after they said which one they want. Nothing is booked or paid by this: say it is prepared and waits for their details and payment. 'not_available_there' in problems means it is not sold for that place.",
       "tier": "propose",
       "scope": "quotes",
       "agents": [
@@ -15,19 +15,25 @@
       "parameters": {
         "type": "object",
         "properties": {
+          "option": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "description": "The number of the option the traveller chose, as shown (1 is the first)."
+          },
           "addonId": {
+            "description": "Instead of option: the addonId chosen.",
             "type": "string",
             "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-            "description": "The addonId chosen, as returned."
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
           },
           "startDate": {
-            "type": "string",
-            "description": "YYYY-MM-DD: the first day."
+            "description": "YYYY-MM-DD: the first day.",
+            "type": "string"
           },
           "endDate": {
-            "type": "string",
-            "description": "YYYY-MM-DD: the last day covered."
+            "description": "YYYY-MM-DD: the last day covered.",
+            "type": "string"
           },
           "cityId": {
             "description": "A city id from catalog.places.",
@@ -53,13 +59,7 @@
             "minimum": 0,
             "maximum": 8
           }
-        },
-        "required": [
-          "addonId",
-          "startDate",
-          "endDate",
-          "adults"
-        ]
+        }
       }
     },
     {
@@ -345,7 +345,7 @@
     },
     {
       "name": "cars.prepare_booking",
-      "description": "Prepare the booking of one rental car the signed-in traveller chose from cars.rentals, for the same pick-up and return times: prices the period now and gives the traveller a card that opens the booking page, where they enter their details and pay. Call it only after they said which car they want. Nothing is booked or paid by this, and the car is not held: say the booking is prepared and waits for their details and payment. 'authentication-required' in problems means they must sign in first. Extras, another return branch and cross-border cover are chosen on the car's own page: point there when they ask for one.",
+      "description": "Prepare the booking of one rental car the signed-in traveller chose (from cars.rentals, or from next in a trip being planned), by its option number, for the same pick-up and return times: prices the period now and gives the traveller a card that opens the booking page, where they enter their details and pay. Call it only after they said which car they want. Nothing is booked or paid by this, and the car is not held: say the booking is prepared and waits for their details and payment. In a trip being planned part by part, next holds the next part's options: show them at once. 'authentication-required' in problems means they must sign in first. Extras, another return branch and cross-border cover are chosen on the car's own page: point there when they ask for one.",
       "tier": "propose",
       "scope": "quotes",
       "agents": [
@@ -355,21 +355,27 @@
       "parameters": {
         "type": "object",
         "properties": {
+          "option": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "description": "The number of the option the traveller chose, as shown (1 is the first)."
+          },
           "carId": {
+            "description": "Instead of option: the carId of the chosen car.",
             "type": "string",
             "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-            "description": "The carId of the chosen car, as returned."
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
           },
           "pickupAt": {
+            "description": "With carId: YYYY-MM-DDTHH:mm, branch time.",
             "type": "string",
-            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$",
-            "description": "YYYY-MM-DDTHH:mm, branch time."
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$"
           },
           "returnAt": {
+            "description": "With carId: YYYY-MM-DDTHH:mm, branch time.",
             "type": "string",
-            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$",
-            "description": "YYYY-MM-DDTHH:mm, branch time."
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$"
           },
           "withChauffeur": {
             "default": false,
@@ -381,12 +387,7 @@
             "minimum": 18,
             "maximum": 99
           }
-        },
-        "required": [
-          "carId",
-          "pickupAt",
-          "returnAt"
-        ]
+        }
       }
     },
     {
@@ -750,7 +751,7 @@
     },
     {
       "name": "flights.prepare_booking",
-      "description": "Prepare the booking of one flight option the traveller chose from flights.search: checks the price with the airline now and gives the traveller a card that opens the booking page, where they enter the travellers' details and pay. Call it only after they said which option they want. Nothing is booked or paid by this: say the booking is prepared and waits for their details and payment. If the price changed, say so. 'offer-expired' or 'offer-unavailable' in problems means search again.",
+      "description": "Prepare the booking of one flight option the traveller chose from flights.search, by its option number: checks the price with the airline now and gives the traveller a card that opens the booking page, where they enter the travellers' details and pay. Call it only after they said which option they want. Nothing is booked or paid by this: say the booking is prepared and waits for their details and payment. If the price changed, say so. In a trip being planned part by part, next holds the next part's options: show them at once. 'offer-expired', 'offer-unavailable' or 'option_unknown' in problems means search again.",
       "tier": "propose",
       "scope": "quotes",
       "agents": [
@@ -761,17 +762,20 @@
       "parameters": {
         "type": "object",
         "properties": {
+          "option": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "description": "The number of the option the traveller chose, as shown (1 is the first)."
+          },
           "offerId": {
+            "description": "Instead of option: the offerId of the chosen option.",
             "type": "string",
             "minLength": 8,
             "maxLength": 200,
-            "pattern": "^[A-Za-z0-9_.:-]+$",
-            "description": "The offerId of the chosen option, as returned."
+            "pattern": "^[A-Za-z0-9_.:-]+$"
           }
-        },
-        "required": [
-          "offerId"
-        ]
+        }
       }
     },
     {
@@ -889,7 +893,7 @@
     },
     {
       "name": "hotels.prepare_booking",
-      "description": "Prepare the booking of one stay the traveller chose from hotels.search: checks the rate with the hotel's supplier now and gives the traveller a card that opens the booking page, where they enter the guests' details and pay. Call it only after they said which option they want. Nothing is booked or paid by this: say the booking is prepared and waits for their details and payment. If the price changed, say so. 'offer-expired' or 'offer-unavailable' in problems means search again.",
+      "description": "Prepare the booking of one stay the traveller chose (from hotels.search, or from next in a trip being planned), by its option number: checks the rate with the hotel's supplier now and gives the traveller a card that opens the booking page, where they enter the guests' details and pay. Call it only after they said which option they want. Nothing is booked or paid by this: say the booking is prepared and waits for their details and payment. If the price changed, say so. In a trip being planned part by part, next holds the next part's options: show them at once. 'offer-expired', 'offer-unavailable' or 'option_unknown' in problems means search again.",
       "tier": "propose",
       "scope": "quotes",
       "agents": [
@@ -899,17 +903,20 @@
       "parameters": {
         "type": "object",
         "properties": {
+          "option": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "description": "The number of the option the traveller chose, as shown (1 is the first)."
+          },
           "rateId": {
+            "description": "Instead of option: the rateId of the chosen option.",
             "type": "string",
             "minLength": 8,
             "maxLength": 200,
-            "pattern": "^[A-Za-z0-9_.:-]+$",
-            "description": "The rateId of the chosen option, as returned."
+            "pattern": "^[A-Za-z0-9_.:-]+$"
           }
-        },
-        "required": [
-          "rateId"
-        ]
+        }
       }
     },
     {
@@ -2029,6 +2036,30 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 6
+          }
+        }
+      }
+    },
+    {
+      "name": "trips.next_part",
+      "description": "In a trip being planned part by part (the flight, then a place to stay, a car, an airport transfer and travel insurance, then the checkout): the next part to choose, with its options. Pass skip with the part the traveller does not want (also one already prepared, which is then left out), and the part after it is shown; call it without skip to show the current part's options again. When next.part is checkout, the trip's summary and its checkout card are in the answer. 'no_trip_planned' in problems means no trip is being planned: start with flights.search.",
+      "tier": "propose",
+      "scope": "quotes",
+      "agents": [
+        "trip_builder"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "skip": {
+            "description": "The part the traveller does not want for this trip.",
+            "type": "string",
+            "enum": [
+              "hotel",
+              "car",
+              "transfer",
+              "insurance"
+            ]
           }
         }
       }

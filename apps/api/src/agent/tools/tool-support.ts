@@ -215,7 +215,14 @@ export function card(
   kind: AgentCard['kind'],
   title: string,
   lines: readonly (string | null | undefined)[],
-  extra: { price?: MoneyWire; href?: string; ref?: AgentCard['ref']; indicative?: boolean } = {},
+  extra: {
+    price?: MoneyWire;
+    href?: string;
+    ref?: AgentCard['ref'];
+    indicative?: boolean;
+    /** An option the traveller can choose in the chat by its number (ADR-123). */
+    choose?: number;
+  } = {},
 ): AgentCard[] {
   const parsed = agentCardSchema.safeParse({
     kind,

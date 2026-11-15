@@ -107,6 +107,11 @@ export const agentCardSchema = z.object({
   href: agentCardPathSchema.optional(),
   /** The record a card is about, for a client that draws it from the traveller's own data. */
   ref: z.object({ type: z.enum(['booking', 'trip', 'support']), id: uuid }).optional(),
+  /**
+   * An option the traveller can choose in the chat (ADR-123): the clients draw a Choose button
+   * that sends the option's number as the traveller's own message. Never an id.
+   */
+  choose: z.number().int().min(1).max(10).optional(),
 });
 export type AgentCard = z.infer<typeof agentCardSchema>;
 
@@ -117,7 +122,8 @@ export const isAgentNoteCard = (card: AgentCard): boolean =>
   card.lines.length === 0 &&
   card.price === undefined &&
   card.href === undefined &&
-  card.ref === undefined;
+  card.ref === undefined &&
+  card.choose === undefined;
 
 /**
  * The cards of a turn, newest first, cut to `max`. Notes are counted first and kept whatever
@@ -153,6 +159,11 @@ export const agentRunContextSchema = z.object({
   signedIn: z.boolean(),
   /** Today in the traveller's market, so "next Friday" means the same to the model and to us. */
   today: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  /**
+   * A combined trip is being planned step by step in this conversation (ADR-123): the
+   * supervisor keeps the trip planner on it until the checkout. Optional for older API builds.
+   */
+  tripPlanning: z.boolean().optional(),
 });
 export type AgentRunContext = z.infer<typeof agentRunContextSchema>;
 

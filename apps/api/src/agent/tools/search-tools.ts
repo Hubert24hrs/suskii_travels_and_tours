@@ -18,6 +18,8 @@ import { HotelSearchService } from '../../search/hotel-search.service';
 import type { flightOfferSchema, hotelSummarySchema } from '../../search/search.schemas';
 import { agentTool, AgentToolRegistry } from '../agent-tool';
 
+import { AgentOptions } from './agent-options';
+
 import {
   AgentToolCallers,
   card,
@@ -31,6 +33,7 @@ import {
   utcTime,
   wallTime,
 } from './tool-support';
+import { AgentTripFlow } from './trip-flow';
 
 type FlightOffer = z.infer<typeof flightOfferSchema>;
 type HotelSummary = z.infer<typeof hotelSummarySchema>;
@@ -122,6 +125,8 @@ export class SearchTools implements OnModuleInit {
     private readonly callers: AgentToolCallers,
     private readonly flights: FlightSearchService,
     private readonly hotels: HotelSearchService,
+    private readonly options: AgentOptions,
+    private readonly flow: AgentTripFlow,
   ) {}
 
   onModuleInit(): void {
@@ -153,7 +158,7 @@ export class SearchTools implements OnModuleInit {
           offers: z.array(flightOut),
           cards: cardsOut,
         }),
-        run: async (input, { grant }) => {
+        run: async (input, { grant, agent }) => {
           const nothing = (problems: string[]) => ({
             problems,
             found: 0,
@@ -161,6 +166,8 @@ export class SearchTools implements OnModuleInit {
             offers: [],
             cards: [],
           });
+          // The trip planner's flight search starts a trip planned part by part (ADR-123).
+          if (agent === 'trip_builder') await this.flow.start(grant);
           const outbound = {
             origin: input.origin,
             destination: input.destination,
@@ -213,6 +220,12 @@ export class SearchTools implements OnModuleInit {
               canReserveAndPayLater: offer.hold.available,
               total: offer.price.total,
             }));
+            // "Option 2" means the second of these from now on, whichever turn it is said in.
+            await this.options.remember(
+              grant,
+              'flight',
+              offers.map((offer) => ({ id: offer.offerId })),
+            );
             return {
               problems: [],
               found: result.total,
@@ -222,6 +235,7 @@ export class SearchTools implements OnModuleInit {
                 card('flight', offer.airline, offer.legs.map(legLine), {
                   price: offer.total,
                   href,
+                  choose: offer.option,
                 }),
               ),
             };
@@ -326,6 +340,11 @@ export class SearchTools implements OnModuleInit {
                 payAtHotel: hotel.cheapestRate.payAtProperty,
                 percentBelowUsualPrice: hotel.deal?.percentBelow ?? null,
               }));
+            await this.options.remember(
+              grant,
+              'hotel',
+              hotels.map((hotel) => ({ id: hotel.rateId })),
+            );
             return {
               problems: [],
               found: result.total,
@@ -342,7 +361,7 @@ export class SearchTools implements OnModuleInit {
                       .join(' \u00b7 '),
                     `${input.checkIn} \u2192 ${input.checkOut}`,
                   ],
-                  { price: hotel.total, href },
+                  { price: hotel.total, href, choose: hotel.option },
                 ),
               ),
             };

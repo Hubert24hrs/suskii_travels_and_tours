@@ -58,6 +58,7 @@ import { AgentMemoryService } from './memory/agent-memory.service';
 import { AdminAgentKnowledgeController } from './knowledge/admin-agent-knowledge.controller';
 import { KnowledgeService } from './knowledge/knowledge.service';
 import { AccountTools } from './tools/account-tools';
+import { AgentOptions } from './tools/agent-options';
 import { CatalogTools } from './tools/catalog-tools';
 import { CheckoutTools } from './tools/checkout-tools';
 import { CommitTools } from './tools/commit-tools';
@@ -76,6 +77,8 @@ import { StaffTools } from './tools/staff-tools';
 import { SupportTools } from './tools/support-tools';
 import { AgentToolCallers } from './tools/tool-support';
 import { TripCheckoutTools } from './tools/trip-checkout-tools';
+import { AgentTripFlow } from './tools/trip-flow';
+import { TripFlowTools } from './tools/trip-flow-tools';
 import { WatchTools } from './tools/watch-tools';
 import { AgentWhatsApp } from './whatsapp/agent-whatsapp.service';
 
@@ -141,6 +144,9 @@ import { AgentWhatsApp } from './whatsapp/agent-whatsapp.service';
     AgentPlaceRefs,
     LocationTools,
     AgentPreparedParts,
+    AgentOptions,
+    AgentTripFlow,
+    TripFlowTools,
     CheckoutTools,
     TripCheckoutTools,
     ProductTools,

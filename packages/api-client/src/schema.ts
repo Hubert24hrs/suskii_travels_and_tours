@@ -10108,6 +10108,7 @@ export interface components {
                     /** Format: uuid */
                     id: string;
                 };
+                choose?: number;
             }[];
             confirmationId: string | null;
             feedback: ("up" | "down") | null;

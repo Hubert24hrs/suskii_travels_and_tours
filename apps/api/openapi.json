@@ -44156,6 +44156,11 @@
                     "id"
                   ],
                   "additionalProperties": false
+                },
+                "choose": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10
                 }
               },
               "required": [

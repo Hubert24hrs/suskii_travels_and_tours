@@ -10,6 +10,7 @@ import {
   isoDateSchema,
   type AddonProductType,
   type AgentCard,
+  type AgentName,
 } from '@suskii/shared';
 
 import type { quoteSchema } from '../../bookings/bookings.schemas';
@@ -23,6 +24,7 @@ import { HotelSearchService } from '../../search/hotel-search.service';
 import type { AgentGrant } from '../agent-grants';
 import { agentTool, AgentToolError, AgentToolRegistry } from '../agent-tool';
 
+import { AgentOptions } from './agent-options';
 import { AgentPreparedParts, type PreparedPart } from './prepared-parts';
 
 import {
@@ -39,6 +41,7 @@ import {
   utcTime,
   wallTime,
 } from './tool-support';
+import { addonDays, AgentTripFlow, tripFlowNextOut } from './trip-flow';
 
 type Quote = z.infer<typeof quoteSchema>;
 
@@ -69,6 +72,11 @@ const preparedOut = z.object({
       leave: z.string().nullable(),
     })
     .nullable(),
+  /**
+   * In a trip planned part by part (ADR-123): the next part to choose with its options, or
+   * the checkout once every part is chosen or skipped. Null otherwise.
+   */
+  next: tripFlowNextOut.nullable(),
   cards: cardsOut,
 });
 type Prepared = z.infer<typeof preparedOut>;
@@ -84,7 +92,13 @@ const notPrepared = (problems: string[]): Prepared => ({
   offerValidUntil: null,
   alsoOffer: [],
   stay: null,
+  next: null,
   cards: [],
+});
+
+/** The option the traveller chose, by the number it was shown with (ADR-123). */
+const optionIn = z.number().int().min(1).max(10).meta({
+  description: 'The number of the option the traveller chose, as shown (1 is the first).',
 });
 
 /**
@@ -105,6 +119,14 @@ const travellersOf = (input: { adults: number; children: number; infants: number
   children: input.children,
   infants: input.infants,
 });
+
+/** The add-on types, to read a stored option's type back. */
+const ADDON_TYPES = Object.keys({
+  airport_transfer: true,
+  insurance: true,
+  esim: true,
+  lounge: true,
+} satisfies Record<AddonProductType, true>) as AddonProductType[];
 
 /** The part of a trip, or the product, an add-on quote is. */
 const ADDON_PARTS: Readonly<Record<AddonProductType, PreparedPart>> = {
@@ -152,7 +174,50 @@ export class CheckoutTools implements OnModuleInit {
     private readonly flags: CarsFlags,
     private readonly buses: BusesService,
     private readonly prepared: AgentPreparedParts,
+    private readonly options: AgentOptions,
+    private readonly flow: AgentTripFlow,
   ) {}
+
+  /**
+   * After a part of a trip planned part by part (ADR-123): the part as prepared, then the next
+   * part's options (or the checkout). The part keeps no checkout link of its own: the whole
+   * trip is checked out once, at the end.
+   */
+  private async continueTrip(grant: AgentGrant, prepared: Prepared): Promise<Prepared> {
+    if (!prepared.prepared || !(await this.flow.isPlanning(grant))) return prepared;
+    const { problems, cards, ...next } = await this.flow.next(grant);
+    const own = prepared.cards
+      .filter((shown) => shown.kind !== 'note')
+      .map(({ href: _href, ...shown }) => shown);
+    return {
+      ...prepared,
+      problems: [...prepared.problems, ...problems],
+      alsoOffer: [],
+      next,
+      cards: [...own, ...cards],
+    };
+  }
+
+  /** Whether a prepare belongs to a trip planned part by part; the trip planner starts one. */
+  private async planningWith(grant: AgentGrant, agent: AgentName): Promise<boolean> {
+    if (await this.flow.isPlanning(grant)) return true;
+    if (agent !== 'trip_builder') return false;
+    await this.flow.start(grant);
+    return this.flow.isPlanning(grant);
+  }
+
+  /** The id behind a chosen option, or the id the model passed; null when there is neither. */
+  private async chosen(
+    grant: AgentGrant,
+    kind: 'flight' | 'hotel' | 'car' | 'addon',
+    input: { option?: number | undefined },
+    id: string | undefined,
+  ): Promise<{ id: string; extra: Record<string, string> } | string[]> {
+    if (id) return { id, extra: {} };
+    if (input.option === undefined) return ['option_required'];
+    const stored = await this.options.get(grant, kind, input.option);
+    return stored ? { id: stored.id, extra: stored.extra ?? {} } : ['option_unknown'];
+  }
 
   /**
    * Quotes one of Suskii's own products for the grant's caller, as a tap on its page does
@@ -185,6 +250,7 @@ export class CheckoutTools implements OnModuleInit {
         offerValidUntil: utcTime(quote.expiresAt),
         alsoOffer: [],
         stay: null,
+        next: null,
         cards: [
           ...card(shown.kind, shown.what, shown.lines, {
             price: quote.price.total,
@@ -205,18 +271,23 @@ export class CheckoutTools implements OnModuleInit {
       agentTool({
         name: 'flights.prepare_booking',
         description:
-          "Prepare the booking of one flight option the traveller chose from flights.search: checks the price with the airline now and gives the traveller a card that opens the booking page, where they enter the travellers' details and pay. Call it only after they said which option they want. Nothing is booked or paid by this: say the booking is prepared and waits for their details and payment. If the price changed, say so. 'offer-expired' or 'offer-unavailable' in problems means search again.",
+          "Prepare the booking of one flight option the traveller chose from flights.search, by its option number: checks the price with the airline now and gives the traveller a card that opens the booking page, where they enter the travellers' details and pay. Call it only after they said which option they want. Nothing is booked or paid by this: say the booking is prepared and waits for their details and payment. If the price changed, say so. In a trip being planned part by part, next holds the next part's options: show them at once. 'offer-expired', 'offer-unavailable' or 'option_unknown' in problems means search again.",
         tier: 'propose',
         scope: 'quotes',
         agents: ['flights', 'trip_builder', 'disruption'],
         input: z.object({
-          offerId: resultId.meta({ description: 'The offerId of the chosen option, as returned.' }),
+          option: optionIn.optional(),
+          offerId: resultId
+            .optional()
+            .meta({ description: 'Instead of option: the offerId of the chosen option.' }),
         }),
         output: preparedOut,
-        run: async (input, { grant }) => {
+        run: async (input, { grant, agent }) => {
+          const chosen = await this.chosen(grant, 'flight', input, input.offerId);
+          if (Array.isArray(chosen)) return notPrepared(chosen);
           const client = await this.callers.client(grant);
           try {
-            const quote = await this.flights.quote(input.offerId, grant.currency, client);
+            const quote = await this.flights.quote(chosen.id, grant.currency, client);
             const slices = quote.offer.slices;
             const first = slices[0];
             const last = slices.at(-1);
@@ -230,7 +301,9 @@ export class CheckoutTools implements OnModuleInit {
             const arrives = (roundTrip ? first : last).arrivalLocal.slice(0, 10);
             const what = `${placeText(first.origin)} → ${placeText(place)}, ${quote.offer.owner.name}`;
             await this.prepared.remember(grant, 'flight', quote.quoteId);
-            return {
+            // The trip planner's flight is where a trip planned part by part starts (ADR-123).
+            if (await this.planningWith(grant, agent)) await this.flow.setFlight(grant, quote);
+            return this.continueTrip(grant, {
               problems: [],
               bookingStatus: 'not_booked' as const,
               prepared: true,
@@ -242,7 +315,7 @@ export class CheckoutTools implements OnModuleInit {
               alsoOffer: [...OTHER_SERVICES],
               stay: {
                 city: place.cityName,
-                country: place.countryCode,
+                country: place.countryCode ?? '',
                 arrive: arrives,
                 leave: roundTrip ? last.departureLocal.slice(0, 10) : null,
               },
@@ -259,7 +332,8 @@ export class CheckoutTools implements OnModuleInit {
                 ...note('booking_handoff'),
                 ...note('other_services'),
               ],
-            };
+              next: null,
+            });
           } catch (error) {
             const problems = refusal(error);
             if (!problems) throw error;
@@ -273,21 +347,26 @@ export class CheckoutTools implements OnModuleInit {
       agentTool({
         name: 'hotels.prepare_booking',
         description:
-          "Prepare the booking of one stay the traveller chose from hotels.search: checks the rate with the hotel's supplier now and gives the traveller a card that opens the booking page, where they enter the guests' details and pay. Call it only after they said which option they want. Nothing is booked or paid by this: say the booking is prepared and waits for their details and payment. If the price changed, say so. 'offer-expired' or 'offer-unavailable' in problems means search again.",
+          "Prepare the booking of one stay the traveller chose (from hotels.search, or from next in a trip being planned), by its option number: checks the rate with the hotel's supplier now and gives the traveller a card that opens the booking page, where they enter the guests' details and pay. Call it only after they said which option they want. Nothing is booked or paid by this: say the booking is prepared and waits for their details and payment. If the price changed, say so. In a trip being planned part by part, next holds the next part's options: show them at once. 'offer-expired', 'offer-unavailable' or 'option_unknown' in problems means search again.",
         tier: 'propose',
         scope: 'quotes',
         agents: ['hotels', 'trip_builder'],
         input: z.object({
-          rateId: resultId.meta({ description: 'The rateId of the chosen option, as returned.' }),
+          option: optionIn.optional(),
+          rateId: resultId
+            .optional()
+            .meta({ description: 'Instead of option: the rateId of the chosen option.' }),
         }),
         output: preparedOut,
         run: async (input, { grant }) => {
+          const chosen = await this.chosen(grant, 'hotel', input, input.rateId);
+          if (Array.isArray(chosen)) return notPrepared(chosen);
           const client = await this.callers.client(grant);
           try {
-            const quote = await this.hotels.quote(input.rateId, grant.currency, client);
+            const quote = await this.hotels.quote(chosen.id, grant.currency, client);
             const what = `${supplierText(quote.hotel.name)}, ${quote.hotel.cityName}`;
             await this.prepared.remember(grant, 'hotel', quote.quoteId);
-            return {
+            return this.continueTrip(grant, {
               problems: [],
               bookingStatus: 'not_booked' as const,
               prepared: true,
@@ -305,7 +384,8 @@ export class CheckoutTools implements OnModuleInit {
                 }),
                 ...note('booking_handoff'),
               ],
-            };
+              next: null,
+            });
           } catch (error) {
             const problems = refusal(error);
             if (!problems) throw error;
@@ -319,14 +399,22 @@ export class CheckoutTools implements OnModuleInit {
       agentTool({
         name: 'cars.prepare_booking',
         description:
-          "Prepare the booking of one rental car the signed-in traveller chose from cars.rentals, for the same pick-up and return times: prices the period now and gives the traveller a card that opens the booking page, where they enter their details and pay. Call it only after they said which car they want. Nothing is booked or paid by this, and the car is not held: say the booking is prepared and waits for their details and payment. 'authentication-required' in problems means they must sign in first. Extras, another return branch and cross-border cover are chosen on the car's own page: point there when they ask for one.",
+          "Prepare the booking of one rental car the signed-in traveller chose (from cars.rentals, or from next in a trip being planned), by its option number, for the same pick-up and return times: prices the period now and gives the traveller a card that opens the booking page, where they enter their details and pay. Call it only after they said which car they want. Nothing is booked or paid by this, and the car is not held: say the booking is prepared and waits for their details and payment. In a trip being planned part by part, next holds the next part's options: show them at once. 'authentication-required' in problems means they must sign in first. Extras, another return branch and cross-border cover are chosen on the car's own page: point there when they ask for one.",
         tier: 'propose',
         scope: 'quotes',
         agents: ['cars', 'trip_builder'],
         input: z.object({
-          carId: z.uuid().meta({ description: 'The carId of the chosen car, as returned.' }),
-          pickupAt: localDateTimeSchema.meta({ description: 'YYYY-MM-DDTHH:mm, branch time.' }),
-          returnAt: localDateTimeSchema.meta({ description: 'YYYY-MM-DDTHH:mm, branch time.' }),
+          option: optionIn.optional(),
+          carId: z
+            .uuid()
+            .optional()
+            .meta({ description: 'Instead of option: the carId of the chosen car.' }),
+          pickupAt: localDateTimeSchema
+            .optional()
+            .meta({ description: 'With carId: YYYY-MM-DDTHH:mm, branch time.' }),
+          returnAt: localDateTimeSchema
+            .optional()
+            .meta({ description: 'With carId: YYYY-MM-DDTHH:mm, branch time.' }),
           withChauffeur: z.boolean().default(false),
           driverAge: z
             .number()
@@ -339,12 +427,17 @@ export class CheckoutTools implements OnModuleInit {
         output: preparedOut,
         run: async (input, { grant }) => {
           if (!this.flags.enabled('rentals')) return notPrepared(['not_offered']);
+          const chosen = await this.chosen(grant, 'car', input, input.carId);
+          if (Array.isArray(chosen)) return notPrepared(chosen);
+          // A car chosen by number keeps the times it was priced for.
+          const pickupAt = input.pickupAt ?? chosen.extra.pickupAt;
+          const returnAt = input.returnAt ?? chosen.extra.returnAt;
           const request = inhouseQuoteRequestSchema.safeParse({
             kind: 'rental',
-            vehicleId: input.carId,
-            pickupAtLocal: input.pickupAt,
-            returnAtLocal: input.returnAt,
-            chauffeur: input.withChauffeur,
+            vehicleId: chosen.id,
+            pickupAtLocal: pickupAt,
+            returnAtLocal: returnAt,
+            chauffeur: input.withChauffeur || chosen.extra.withChauffeur === 'true',
             driverAge: input.driverAge ?? null,
             currency: grant.currency,
           });
@@ -356,7 +449,7 @@ export class CheckoutTools implements OnModuleInit {
             if (!rental || !quote.price) throw new AgentToolError('failed');
             const what = supplierText(rental.product.title);
             await this.prepared.remember(grant, 'car', quote.quoteId);
-            return {
+            return this.continueTrip(grant, {
               problems: [],
               bookingStatus: 'not_booked' as const,
               prepared: true,
@@ -371,12 +464,13 @@ export class CheckoutTools implements OnModuleInit {
                 ...card(
                   'car',
                   what,
-                  [`${wallTime(input.pickupAt)} → ${wallTime(input.returnAt)}`],
+                  [`${wallTime(rental.pickupAtLocal)} → ${wallTime(rental.returnAtLocal)}`],
                   { price: quote.price.total, href: `/checkout/${quote.quoteId}` },
                 ),
                 ...note('booking_handoff'),
               ] satisfies AgentCard[],
-            };
+              next: null,
+            });
           } catch (error) {
             const problems = refusal(error);
             if (!problems) throw error;
@@ -460,30 +554,56 @@ export class CheckoutTools implements OnModuleInit {
       agentTool({
         name: 'addons.prepare_booking',
         description:
-          "Prepare one travel add-on the traveller chose from addons.search (an airport transfer, travel insurance, an eSIM or lounge access) for their dates and travellers: prices it now and gives a card that opens the booking page, where they enter the details it needs and pay. For a transfer or a lounge visit the start and end are the same day; insurance and an eSIM cover the days of the trip. Pass the destination's cityId from catalog.places when you have it: a lounge or a local eSIM needs it. Call it only after they said which one they want. Nothing is booked or paid by this: say it is prepared and waits for their details and payment. 'not_available_there' in problems means it is not sold for that place.",
+          "Prepare one travel add-on the traveller chose (from addons.search, or from next in a trip being planned), by its option number: an airport transfer, travel insurance, an eSIM or lounge access, for their dates and travellers. It prices it now and gives a card that opens the booking page, where they enter the details it needs and pay. For a transfer or a lounge visit the start and end are the same day; insurance and an eSIM cover the days of the trip. In a trip being planned part by part the dates, the place and the travellers come from the trip and need not be passed, and next holds the next part's options: show them at once. Otherwise pass the dates, the travellers and the destination's cityId from catalog.places (a lounge or a local eSIM needs it). Call it only after they said which one they want. Nothing is booked or paid by this: say it is prepared and waits for their details and payment. 'not_available_there' in problems means it is not sold for that place.",
         tier: 'propose',
         scope: 'quotes',
         agents: ['tours', 'cars', 'trip_builder', 'flights', 'hotels'],
         input: z.object({
-          addonId: z.uuid().meta({ description: 'The addonId chosen, as returned.' }),
-          startDate: isoDateSchema.meta({ description: 'YYYY-MM-DD: the first day.' }),
-          endDate: isoDateSchema.meta({ description: 'YYYY-MM-DD: the last day covered.' }),
+          option: optionIn.optional(),
+          addonId: z
+            .uuid()
+            .optional()
+            .meta({ description: 'Instead of option: the addonId chosen.' }),
+          startDate: isoDateSchema.optional().meta({ description: 'YYYY-MM-DD: the first day.' }),
+          endDate: isoDateSchema
+            .optional()
+            .meta({ description: 'YYYY-MM-DD: the last day covered.' }),
           cityId: z.uuid().optional().meta({ description: 'A city id from catalog.places.' }),
-          ...travellersIn,
+          adults: travellersIn.adults.optional(),
+          children: travellersIn.children,
+          infants: travellersIn.infants,
         }),
         output: preparedOut,
-        run: (input, { grant }) =>
-          this.prepareInhouse(
+        run: async (input, { grant }) => {
+          const chosen = await this.chosen(grant, 'addon', input, input.addonId);
+          if (Array.isArray(chosen)) return notPrepared(chosen);
+          // In a trip planned part by part, the trip says when, where and for whom (ADR-123).
+          const facts = (await this.flow.isPlanning(grant)) ? await this.flow.facts(grant) : null;
+          const type = ADDON_TYPES.find((candidate) => candidate === chosen.extra.type);
+          const days =
+            input.startDate && input.endDate
+              ? { startDate: input.startDate, endDate: input.endDate }
+              : facts && type
+                ? addonDays(facts, type)
+                : null;
+          const adults = input.adults ?? facts?.adults;
+          if (!days) return notPrepared(['dates_required']);
+          if (adults === undefined) return notPrepared(['travellers_required']);
+          const travellers =
+            input.adults === undefined && facts
+              ? { adults, children: facts.children, infants: facts.infants }
+              : { adults, children: input.children, infants: input.infants };
+          const prepared = await this.prepareInhouse(
             grant,
             (quote) => (quote.addon ? ADDON_PARTS[quote.addon.type] : null),
             {
               kind: 'addon',
-              addonId: input.addonId,
-              startDate: input.startDate,
-              endDate: input.endDate,
-              cityId: input.cityId ?? null,
+              addonId: chosen.id,
+              startDate: days.startDate,
+              endDate: days.endDate,
+              cityId: input.cityId ?? facts?.cityId ?? null,
               linkToken: null,
-              travellers: travellersOf(input),
+              travellers,
               currency: grant.currency,
             },
             ({ addon }) =>
@@ -497,7 +617,9 @@ export class CheckoutTools implements OnModuleInit {
                     : `${addon.startDate} \u2192 ${addon.endDate}`,
                 ],
               },
-          ),
+          );
+          return this.continueTrip(grant, prepared);
+        },
       }),
     );
 
