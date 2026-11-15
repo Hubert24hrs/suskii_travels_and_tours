@@ -43,6 +43,10 @@ gateway, so nothing proved the pieces fit for the journey the owner described.
    it answers 409 `trip-not-paid` until a payment has gone through and a part took it. A payment
    for the wrong amount is refunded in full (ADR-099) and gives no receipt.
 
+   The same receipt is also data (`GET /v1/trips/{tripId}/receipt/details`, added on
+   2026-11-15), for a client to show in its own words. One function (`tripReceipt()`) decides
+   what both say, so the screen and the PDF cannot disagree.
+
 2. **The trip answer says when the receipt is ready**: `receipt: { paidAt, amount }`, null before.
    The field is optional, for older app builds.
 3. **Where the traveller finds it**:
@@ -50,8 +54,10 @@ gateway, so nothing proved the pieces fit for the journey the owner described.
      how much, and saves the PDF. The account's Trips page lists the combined trips first, each
      opening its trip and saving its receipt, then every booking.
    - In the app, the trip screen shows the same card under the parts, so a paid trip still
-     opens on each part's state, and hands the PDF to the share sheet, deleting its copy when
-     the sheet closes. The Trips tab lists the combined trips first while
+     opens on each part's state. The card opens the whole receipt on a screen of its own, from
+     the receipt's data, and hands the PDF to the share sheet, deleting its copy when the sheet
+     closes. A share sheet alone was not enough: on most Android phones it offers apps to send
+     the file to, not one to read it in. The Trips tab lists the combined trips first while
      the API answers; they are not kept offline.
 4. **A moment kept on record names its year**: `format.dateTime(instant, zone, { year: true })`
    for the payment on a receipt. Deadlines keep the short form.

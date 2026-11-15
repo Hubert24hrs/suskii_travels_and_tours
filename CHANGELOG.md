@@ -6,6 +6,19 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### The receipt read in the app (2026-11-15, ADR-120)
+
+#### Added
+
+- `GET /v1/trips/{tripId}/receipt/details`: a paid trip's receipt as data, what the PDF prints,
+  from the same rule (`tripReceipt()`, which the PDF route now uses too), with the same 404 and
+  409 `trip-not-paid` answers.
+- App: the trip screen's Receipt card opens the receipt in full on its own screen: each payment
+  (when, the amount, the method in the app's words, its reference and any refund started), what
+  each part cost with its booking reference and the service taxes inside, the total paid and the
+  tax registration. Saving the PDF to the share sheet stays, on the card and on the screen. The
+  Maestro trip flow opens the receipt after the restart.
+
 ### The receipt of a combined trip, and the whole trip run end to end (2026-11-14, ADR-120)
 
 #### Added
