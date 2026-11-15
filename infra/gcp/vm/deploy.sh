@@ -128,6 +128,12 @@ if payments == "paystack":
     if not paystack.startswith("sk_test_"):
         raise SystemExit("suskii-deploy: PAYSTACK_SECRET_KEY must be a Paystack test secret key (sk_test_...)")
     api["PAYSTACK_SECRET_KEY"] = paystack
+# Places and driving times from Google (ADR-122): its server key only while Google is chosen.
+# Google bills each call; the API stops asking at the compose file's daily caps. The key itself
+# is never printed.
+location = settings.get("location_provider") or "mock"
+if location == "google":
+    api["GOOGLE_MAPS_SERVER_KEY"] = secret("GOOGLE_MAPS_SERVER_KEY")
 write("api.env", api)
 write("worker.env", {"REDIS_URL": redis_url, "INTERNAL_API_TOKEN": secret("INTERNAL_API_TOKEN")})
 
@@ -178,6 +184,9 @@ write(
         "SUSKII_HOTEL_SUPPLIERS": settings.get("hotel_suppliers") or "mock",
         # Paystack first for naira, the stand-in page for everything it does not take.
         "SUSKII_PAYMENT_PROVIDERS": "paystack,mock" if payments == "paystack" else "mock",
+        # Ask Suskii's places and its driving times both from Google, or both samples (ADR-122).
+        "SUSKII_PLACES_PROVIDER": "google" if location == "google" else "mock",
+        "SUSKII_MAPS_PROVIDER": "google" if location == "google" else "mock",
         "SUSKII_EMAIL_PROVIDER": "smtp" if mailbox else "mock",
         "SUSKII_MAIL_HOST": settings.get("mail_host") or "mail.suskii.example",
     },

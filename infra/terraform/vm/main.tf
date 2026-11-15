@@ -47,21 +47,25 @@ locals {
   registry = "${var.region}-docker.pkg.dev/${var.project_id}/suskii"
   labels   = merge({ app = "suskii", environment = var.environment, managed_by = "terraform" }, var.labels)
 
-  apis = toset([
-    # Ask Suskii's model, Gemini on Vertex AI (ADR-112), called only while assistant_model is vertex.
-    "aiplatform.googleapis.com",
-    "artifactregistry.googleapis.com",
-    "cloudbuild.googleapis.com",
-    "compute.googleapis.com",
-    "endpoints.googleapis.com",
-    "iam.googleapis.com",
-    "logging.googleapis.com",
-    "monitoring.googleapis.com",
-    "secretmanager.googleapis.com",
-    "servicecontrol.googleapis.com",
-    "servicemanagement.googleapis.com",
-    "storage.googleapis.com",
-  ])
+  apis = setunion(
+    [
+      # Ask Suskii's model, Gemini on Vertex AI (ADR-112), called only while assistant_model is vertex.
+      "aiplatform.googleapis.com",
+      "artifactregistry.googleapis.com",
+      "cloudbuild.googleapis.com",
+      "compute.googleapis.com",
+      "endpoints.googleapis.com",
+      "iam.googleapis.com",
+      "logging.googleapis.com",
+      "monitoring.googleapis.com",
+      "secretmanager.googleapis.com",
+      "servicecontrol.googleapis.com",
+      "servicemanagement.googleapis.com",
+      "storage.googleapis.com",
+    ],
+    # Places and driving times for Ask Suskii (ADR-122), only while location_provider is google.
+    var.location_provider == "google" ? ["places.googleapis.com", "routes.googleapis.com"] : [],
+  )
 
   # Containers only: scripts/gcp/seed-secrets.mjs gives each its value, the VM reads them.
   secrets = toset([
@@ -71,6 +75,8 @@ locals {
     # The owner's own (ADR-116): read only while flights or hotels come from Duffel.
     "DUFFEL_API_TOKEN",
     "FIELD_ENCRYPTION_KEY",
+    # The owner's own (ADR-122): read only while location_provider is google.
+    "GOOGLE_MAPS_SERVER_KEY",
     "HMAC_SECRET",
     "INTERNAL_API_TOKEN",
     "JWT_PRIVATE_KEY",
@@ -467,6 +473,7 @@ resource "google_compute_instance" "backend" {
       flight_suppliers   = var.flight_suppliers
       hotel_suppliers    = var.hotel_suppliers
       payment_providers  = var.payment_providers
+      location_provider  = var.location_provider
       mailbox            = var.mailbox
       mail_host          = local.mail_host
     })
