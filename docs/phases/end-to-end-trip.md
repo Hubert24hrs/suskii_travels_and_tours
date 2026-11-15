@@ -23,14 +23,16 @@ and whatever breaks on the way is fixed.
 
 ## Files
 
-- API: `src/trips/` (the receipt route, `TripsService.receipt()`, `receipt` on the trip
-  answer), `src/documents/plan-pdf.ts` (`renderTripReceiptPdf`), `booking-pdf.ts` (headings
+- API: `src/trips/` (the receipt routes, `TripsService.receipt()`, `tripReceipt()` in
+  `trip-receipt.ts`, `receipt` on the trip answer), `src/documents/plan-pdf.ts`
+  (`renderTripReceiptPdf`), `booking-pdf.ts` (headings
   clear the QR code; `writeServiceTaxes` exported), `src/bookings/booking-documents.service.ts`
   (`documentTaxes` exported), `src/agent/platform-guide.ts`.
 - Website: `components/trips/trip-view.tsx` (the receipt card), `components/trips/trip-receipt.ts`,
   `components/account/combined-trips-section.tsx`, `app/account/trips/page.tsx`, the account
   message subset.
-- App: `src/screens/built-trip-screen.tsx` (the receipt card), `src/screens/trips-screen.tsx`
+- App: `src/screens/built-trip-screen.tsx` (the receipt card), `src/screens/trip-receipt-screen.tsx`
+  (the receipt read in full), `src/screens/trips-screen.tsx`
   (combined trips first), `src/components/trips/built-trip-card.tsx` (shared with the planner),
   `src/lib/plan-pdf.ts`.
 - i18n: `trips.receipt.*` and `account.trips.combined*` in every catalog; `format.dateTime` with
@@ -94,7 +96,25 @@ Found and fixed on the way:
   typecheck (fields missing from their local types); fixed before the commits.
 - Prisma's pg adapter overlaps a transaction's queries, which pg 9 will refuse; pg is held at
   major 8 (ADR-002).
+- The phone check (the test APK on its emulator against the online test server, ADR-100) failed
+  once the work was merged. The flow counts the three parts' "Confirmed" on one screen, and the
+  app's receipt card, then between the paid notice and the parts, pushed the third part off that
+  emulator's shorter screen. CI's emulator is taller and never saw it. The card now follows the
+  parts, and CLAUDE.md says why nothing goes between the notice and the parts.
 
-CI runs the same suites on the pushed branch (`ci.yml` and `mobile.yml`, the Android build with
-the Maestro flows and the iOS simulator build); the phone check against the hosted test server
-is the owner's to start.
+CI ran the same suites on the pull requests and passed (`ci.yml` and `mobile.yml`, the Android
+build with the Maestro flows and the iOS simulator build). The phone check runs the test APK on
+its emulator and the website's trip builder against the online test server before the APK is
+published (`mobile-test-apk.yml`). With the card moved, it passed on the fix's own build and
+then on the build from the merged code, which was published as the test APK.
+
+### The receipt read in the app (2026-11-15)
+
+The owner asked to see the receipt in the app as well. The app had the card (when, how much)
+and handed the PDF to the share sheet, which on most Android phones offers apps to send a file
+to rather than one to read it in. The receipt now opens in full on its own screen, from
+`GET /v1/trips/{tripId}/receipt/details`: the PDF's own content as data, decided by the same
+function (`tripReceipt()`, which the PDF route now uses too). Run on this machine: the API's
+trips suite (13 of 13 on a fresh database, the data route beside the PDF), the access-control
+matrix and the generated files check, the receipt rule's unit tests, the app's 382 tests (the
+receipt screen's five among them), the catalogs' 52 and the Maestro flow's syntax.

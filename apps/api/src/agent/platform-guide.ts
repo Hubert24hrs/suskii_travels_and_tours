@@ -117,7 +117,7 @@ export const PLATFORM_GUIDE: Readonly<Record<PlatformGuideTopic, GuideTopic>> = 
       'Ask Suskii can put a combined trip together from the parts it prepared in the chat. The trip page then shows each prepared part with its price.',
       'One form on the trip page takes the contact and every traveller once and books all the prepared parts; the trip is then paid once. If one part cannot be booked, none of them is.',
       'Bags and seats for a prepared flight are chosen on the flight’s own checkout, which the trip page also opens.',
-      'Once the trip is paid, its page shows a receipt: when it was paid, the amount and what each part cost, to save as a PDF. The account’s trips list has it too, and each part’s tickets or vouchers stay on its own booking.',
+      'Once the trip is paid, its page shows a receipt: when it was paid, the amount and what each part cost, to save as a PDF. In the app the receipt also opens in full on its own screen. The account’s trips list has it too, and each part’s tickets or vouchers stay on its own booking.',
       'Packages, tours, visa assistance, eSIMs and lounge access are not parts of a combined trip: each is booked and paid on its own page.',
     ],
     pages: [{ title: 'Plan a trip', path: '/trips' }],

@@ -8126,6 +8126,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/trips/{tripId}/receipt/details": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The receipt of one of my paid trips, as data
+         * @description What the receipt PDF (`downloadTripReceipt`) prints, from the same rule, for a client to show in its own words: each payment for the trip that went through (when, the amount, the method the provider reported, its reference and anything refunded at once), each part it paid (its booking, the amount and the taxes on our service inside it) and the total paid. 409 `trip-not-paid` until a payment has gone through. No name, contact or card detail.
+         */
+        get: operations["getTripReceipt"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/visa/documents/{documentId}/content": {
         parameters: {
             query?: never;
@@ -15493,6 +15513,55 @@ export interface components {
             parts: number;
             /** Format: date-time */
             expiresAt: string;
+        };
+        TripReceipt: {
+            /** Format: uuid */
+            tripId: string;
+            reference: string;
+            plan: {
+                origin: {
+                    code: string;
+                    name: string;
+                    cityName: string | null;
+                    countryCode: string;
+                };
+                destination: {
+                    code: string;
+                    name: string;
+                    cityName: string | null;
+                    countryCode: string;
+                    cityId: string | null;
+                };
+                departDate: string;
+                returnDate: string;
+                adults: number;
+                /** @default 0 */
+                children: number;
+                components: ("flight" | "hotel" | "car" | "transfer" | "insurance")[];
+            };
+            payments: {
+                /** Format: date-time */
+                paidAt: string;
+                reference: string;
+                method: string | null;
+                amount: components["schemas"]["Money"];
+                refunded: components["schemas"]["Money"] | null;
+            }[];
+            parts: {
+                component: ("flight" | "hotel" | "car" | "transfer" | "insurance") | null;
+                /** Format: uuid */
+                bookingId: string;
+                bookingReference: string;
+                booking: components["schemas"]["BookingSummary"] | null;
+                amount: components["schemas"]["Money"];
+                serviceTaxes: {
+                    label: string;
+                    rateBps: number;
+                    amount: components["schemas"]["Money"];
+                    registrationNumber: string | null;
+                }[];
+            }[];
+            total: components["schemas"]["Money"];
         };
         TripsScheduled: {
             created: number;
@@ -31565,6 +31634,35 @@ export interface operations {
                 };
                 content: {
                     "application/pdf": string;
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getTripReceipt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tripId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripReceipt"];
                 };
             };
             400: components["responses"]["Problem400"];

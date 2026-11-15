@@ -126,6 +126,10 @@ function Screens() {
           options={{ title: t('trips.details.title') }}
         />
         <Stack.Screen
+          name="trips/built/[tripId]/receipt"
+          options={{ title: t('trips.receipt.heading') }}
+        />
+        <Stack.Screen
           name="packages/index"
           options={{ title: t('mobile.search.titles.packages') }}
         />

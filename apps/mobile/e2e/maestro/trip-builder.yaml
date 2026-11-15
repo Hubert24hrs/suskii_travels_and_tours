@@ -2,7 +2,7 @@
 # hotel on the ordinary search screens and travel insurance on the trip's own screen, see a price
 # for each part with one total, pay for everything once on the provider's hosted page (the mock
 # provider) and come back to a paid trip whose parts are each confirmed, with its receipt, which
-# the Trips tab leads back to after a restart.
+# the Trips tab leads back to after a restart and which then opens in full.
 # Two values come from the runner with `-e` (run-android.sh, run-hosted.sh): TRIP_EMAIL, the
 # account's address (new on every run against a server that keeps its data), and PASSPORT_EXPIRY,
 # a day years ahead (YYYY-MM-DD), chosen in the date picker, which offers 20 years.
@@ -313,4 +313,20 @@ tags:
 - scrollUntilVisible:
     element:
       id: trip-receipt-card
+    timeout: 30000
+
+# The whole receipt reads in the app: the payment, what each part cost, and the total paid.
+- scrollUntilVisible:
+    element:
+      id: trip-receipt-view
+    timeout: 30000
+- tapOn:
+    id: trip-receipt-view
+- extendedWaitUntil:
+    visible:
+      id: trip-receipt-payment-0
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: trip-receipt-total
     timeout: 30000

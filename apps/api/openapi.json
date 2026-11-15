@@ -33856,6 +33856,60 @@
         }
       }
     },
+    "/v1/trips/{tripId}/receipt/details": {
+      "get": {
+        "operationId": "getTripReceipt",
+        "summary": "The receipt of one of my paid trips, as data",
+        "description": "What the receipt PDF (`downloadTripReceipt`) prints, from the same rule, for a client to show in its own words: each payment for the trip that went through (when, the amount, the method the provider reported, its reference and anything refunded at once), each part it paid (its booking, the amount and the taxes on our service inside it) and the total paid. 409 `trip-not-paid` until a payment has gone through. No name, contact or card detail.",
+        "tags": [
+          "Trips"
+        ],
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/visa/documents/{documentId}/content": {
       "get": {
         "operationId": "getVisaDocumentContent",
@@ -71691,6 +71745,291 @@
           "amount",
           "parts",
           "expiresAt"
+        ],
+        "additionalProperties": false
+      },
+      "TripReceipt": {
+        "type": "object",
+        "properties": {
+          "tripId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "plan": {
+            "type": "object",
+            "properties": {
+              "origin": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "cityName": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "countryCode": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{2}$"
+                  }
+                },
+                "required": [
+                  "code",
+                  "name",
+                  "cityName",
+                  "countryCode"
+                ],
+                "additionalProperties": false
+              },
+              "destination": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "cityName": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "countryCode": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{2}$"
+                  },
+                  "cityId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "code",
+                  "name",
+                  "cityName",
+                  "countryCode",
+                  "cityId"
+                ],
+                "additionalProperties": false
+              },
+              "departDate": {
+                "type": "string"
+              },
+              "returnDate": {
+                "type": "string"
+              },
+              "adults": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9
+              },
+              "children": {
+                "default": 0,
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 8
+              },
+              "components": {
+                "minItems": 1,
+                "maxItems": 5,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "flight",
+                    "hotel",
+                    "car",
+                    "transfer",
+                    "insurance"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "origin",
+              "destination",
+              "departDate",
+              "returnDate",
+              "adults",
+              "children",
+              "components"
+            ],
+            "additionalProperties": false
+          },
+          "payments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "paidAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "reference": {
+                  "type": "string"
+                },
+                "method": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "amount": {
+                  "$ref": "#/components/schemas/Money"
+                },
+                "refunded": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Money"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "paidAt",
+                "reference",
+                "method",
+                "amount",
+                "refunded"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "parts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "component": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "flight",
+                        "hotel",
+                        "car",
+                        "transfer",
+                        "insurance"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "bookingId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "bookingReference": {
+                  "type": "string"
+                },
+                "booking": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/BookingSummary"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "amount": {
+                  "$ref": "#/components/schemas/Money"
+                },
+                "serviceTaxes": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "label": {
+                        "type": "string"
+                      },
+                      "rateBps": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "amount": {
+                        "$ref": "#/components/schemas/Money"
+                      },
+                      "registrationNumber": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "label",
+                      "rateBps",
+                      "amount",
+                      "registrationNumber"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "component",
+                "bookingId",
+                "bookingReference",
+                "booking",
+                "amount",
+                "serviceTaxes"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "total": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "tripId",
+          "reference",
+          "plan",
+          "payments",
+          "parts",
+          "total"
         ],
         "additionalProperties": false
       },

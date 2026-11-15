@@ -1094,15 +1094,18 @@ Tooling notes for agents:
   over `tripPartFacts()` and send one `Idempotency-Key` per body.
 - The booking answer's `trip` field is additive; fields added to a trip answer stay optional for
   older app builds.
-- A paid trip's receipt (ADR-120) is `GET /v1/trips/{tripId}/receipt`, drawn by
-  `renderTripReceiptPdf()` from the trip's succeeded payments (`TripsService.receipt()`): each
+- A paid trip's receipt (ADR-120) is `GET /v1/trips/{tripId}/receipt` (a PDF,
+  `renderTripReceiptPdf()`) and `GET /v1/trips/{tripId}/receipt/details` (the same as data),
+  both from `tripReceipt()` over the trip's succeeded payments (`TripsService.receipt()`): each
   payment that went through and was not refunded for a wrong amount, the shares that kept their
   money and the service taxes stored on each booking (`documentTaxes()`). It is never stored,
-  answers 409 `trip-not-paid` before a part took a payment, and prints no name, contact or card
+  answers 409 `trip-not-paid` before a part took a payment, and holds no name, contact or card
   detail (the payment's reference is Suskii's own id). The trip answer's `receipt` is computed in
-  `present()` with the same rule; never decide "paid" for a receipt anywhere else. In the app
-  the receipt card follows the parts: nothing goes between a paid trip's notice and its parts,
-  because the phone check counts the three confirmations on one screen of a short emulator.
+  `present()` with the same rule; never decide "paid" for a receipt anywhere else, and never
+  give one receipt a line the other lacks. In the app the receipt card follows the parts:
+  nothing goes between a paid trip's notice and its parts, because the phone check counts the
+  three confirmations on one screen of a short emulator. The card opens the receipt screen
+  (`/trips/built/{id}/receipt`, the data in the app's words, sensitive) and shares the PDF.
 
 ### Suskii Agent (apps/api/src/agent, packages/shared agent; ADR-101 to ADR-107)
 

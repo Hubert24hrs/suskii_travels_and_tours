@@ -265,6 +265,7 @@ const CASES: Record<string, Case> = {
   getTrip: { path: (f) => `/v1/trips/${f.tripId}` },
   downloadTripPlan: { path: (f) => `/v1/trips/${f.tripId}/pdf` },
   downloadTripReceipt: { path: (f) => `/v1/trips/${f.paidTripId}/receipt` },
+  getTripReceipt: { path: (f) => `/v1/trips/${f.paidTripId}/receipt/details` },
   deleteTrip: { path: (f) => `/v1/trips/${f.tripId}` },
   addTripPart: {
     path: (f) => `/v1/trips/${f.tripId}/parts`,
