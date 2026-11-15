@@ -105,7 +105,8 @@ export const PLATFORM_GUIDE: Readonly<Record<PlatformGuideTopic, GuideTopic>> = 
       { title: 'Packages', path: '/packages' },
       { title: 'Tours', path: '/tours' },
       { title: 'Visa assistance', path: '/visa' },
-      { title: 'Travel extras', path: '/travel-extras' },
+      // A page's address keeps its hyphen: plain copy is about words, not addresses (ADR-109).
+      { title: 'Travel extras', path: '/travel-add-ons' },
     ],
   },
   combined_trips: {
@@ -157,7 +158,7 @@ export const PLATFORM_GUIDE: Readonly<Record<PlatformGuideTopic, GuideTopic>> = 
       'The site and the app are available in English, French, Swahili, Arabic and Portuguese.',
     ],
     pages: [
-      { title: 'Sign in', path: '/sign in' },
+      { title: 'Sign in', path: '/sign-in' },
       { title: 'Account', path: '/account' },
     ],
   },
