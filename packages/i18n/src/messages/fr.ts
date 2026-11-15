@@ -3286,6 +3286,14 @@ export const fr: Messages = {
       'Posez vos questions sur les vols, les hôtels, les voitures, vos réservations ou le fonctionnement de Suskii. Je peux chercher, expliquer et préparer une réservation pour vous : vous ajoutez les voyageurs et payez sur la page de réservation. Je ne paie, ne rembourse et ne confirme jamais rien seul.',
     disclosure:
       'Ceci est un assistant automatique. Vous pouvez demander une personne à tout moment.',
+    subtitle: 'Assistant de voyage automatique',
+    suggestions: {
+      heading: 'Essayez de demander',
+      trip: 'Organiser un voyage de Lagos à Londres',
+      flight: 'Trouver le vol le moins cher pour Nairobi le mois prochain',
+      hotel: 'Trouver un hôtel à Abuja pour ce week-end',
+      bookings: 'Afficher mes réservations',
+    },
     privacy:
       'Ne saisissez jamais ici de numéro de carte, de mot de passe ni de numéro de passeport.',
     messageLabel: 'Votre message',
@@ -3360,11 +3368,6 @@ export const fr: Messages = {
         'Pour tout payer en une seule fois, connectez-vous et demandez à nouveau. Vous pouvez aussi réserver chaque partie depuis sa propre carte.',
       trip_separate:
         'Les forfaits, les visites, l’aide au visa, les eSIM et l’accès aux salons ne font pas partie du paiement unique du voyage : réservez chacun depuis sa propre carte.',
-    },
-    rating: {
-      question: "L'assistant vous a-t-il bien aidé ?",
-      score: '{score} sur 5',
-      thanks: "Merci. Votre note nous aide à améliorer l'assistant.",
     },
     memory: {
       heading: "Ce que l'assistant retient",

@@ -309,65 +309,6 @@ function Feedback({ message, headers }: { message: Message; headers: Record<stri
   );
 }
 
-const SCORES = [1, 2, 3, 4, 5] as const;
-
-/**
- * How well the assistant helped, out of five (ADR-106): asked once the assistant has answered,
- * answered with one press, and changeable. The score goes to the people who improve it.
- */
-function Rating({
-  conversation,
-  headers,
-}: {
-  conversation: Conversation;
-  headers: Record<string, string>;
-}) {
-  const { t } = useAssistantT();
-  const [score, setScore] = useState<number | null>(conversation.rating ?? null);
-  const rate = (value: number) => {
-    setScore(value);
-    void browserApi()
-      .PUT('/v1/agent/conversations/{conversationId}/rating', {
-        params: { path: { conversationId: conversation.id } },
-        headers,
-        body: { score: value },
-      })
-      .catch(() => undefined);
-  };
-  return (
-    <div className="flex flex-col gap-2" data-testid="assistant-rating">
-      <span id="assistant-rating-label" className="font-body text-body-sm text-foreground">
-        {t('assistant.rating.question')}
-      </span>
-      <div role="radiogroup" aria-labelledby="assistant-rating-label" className="flex gap-2">
-        {SCORES.map((value) => (
-          <button
-            key={value}
-            type="button"
-            role="radio"
-            aria-checked={score === value}
-            aria-label={t('assistant.rating.score', { score: value })}
-            data-testid={`assistant-rating-${String(value)}`}
-            className={
-              score === value
-                ? 'inline-flex size-12 items-center justify-center rounded-md bg-primary font-body text-body font-bold text-on-primary focus-visible:focus-ring'
-                : 'inline-flex size-12 items-center justify-center rounded-md border border-border-strong font-body text-body text-foreground hover:border-primary focus-visible:focus-ring'
-            }
-            onClick={() => rate(value)}
-          >
-            {value}
-          </button>
-        ))}
-      </div>
-      {score ? (
-        <span role="status" className="font-body text-caption text-muted">
-          {t('assistant.rating.thanks')}
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
 /**
  * The traveller's chat with the assistant (ADR-101, ADR-107). Nothing is sent, and no
  * conversation is started, before the first message. While the assistant answers, the
@@ -669,9 +610,6 @@ export function AssistantChat({
           </div>
         </form>
       )}
-      {conversation && !answering && messages.some((message) => message.role === 'assistant') ? (
-        <Rating key={conversation.id} conversation={conversation} headers={headers} />
-      ) : null}
       <div className="flex flex-wrap gap-4">
         {conversation ? (
           <button

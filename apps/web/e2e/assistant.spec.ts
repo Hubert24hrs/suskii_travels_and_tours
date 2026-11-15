@@ -123,14 +123,9 @@ test('a visitor asks the assistant and keeps the conversation in the tab', async
   await answer.getByRole('button', { name: t('assistant.feedback.up') }).click();
   await expect(answer.getByText(t('assistant.feedback.thanks'))).toBeVisible();
 
-  // How the whole conversation went is one press too, out of five.
-  const rating = chat.getByTestId('assistant-rating');
-  await expect(rating.getByText(t('assistant.rating.question'))).toBeVisible();
-  await rating.getByRole('radio', { name: t('assistant.rating.score', { score: 4 }) }).click();
-  await expect(rating.getByText(t('assistant.rating.thanks'))).toBeVisible();
-  await expect(
-    rating.getByRole('radio', { name: t('assistant.rating.score', { score: 4 }) }),
-  ).toHaveAttribute('aria-checked', 'true');
+  // The owner took the conversation's score out of five away: each answer's thumbs remain.
+  await expect(chat.getByTestId('assistant-rating')).toHaveCount(0);
+  await expect(chat.getByRole('radio')).toHaveCount(0);
   // What the assistant remembers is for accounts: a visitor is not offered the page.
   await expect(chat.getByTestId('assistant-preferences')).toHaveCount(0);
   await expectNoAxeViolations(page);

@@ -3247,6 +3247,14 @@ export const sw: Messages = {
     intro:
       'Uliza kuhusu ndege, hoteli, magari, nafasi ulizohifadhi au jinsi Suskii inavyofanya kazi. Ninaweza kutafuta, kueleza na kukuandalia uhifadhi: unaongeza wasafiri na kulipa kwenye ukurasa wa kuhifadhi. Silipi, sirejeshi pesa wala sithibitishi chochote peke yangu.',
     disclosure: 'Huyu ni msaidizi wa kiotomatiki. Unaweza kuomba mtu wakati wowote.',
+    subtitle: 'Msaidizi wa safari wa kiotomatiki',
+    suggestions: {
+      heading: 'Jaribu kuuliza',
+      trip: 'Panga safari kutoka Lagos hadi London',
+      flight: 'Tafuta ndege ya bei nafuu zaidi kwenda Nairobi mwezi ujao',
+      hotel: 'Tafuta hoteli Abuja kwa wikendi hii',
+      bookings: 'Onyesha uhifadhi wangu',
+    },
     privacy: 'Usiandike hapa namba za kadi, manenosiri wala namba za pasipoti.',
     messageLabel: 'Ujumbe wako',
     placeholder: 'Andika swali lako',
@@ -3318,11 +3326,6 @@ export const sw: Messages = {
         'Ili kulipia vyote kwa mara moja, ingia kwenye akaunti yako na uulize tena. Unaweza pia kuweka kila sehemu kutoka kwenye kadi yake.',
       trip_separate:
         'Vifurushi, ziara, msaada wa visa, eSIM na kuingia kwenye sebule hazimo kwenye malipo moja ya safari: weka kila kimoja kutoka kwenye kadi yake.',
-    },
-    rating: {
-      question: 'Msaidizi alikusaidia kwa kiasi gani?',
-      score: '{score} kati ya 5',
-      thanks: 'Asante. Tathmini yako inatusaidia kuboresha msaidizi.',
     },
     memory: {
       heading: 'Mambo ambayo msaidizi anakumbuka',
