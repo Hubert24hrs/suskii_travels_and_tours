@@ -2212,6 +2212,79 @@
         "answer": "From Lekki Phase 1 the drive to Murtala Muhammed International Airport (LOS) takes about 45 minutes, it is 24 km away.",
         "rewrite": "Murtala Muhammed International Airport (LOS) is 24 km from Lekki Phase 1 in a straight line. I do not have a driving time for that trip, and the road is longer than the straight line."
       }
+    },
+    {
+      "id": "g18",
+      "agent": "trip_builder",
+      "message": "Option 1",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "flights.prepare_booking": {
+          "problems": [],
+          "bookingStatus": "not_booked",
+          "prepared": true,
+          "what": "Abuja (ABV) → Lagos (LOS), Air Peace",
+          "totalToPay": {
+            "amountMinor": 19300000,
+            "currency": "NGN"
+          },
+          "priceChangedSinceSearch": false,
+          "priceBeforeTheChange": null,
+          "offerValidUntil": "2026-11-20 10:00 UTC",
+          "alsoOffer": [],
+          "stay": {
+            "city": "Lagos",
+            "country": "NG",
+            "arrive": "2026-12-10",
+            "leave": "2026-12-13"
+          },
+          "next": {
+            "part": "hotel",
+            "ask": null,
+            "noneOffered": [],
+            "checkout": null,
+            "options": [
+              {
+                "option": 1,
+                "title": "Eko Signature",
+                "details": ["5★ · Victoria Island", "Deluxe king room", "2026-12-10 → 2026-12-13"],
+                "price": {
+                  "amountMinor": 55500000,
+                  "currency": "NGN"
+                },
+                "chargedPer": null,
+                "sample": false
+              },
+              {
+                "option": 2,
+                "title": "Lagoon View Suites",
+                "details": ["4★ · Lekki", "One bedroom suite", "2026-12-10 → 2026-12-13"],
+                "price": {
+                  "amountMinor": 27600000,
+                  "currency": "NGN"
+                },
+                "chargedPer": null,
+                "sample": false
+              }
+            ]
+          },
+          "cards": []
+        }
+      },
+      "expect": "grounded",
+      "mustNotInclude": [],
+      "recorded": {
+        "calls": [
+          {
+            "name": "flights.prepare_booking",
+            "arguments": {
+              "option": 1
+            }
+          }
+        ],
+        "answer": "Your Air Peace flight from Abuja to Lagos is set, NGN 193,000.00. Now choose where to stay in Lagos from 2026-12-10 to 2026-12-13:\n1. Eko Signature, 5 stars in Victoria Island, NGN 555,000.00 for the stay.\n2. Lagoon View Suites, 4 stars in Lekki, NGN 276,000.00 for the stay.\nWhich one would you like, or shall I skip the stay?"
+      }
     }
   ]
 }

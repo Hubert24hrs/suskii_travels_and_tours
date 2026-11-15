@@ -93,7 +93,15 @@ const ROLES: Readonly<Record<string, string>> = {
 
 /** Preparing a booking (ADR-109): what a specialist with such a tool does once a choice is made. */
 const PREPARE =
-  "When the traveller has clearly chosen one of the options you found, prepare its booking with the tool for that, passing the option's id exactly as the search returned it; never show or mention such an id. Then say what was prepared and the total the tool returned, and that it waits on the card for the travellers' details and the payment. If the price changed since the search, say both prices. If the tool reports a problem, say the option can no longer be had as shown and offer to search again.";
+  "When the traveller has clearly chosen one of the options you found (by its number, its name or its Choose button), prepare its booking with the tool for that: pass the option's number as option where the tool takes one, otherwise the option's id exactly as the search returned it; never show or mention an id. Then say what was prepared and the total the tool returned, and that it waits on the card for the travellers' details and the payment. If the price changed since the search, say both prices. If the tool reports a problem, say the option can no longer be had as shown and offer to search again.";
+
+/**
+ * A combined trip planned part by part (ADR-123). The order is the API's: each prepare tool
+ * hands the next part's options over in next, so the planner only shows what comes and never
+ * decides it. Instructions only, never a sentence to repeat (ADR-112).
+ */
+const FLOW =
+  'Plan a whole trip in this order: the flight first, then a place to stay, a rental car, an airport transfer and travel insurance, then the checkout. Start with flights.search and show its options. When the traveller chooses one, prepare it with its number as option: the result holds next, the part to choose now. Show next.options at once as the choices for next.part, name the parts in next.noneOffered as not available, and ask which they want or whether to skip it. For next.ask child_ages, ask how old the children are, then call hotels.search with their ages; for sign_in, a car needs them to be signed in. When they skip a part, call trips.next_part with skip. For next.part checkout, give each part of next.checkout with its price, then the total, and point to the checkout card. Do not ask whether they want the next part before showing it.';
 
 /**
  * After a flight (ADR-109): one question about the rest of the trip, never a second one.
@@ -128,7 +136,7 @@ const TASKS: Readonly<Record<string, string>> = {
   hotels: `${PREPARE}\nRight after a stay has been prepared, you may ask once whether they need a car or an airport transfer there.\n${NEARBY}\n${SUMMARY}`,
   cars: `${PREPARE}\nA rental car can be prepared only for a signed-in traveller, for the pick-up and return times of the search. Extras, another return branch and cover for another country are chosen on the car's own page.\nA bus trip is handed over at its seat map instead: once they choose a departure, call buses.prepare_booking with its tripId and the number of seats, then tell them the seats are picked on the card's page, where they also pay.\n${SUMMARY}`,
   tours: `${PREPARE}\nA package or a tour is prepared for one of the departures the search listed, for the same travellers. Visa assistance is prepared for the nationality, purpose and travel day the traveller gave; it is help with the application, never a promise of a visa.\n${SUMMARY}`,
-  trip_builder: `${PREPARE}\n${ALSO}\nAn airport transfer or travel insurance is prepared from addons.search with addons.prepare_booking, for the trip's dates and travellers.\n${NEARBY}\n${SUMMARY}`,
+  trip_builder: `${FLOW}\n${PREPARE}\n${NEARBY}\n${SUMMARY}`,
   disruption: PREPARE,
   payments: SUMMARY,
   bookings:
@@ -198,15 +206,15 @@ export const ROUTER_PROMPT: Prompt = {
 
 const SPECIALIST_PROMPTS: Readonly<Partial<Record<AgentName, Prompt>>> = {
   concierge: specialist('concierge', 5),
-  flights: specialist('flights', 5),
-  hotels: specialist('hotels', 5),
-  cars: specialist('cars', 4),
-  tours: specialist('tours', 4),
-  trip_builder: specialist('trip_builder', 6),
+  flights: specialist('flights', 6),
+  hotels: specialist('hotels', 6),
+  cars: specialist('cars', 5),
+  tours: specialist('tours', 5),
+  trip_builder: specialist('trip_builder', 7),
   bookings: specialist('bookings', 4),
   payments: specialist('payments', 4),
   support: specialist('support', 3),
-  disruption: specialist('disruption', 3),
+  disruption: specialist('disruption', 4),
   operations: staffSpecialist('operations', 1),
   finance_prep: staffSpecialist('finance_prep', 1),
   marketing: staffSpecialist('marketing', 1),

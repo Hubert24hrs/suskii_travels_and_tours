@@ -19,6 +19,15 @@ describe('routing eval, recorded', () => {
     ({ results } = await runRoutingEval(cases));
   }, EVAL_SUITE_TIMEOUT_MS);
 
+  it('keeps a trip planned part by part with the trip planner, by rule (ADR-123)', () => {
+    const planning = cases.filter((entry) => entry.tripPlanning).map((entry) => entry.id);
+    expect(planning.length).toBeGreaterThanOrEqual(3);
+    for (const result of results.filter((entry) => planning.includes(entry.id))) {
+      // "Option 2" means nothing to any other specialist: no model is asked.
+      expect([result.id, result.agent, result.byRule]).toEqual([result.id, 'trip_builder', true]);
+    }
+  });
+
   it('routes at least 95% of the suite, and the grader sees every miss', () => {
     const summary = summariseRouting(results);
     // Four recorded answers are wrong on purpose (one of them a staff router that obeys the

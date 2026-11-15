@@ -836,6 +836,33 @@
       "signedIn": false,
       "expect": ["hotels"],
       "recorded": "hotels"
+    },
+    {
+      "id": "r104",
+      "message": "Option 2",
+      "locale": "en-NG",
+      "signedIn": true,
+      "tripPlanning": true,
+      "expect": ["trip_builder"],
+      "recorded": "trip_builder"
+    },
+    {
+      "id": "r105",
+      "message": "No car, thanks. What comes next?",
+      "locale": "en-NG",
+      "signedIn": true,
+      "tripPlanning": true,
+      "expect": ["trip_builder"],
+      "recorded": "trip_builder"
+    },
+    {
+      "id": "r106",
+      "message": "Je prends l’hôtel numéro 1",
+      "locale": "fr",
+      "signedIn": false,
+      "tripPlanning": true,
+      "expect": ["trip_builder"],
+      "recorded": "trip_builder"
     }
   ]
 }
