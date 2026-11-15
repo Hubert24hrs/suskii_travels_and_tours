@@ -6,6 +6,31 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### The Ask Suskii chat in the app, redesigned (2026-11-15, ADR-121)
+
+#### Changed
+
+- App: the chat screen has its own header (back, Ask Suskii's mark, Earlier conversations, New
+  chat), message bubbles, three dots while Ask Suskii answers, a welcome with four questions a tap
+  sends, and a message box that sits on the keyboard, grows to about four lines and then scrolls
+  inside itself. Talk to a person and the assistant's preferences stay in reach above it.
+- Cards open the app's own screen for every page the app has (Home, deals, Prime, account, trips,
+  support, searches, rentals with their dates and more); only a page the app lacks opens on the
+  website.
+
+#### Removed
+
+- The conversation's score out of five, on the app and the website. Each answer keeps its thumbs;
+  the API's rating route stays for older app builds.
+
+#### Fixed
+
+- The message being typed disappeared under the keyboard (Android draws the app edge to edge).
+- A card named Home opened the website in a browser tab.
+- New chat did not clear a conversation opened from Earlier conversations.
+- Ask Suskii's guide linked "Sign in" to `/sign in` and "Travel extras" to `/travel-extras`; they
+  are `/sign-in` and `/travel-add-ons`, and a spec checks every page it names.
+
 ### The receipt read in the app (2026-11-15, ADR-120)
 
 #### Added

@@ -1189,6 +1189,14 @@ Tooling notes for agents:
   preferences page stays open while it is paused, so erasing is always possible. The app
   keeps the open conversation's id and a guest's token in `assistantSession`
   (`lib/assistant.ts`, secure store) and offers the assistant from Account.
+- The app's chat screen (ADR-121) hides the native header and draws its own (back, the mark,
+  Earlier conversations, New chat) so its actions are tested. Its message box sits on the
+  keyboard through `KeyboardAvoidingView` with `padding` (Android draws edge to edge, so the
+  keyboard covers the screen) and stops growing at `max-h-composer`. A card's link goes only
+  through `assistantCardTarget()`: the app's own screen for every page it has, the website only
+  for a page it lacks, no link for anything else; a new page the assistant links to gets its
+  screen there, with a case in `assistant.test.ts`. New chat clears every cached answer to
+  which conversation is open (`['agent', 'open']`), whatever the screen was opened with.
 - Chat (`src/agent/chat`): `POST /v1/agent/chat` stores the message (sealed), starts the run in
   the background and answers 202; events are read from the run's log in Redis as a stream
   (`GET /v1/agent/runs/{id}/stream`) or by polling. One run per conversation
@@ -1233,7 +1241,9 @@ Tooling notes for agents:
   words with `memoryValueText()`.
 - A conversation's score is set only through `AgentConversationsService.rate()` by its
   owner; staff see counts, a mean in tenths and the funnel (`AgentInsightsService`, computed
-  at read time). A new search tool joins `SEARCH_TOOLS` there, or the funnel misses it.
+  at read time). A new search tool joins `SEARCH_TOOLS` there, or the funnel misses it. The
+  clients no longer ask for a score (ADR-121, the owner's choice): keep the route for app
+  builds already on phones, and the per-answer thumbs as the clients' signal.
 - Planning tools (`src/agent/tools/planning-tools.ts`): `fares.trend` always returns
   `FARE_TREND_BASIS` (a trend over fares already found, never a forecast; the rule is
   `fareTrend()` in `route-facts.ts`); `documents.passports` returns counts from
@@ -2061,6 +2071,7 @@ Tooling notes for agents:
 - [ADR-118: One details form for the whole trip](docs/decisions/ADR-118-one-details-form-for-the-whole-trip.md)
 - [ADR-119: Paystack's test mode on the testing backend, and Duffel in the mode of the payments](docs/decisions/ADR-119-paystack-test-mode-on-the-testing-backend.md)
 - [ADR-120: The receipt of a combined trip, and the whole trip run end to end](docs/decisions/ADR-120-the-receipt-of-a-combined-trip.md)
+- [ADR-121: The Ask Suskii chat in the app: its own header, a message box on the keyboard, cards that open the app, and no score](docs/decisions/ADR-121-the-ask-suskii-chat-in-the-app.md)
 
 ## Open questions for the owner
 
