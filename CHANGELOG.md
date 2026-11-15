@@ -6,6 +6,30 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Ask Suskii plans a combined trip one part at a time (2026-11-15, ADR-123)
+
+#### Added
+
+- Ask Suskii shows the flight options first. Once the traveller chooses a flight, it shows the
+  places to stay, then rental cars, airport transfers and travel insurance, one part at a time,
+  then the checkout with each part's price and one total. The order is kept in the API: each
+  prepare tool returns the next part's options, searched for the trip's own place, dates and
+  travellers read from the prepared flight. A part can be skipped (`trips.next_part`). A part
+  with nothing on offer is passed over and named.
+- The flow asks the children's ages before searching a stay, and asks a guest to sign in before
+  a car.
+- Options are chosen by their number: the search tools remember what they showed, per
+  conversation, for as long as the search lasts. A Choose button on the newest answer, on the
+  website and in the app, sends the choice as the traveller's own words.
+- Routing keeps a conversation that is planning a trip with the trip planner until the checkout.
+  Prompt versions change: flights 6, hotels 6, cars 5, tours 5, trip builder 7, disruption 4.
+  There are new routing and grounding eval cases.
+
+#### Changed
+
+- The combined trip card from the assistant opens the trip's details form while parts wait for
+  the travellers' details. The form leads on to the one payment.
+
 ### Places and distances from Google Maps for Ask Suskii (2026-11-15, ADR-122)
 
 Part 1 of `docs/phases/google-maps.md`: the backend and the assistant. The maps on the website

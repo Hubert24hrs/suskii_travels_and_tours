@@ -143,6 +143,14 @@ for a signed-in traveller with a flight, the flight, stay, car, transfer and ins
 combined trip, whose page shows each prepared part with "Enter details" and takes one payment.
 Built and tested; the evals against the real model wait for the owner's Cloud Build run.
 
+A combined trip one part at a time (outside the numbered phases, ADR-123,
+`docs/phases/assistant-trip-flow.md`): Ask Suskii shows the flight options first, then, after each
+choice, the options for a place to stay, a rental car, an airport transfer and travel insurance,
+each chosen by its number (a Choose button on the newest answer) or skipped, then the checkout
+with one total, whose card opens the trip's details form. The order is the API's
+(`AgentTripFlow`), not a prompt's. Built and tested; the evals against the real model wait for
+the owner's Cloud Build run.
+
 One details form for the whole trip (outside the numbered phases, ADR-118,
 `docs/phases/trip-details-form.md`): the trip page's "Enter everyone's details once" opens one
 form (website `/trips/{id}/details`, app `/trips/built/{id}/details`) that takes the contact
@@ -1113,7 +1121,9 @@ Tooling notes for agents:
 - Prepared parts (ADR-117) are quotes Ask Suskii put on a trip (`trips.prepared`), written only
   by `TripsService.prepare()` and dropped by `addPart` when the part's booking joins. They are
   shown with their quoted price and "Enter details" (the ordinary checkout in trip mode) and
-  counted in `totalWithPrepared`, never in `due` or a payment: only bookings are paid.
+  counted in `totalWithPrepared`, never in `due` or a payment: only bookings are paid. The
+  assistant's trip card opens the details form (`/trips/{id}/details`) while a part waits for
+  details, and the trip page once every part is booked (ADR-123).
 - The details form (ADR-118) books prepared parts only through `TripBookingService.book()`:
   each part is the ordinary `BookingsService.create()` request with the travellers its quote
   was priced for (a flight and an add-on by their counts, a lead guest per room from the
@@ -1193,6 +1203,21 @@ Tooling notes for agents:
   for a signed-in traveller, puts the parts a trip takes on a combined trip through
   `TripsService.prepare()`. A model never adds prices up; the summary's card leads to the trip
   or to each part's own checkout.
+- A trip planned part by part (ADR-123) follows only `AgentTripFlow` (`tools/trip-flow.ts`):
+  the flight, then `TRIP_FLOW_PARTS` in order, then the checkout from `summarize()`. The trip's
+  facts come from the prepared flight (`tripFlowFacts`, `rentalWindow`, `addonDays`), never from
+  a model; a prepare tool hands the next part's options back as `next` through `continueTrip()`,
+  and `trips.next_part` passes a part over. A new part is a value there, its options in
+  `optionsFor()` and a case in `agent-tools.e2e-spec.ts`; never move the order into a prompt.
+  Children's ages are asked before a stay, never assumed.
+- Options are chosen by their number through `AgentOptions` (Redis `agent:options`, ids only, 30
+  minutes): a tool that shows options remembers them and gives their cards `choose`; a prepare
+  tool takes `option` beside its id (`chosen()`). The clients draw a Choose button only on the
+  newest answer and send `assistant.cards.chosen` as the traveller's words; a client never sends
+  an id. Keep an answer's option cards within the six it holds (the chosen part and four).
+- While a conversation plans a trip, the API sets `tripPlanning` in the run's context
+  (`AgentChatService.planningTrip()`), and the supervisor sends it to the trip planner after the
+  keyword rules, until the checkout.
 - `platform.guide` answers from `src/agent/platform-guide.ts`: plain sentences about what a
   traveller can do and where, with no price, fee, hour or promise. A change to a feature a
   traveller sees changes its topic there in the same change.
@@ -2104,6 +2129,7 @@ Tooling notes for agents:
 - [ADR-120: The receipt of a combined trip, and the whole trip run end to end](docs/decisions/ADR-120-the-receipt-of-a-combined-trip.md)
 - [ADR-121: The Ask Suskii chat in the app: its own header, a message box on the keyboard, cards that open the app, and no score](docs/decisions/ADR-121-the-ask-suskii-chat-in-the-app.md)
 - [ADR-122: Google Maps Platform for Ask Suskii's places and distances, behind our own providers](docs/decisions/ADR-122-google-maps-places-and-distances-for-ask-suskii.md)
+- [ADR-123: Ask Suskii plans a combined trip one part at a time, in an order kept in code](docs/decisions/ADR-123-ask-suskii-plans-a-trip-one-part-at-a-time.md)
 
 ## Open questions for the owner
 
@@ -2355,6 +2381,9 @@ API and to the API's addresses (`GOOGLE_MAPS_SERVER_KEY`), a budget alert and th
 counsel's reading of Google's terms and of where the Maps Platform processes requests, the
 privacy policy naming Google Maps, and whether hotel pages should list nearby places (a billed
 call per page view).
+Added with the trip planned part by part (ADR-123): whether four options per part is right, and
+whether a rental car collected an hour after landing and returned three hours before the flight
+back suits the fleet's branches.
 Every
 owner action is listed, step by step, in
 `docs/owner/launch-checklist.md`, and every stand-in to replace before the public launch (with
