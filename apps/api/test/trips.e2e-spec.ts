@@ -36,6 +36,27 @@ interface Trip {
   /** Once a payment for the trip went through and a part is paid (ADR-120). */
   receipt?: { paidAt: string; amount: Wire } | null;
 }
+/** The receipt as data (`getTripReceipt`): what the PDF prints, for the app to show. */
+interface TripReceipt {
+  tripId: string;
+  reference: string;
+  payments: {
+    paidAt: string;
+    reference: string;
+    method: string | null;
+    amount: Wire;
+    refunded: Wire | null;
+  }[];
+  parts: {
+    component: string | null;
+    bookingId: string;
+    bookingReference: string;
+    booking: { id: string; reference: string } | null;
+    amount: Wire;
+    serviceTaxes: { label: string; rateBps: number; amount: Wire }[];
+  }[];
+  total: Wire;
+}
 
 const ALL = ['flight', 'hotel', 'car', 'transfer', 'insurance'] as const;
 
@@ -346,6 +367,12 @@ describe('combined trips (e2e)', () => {
       .set(traveller.headers)
       .expect(409);
     expect(early.body.type).toBe('urn:suskii:problem:trip-not-paid');
+    const earlyDetails = await ctx
+      .http()
+      .get(`/v1/trips/${trip.id}/receipt/details`)
+      .set(traveller.headers)
+      .expect(409);
+    expect(earlyDetails.body.type).toBe('urn:suskii:problem:trip-not-paid');
     for (const part of trip.parts) {
       expect(part).toMatchObject({ state: 'to_pay', status: 'PRICED', priceChange: null });
       expect(part.due).toEqual(part.booking.total);
@@ -419,9 +446,49 @@ describe('combined trips (e2e)', () => {
     expect(printed).toContain(documentMoney(money(BigInt(sum), 'NGN')));
     expect(printed).not.toContain('A plan, not a booking.');
     expect(printed).not.toMatch(/@example\.com|\+234/);
+    // The same receipt as data, from the same rule, for the app to show in its own words.
+    const details = (
+      await ctx
+        .http()
+        .get(`/v1/trips/${trip.id}/receipt/details`)
+        .set(traveller.headers)
+        .expect(200)
+    ).body as TripReceipt;
+    expect(details).toMatchObject({ tripId: trip.id, reference: trip.reference });
+    expect(details.payments).toEqual([
+      {
+        paidAt: paid.receipt?.paidAt,
+        reference,
+        // The channel the provider reported; the stand-in page reports a card.
+        method: 'card',
+        amount: trip.total,
+        refunded: null,
+      },
+    ]);
+    expect(
+      details.parts.map((part) => [
+        part.component,
+        part.bookingId,
+        part.bookingReference,
+        part.booking?.reference,
+        part.amount,
+      ]),
+    ).toEqual(
+      paid.parts.map((part) => [
+        part.component,
+        part.booking.id,
+        part.booking.reference,
+        part.booking.reference,
+        part.booking.total,
+      ]),
+    );
+    expect(details.total).toEqual({ amountMinor: sum, currency: 'NGN' });
+    expect(JSON.stringify(details)).not.toMatch(/@example\.com|\+234/);
     const stranger = bearer((await signUp(ctx, 'trip.receipt@example.com')).accessToken);
     await ctx.http().get(`/v1/trips/${trip.id}/receipt`).set(stranger).expect(404);
     await ctx.http().get(`/v1/trips/${trip.id}/receipt`).expect(401);
+    await ctx.http().get(`/v1/trips/${trip.id}/receipt/details`).set(stranger).expect(404);
+    await ctx.http().get(`/v1/trips/${trip.id}/receipt/details`).expect(401);
 
     // The provider charged once; the ledger took each booking's share from that one charge.
     const tripPayment = await ctx.prisma.tripPayment.findUniqueOrThrow({
@@ -740,6 +807,7 @@ describe('combined trips (e2e)', () => {
     // Money given back is not a receipt for the trip.
     expect(after.receipt).toBeNull();
     await ctx.http().get(`/v1/trips/${tripId}/receipt`).set(traveller.headers).expect(409);
+    await ctx.http().get(`/v1/trips/${tripId}/receipt/details`).set(traveller.headers).expect(409);
   });
 
   it('settles a trip whose webhook never came, through reconciliation', async () => {

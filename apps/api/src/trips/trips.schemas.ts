@@ -179,13 +179,70 @@ export const tripSchema = named(
       .optional()
       .meta({
         description:
-          'Once a payment for the trip has gone through and a part is paid: its receipt is `GET /v1/trips/{tripId}/receipt`. Absent from older answers.',
+          'Once a payment for the trip has gone through and a part is paid: its receipt is `GET /v1/trips/{tripId}/receipt` (a PDF) and `GET /v1/trips/{tripId}/receipt/details` (the same, as data). Absent from older answers.',
       }),
   }),
 );
 export type TripDto = z.infer<typeof tripSchema>;
 
 export const tripListSchema = named('TripList', z.object({ trips: z.array(tripSchema) }));
+
+/**
+ * A paid trip's receipt as data (ADR-120): what the receipt PDF prints, from the same rule
+ * (`tripReceipt()`), for a client to show in its own words. No name, contact or card detail.
+ */
+export const tripReceiptSchema = named(
+  'TripReceipt',
+  z.object({
+    tripId: z.uuid(),
+    reference: z.string(),
+    plan: tripPlanSchema,
+    payments: z
+      .array(
+        z.object({
+          paidAt: timestamp,
+          reference: z.string().meta({
+            description: "Suskii's own reference for the payment, as the provider shows it.",
+          }),
+          method: z.string().nullable().meta({
+            description:
+              'The channel the provider reported (`card`, `bank_transfer`, `ussd`, ...); null when it named none. Never card details.',
+          }),
+          amount: moneySchema,
+          refunded: moneySchema.nullable().meta({
+            description: 'What the payment took that no part could keep, refunded automatically.',
+          }),
+        }),
+      )
+      .meta({ description: 'Each payment for the trip that went through, oldest first.' }),
+    parts: z
+      .array(
+        z.object({
+          component: z.enum(TRIP_COMPONENTS).nullable(),
+          bookingId: z.uuid(),
+          bookingReference: z.string(),
+          booking: bookingSummarySchema.nullable().meta({
+            description:
+              'The part as the trip shows it; null for a booking the trip no longer lists.',
+          }),
+          amount: moneySchema.meta({ description: 'What this part kept of its payment.' }),
+          serviceTaxes: z
+            .array(
+              z.object({
+                label: z.string(),
+                rateBps: z.number().int().meta({ description: 'Basis points (750 = 7.5%).' }),
+                amount: moneySchema,
+                registrationNumber: z.string().nullable(),
+              }),
+            )
+            .meta({ description: "Tax on Suskii's service inside the part's amount (ADR-072)." }),
+        }),
+      )
+      .meta({ description: 'Each part a payment paid, in the order of the trip parts.' }),
+    total: moneySchema.meta({ description: 'What the parts kept: the total paid.' }),
+  }),
+);
+export type TripReceiptDto = z.infer<typeof tripReceiptSchema>;
 
 export const tripPaymentSessionSchema = named(
   'TripPaymentSession',
