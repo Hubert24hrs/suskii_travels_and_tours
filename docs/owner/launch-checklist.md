@@ -150,7 +150,10 @@ Check: `pnpm smoke --api https://<api host> --web https://<web host> --admin htt
 
 1. **Tax**: your accountant's rates, bases and registration number per country; enter them in
    the console (Pricing, Taxes). Nothing is seeded on purpose. `TAX_SELLER_COUNTRY` is `NG`.
-2. **Markups and fees**: enter your margins in the console (Pricing). Nothing is seeded.
+2. **Markups and fees**: your markups are in place from the first release (ADR-124): 2% on
+   flight fares, 10% on hotels, buses, rides, rental cars, packages, tours, visa help, add-ons
+   and assisted quotes, nothing on Prime. Change or add rules in the console (Pricing); a rule
+   you add for a route, a supplier or a channel comes before the defaults. No fee is seeded.
 3. **Legal texts**: booking conditions and fare rules, the privacy policy (naming every
    recipient in `docs/privacy/records-of-processing.md`), the cookie policy and the terms of use.
 4. **Support contacts** shown on the site: phone, email, WhatsApp number, office address.
@@ -523,7 +526,7 @@ Nothing waits on these; change them when you want to (each is a setting or a con
 
 | Decision                              | Default today                                          |
 | ------------------------------------- | ------------------------------------------------------ |
-| Installment deposit, fees, grace      | 30% deposit, no fee, 24 hours                          |
+| Installment deposit, fees, grace      | 25% deposit, no fee, 24 hours                          |
 | Refund approval                       | Every staff refund needs a second approver             |
 | Company wallet top-ups                | NGN 10,000 to 5,000,000, USD 10 to 5,000, 5 a day      |
 | Package balance due                   | 30 days before departure                               |

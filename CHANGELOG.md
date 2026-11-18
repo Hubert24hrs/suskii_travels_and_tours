@@ -6,6 +6,23 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Booking as Nigerian travellers know it, and the owner's markups (2026-11-18, ADR-124)
+
+#### Added
+
+- The owner's markups on every price: 2% on flight fares; 10% on hotels, buses, rides, rental
+  cars, packages, tours, visa assistance, travel add-ons and assisted quotes; none on Prime.
+  They are markup rules the seed creates once per vertical, at the lowest precedence, on the
+  fare before taxes. Staff change or switch them off in the console, and a rule they add for a
+  route, a supplier or a channel comes first.
+- With installments, the traveller chooses how many payments follow the deposit, as a
+  repayment term is chosen, on the website and in the app. The payment options list one
+  schedule per number that fits, and the installment plan route takes `payments`.
+
+#### Changed
+
+- The installment deposit is 25% by default (was 30%).
+
 ### Ask Suskii plans a combined trip one part at a time (2026-11-15, ADR-123)
 
 #### Added

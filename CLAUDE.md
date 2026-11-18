@@ -151,6 +151,15 @@ with one total, whose card opens the trip's details form. The order is the API's
 (`AgentTripFlow`), not a prompt's. Built and tested; the evals against the real model wait for
 the owner's Cloud Build run.
 
+Booking as Nigerian travellers know it (outside the numbered phases, ADR-124,
+`docs/phases/booking-logic-and-markups.md`): the owner asked for bookings to follow Wakanow's
+booking logic with their markups. The platform already reserved now for payment later, took
+deposits with installments, offered transfers and USSD and sent the e-ticket; the changes are
+the owner's default markups (2% on flight fares, 10% on hotels, Cars and everything else, none
+on Prime; created once, changed in the console), a 25% deposit, and the traveller choosing how
+many payments follow it, on the website and in the app. Nothing names Wakanow to a traveller.
+Built and tested.
+
 One details form for the whole trip (outside the numbered phases, ADR-118,
 `docs/phases/trip-details-form.md`): the trip page's "Enter everyone's details once" opens one
 form (website `/trips/{id}/details`, app `/trips/built/{id}/details`) that takes the contact
@@ -481,7 +490,12 @@ Tooling notes for agents:
   takes an explicit rounding mode. On the wire it is `{ amountMinor, currency }` (`moneySchema` /
   `priceSchema` in `src/pricing/pricing.schemas.ts`); never send floats or decimal strings.
 - Prices come from `PricingService.pricer()` (markup, conversion, fees, promo). Markup and supplier
-  cost are internal and never leave the API. No pricing rule or promo is seeded.
+  cost are internal and never leave the API. The owner's default markups (ADR-124: 2% on
+  flights, 10% on every other vertical but `prime`) are the only pricing rules seeded:
+  `seedDefaultMarkups()` creates one per vertical once, under `stableDefaultMarkupId()`, at the
+  lowest precedence (priority 10,000), and never updates or re-creates it, so staff changes in
+  the console survive releases. A new vertical needs its entry in `DEFAULT_MARKUP_BPS` (the
+  type check fails otherwise). No fee, tax rule or promo is seeded.
 - Supplier adapters live in `src/suppliers/<vendor>` and map vendor payloads to the domain types in
   `supplier.types.ts`; vendor types never leave the adapter. Enable them with `FLIGHT_SUPPLIERS` /
   `HOTEL_SUPPLIERS` (comma-separated). Adapters throw the `SupplierError` subclasses and honour the
@@ -570,7 +584,11 @@ Tooling notes for agents:
   synthetic event id (`reconcile:{reference}:{status}`), so dedupe and postings stay in one place.
 - Plans: `PaymentPlansService` creates holds and installment plans (flights with supplier holds,
   no paid extras) and closes them (cancel, default, expiry) under the plan's policy. Amounts,
-  deposit, fees and grace come from config; never hard-code them.
+  deposit, fees and grace come from config; never hard-code them. The traveller chooses how many
+  payments follow the 25% deposit (ADR-124): the options list one schedule per number that fits
+  (`installments.choices`, from `installmentSchedule(..., payments)`), the route takes `payments`
+  and refuses a number that no longer fits (`chosenSchedule()`, 409 `hold-unavailable`). Never
+  build a schedule anywhere else, and never stretch a plan past the supplier's deadline.
 - Captured card payments are scored by `PaymentRiskService` in the capture transaction; at or
   above `PAYMENT_RISK_REVIEW_SCORE` the booking stays PAID with an open `PaymentRiskReview` and
   nothing fulfils it until finance approves (reject refunds in full). Never fulfil a PAID booking
@@ -2130,6 +2148,7 @@ Tooling notes for agents:
 - [ADR-121: The Ask Suskii chat in the app: its own header, a message box on the keyboard, cards that open the app, and no score](docs/decisions/ADR-121-the-ask-suskii-chat-in-the-app.md)
 - [ADR-122: Google Maps Platform for Ask Suskii's places and distances, behind our own providers](docs/decisions/ADR-122-google-maps-places-and-distances-for-ask-suskii.md)
 - [ADR-123: Ask Suskii plans a combined trip one part at a time, in an order kept in code](docs/decisions/ADR-123-ask-suskii-plans-a-trip-one-part-at-a-time.md)
+- [ADR-124: Booking as Nigerian travellers know it, and the owner's default markups](docs/decisions/ADR-124-booking-like-the-market-and-default-markups.md)
 
 ## Open questions for the owner
 
@@ -2384,6 +2403,11 @@ call per page view).
 Added with the trip planned part by part (ADR-123): whether four options per part is right, and
 whether a rental car collected an hour after landing and returned three hours before the flight
 back suits the fleet's branches.
+Added with the booking logic and markups (ADR-124): whether to offer installment plans longer
+than the airline's hold (months, as Wakanow's Pay Small Small does on flights), which means
+issuing tickets before full payment and carrying the credit risk; whether the installment fee
+should grow with the number of payments; and whether a markup should also apply to a fare's
+taxes (today it applies to the fare before taxes, as the trade does).
 Every
 owner action is listed, step by step, in
 `docs/owner/launch-checklist.md`, and every stand-in to replace before the public launch (with
