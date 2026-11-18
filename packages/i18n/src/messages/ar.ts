@@ -1155,6 +1155,15 @@ export const ar: Messages = {
       },
       reserve: 'احجز الآن',
       setUp: 'إعداد الأقساط',
+      payments: 'ادفع الباقي على',
+      paymentsOption: {
+        one: 'دفعة واحدة',
+        two: 'دفعتين',
+        few: '{count} دفعات',
+        many: '{count} دفعة',
+        other: '{count} دفعة',
+      },
+      paymentsHint: 'تُوزَّع الدفعات الأقل على المدة نفسها، فتأتي كل دفعة في وقت لاحق.',
     },
     method: {
       heading: 'كيف تفضّل الدفع؟',

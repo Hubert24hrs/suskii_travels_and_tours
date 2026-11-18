@@ -1068,6 +1068,9 @@ export const sw: Messages = {
       },
       reserve: 'Hifadhi sasa',
       setUp: 'Weka awamu',
+      payments: 'Lipa kiasi kilichobaki kwa',
+      paymentsOption: { one: 'Malipo {count}', other: 'Malipo {count}' },
+      paymentsHint: 'Malipo machache hugawanywa katika muda ule ule, hivyo kila moja huja baadaye.',
     },
     method: {
       heading: 'Ungependa kulipa vipi?',

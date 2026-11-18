@@ -1070,6 +1070,10 @@ export const pt: Messages = {
       },
       reserve: 'Reservar agora',
       setUp: 'Configurar prestações',
+      payments: 'Pagar o resto em',
+      paymentsOption: { one: '{count} pagamento', other: '{count} pagamentos' },
+      paymentsHint:
+        'Menos pagamentos são repartidos pelo mesmo período, por isso cada um chega mais tarde.',
     },
     method: {
       heading: 'Como prefere pagar?',

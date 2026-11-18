@@ -52,6 +52,7 @@ import {
   chosenMethod,
   MethodChoice,
   PlanChoice,
+  chosenInstallments,
   type PaymentPlanChoice,
   type PaymentMethodName,
 } from './payment-choice';
@@ -136,6 +137,8 @@ export function Checkout({
   const [promoBusy, setPromoBusy] = useState(false);
   const [priceChange, setPriceChange] = useState<PriceChange | null>(null);
   const [plan, setPlan] = useState<PaymentPlanChoice>('full');
+  // How many payments follow an installment plan's deposit; null for as many as fit (ADR-124).
+  const [planPayments, setPlanPayments] = useState<number | null>(null);
   // Seat selection (ADR-094): its code and the seat map load only when the traveller asks.
   const [choosingSeats, setChoosingSeats] = useState(false);
   const [seats, setSeats] = useState<PricedSeat[]>([]);
@@ -384,10 +387,17 @@ export function Checkout({
       path: { bookingId },
       header: { 'Idempotency-Key': idempotencyKey(), ...bookingHeaders(bookingId) },
     };
+    // Only a number still on offer is sent; otherwise the plan takes as many as fit.
+    const payments = quote.payment.installments
+      ? chosenInstallments(quote.payment.installments, planPayments).payments
+      : null;
     const { data, error, response } =
       kind === 'hold'
         ? await browserApi().POST('/v1/bookings/{bookingId}/hold', { params })
-        : await browserApi().POST('/v1/bookings/{bookingId}/installment-plan', { params });
+        : await browserApi().POST('/v1/bookings/{bookingId}/installment-plan', {
+            params,
+            body: payments === null ? {} : { payments },
+          });
     if (data) {
       router.push(`/bookings/${bookingId}`);
       return;
@@ -925,6 +935,8 @@ export function Checkout({
               options={quote.payment}
               value={chosenPlan}
               onChange={setPlan}
+              payments={planPayments}
+              onPaymentsChange={setPlanPayments}
               extrasSelected={extrasSelected}
               seatsSelected={seats.length > 0}
             />

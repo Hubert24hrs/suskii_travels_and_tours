@@ -10,6 +10,7 @@ import { useBookingT } from './checkout-messages';
 
 export type PaymentPlanChoice = 'full' | 'hold' | 'installments';
 type Options = Schemas['PaymentOptions'];
+type Installments = NonNullable<Options['installments']>;
 export type PaymentMethodName = Options['methods'][number]['method'];
 
 function Choice({
@@ -95,15 +96,76 @@ export function InstallmentSchedule({
 }
 
 /**
+ * The plan for the number of payments after the deposit the traveller chose (ADR-124), or the
+ * one with as many as fit when they have not chosen (or chose a number no longer on offer).
+ */
+export function chosenInstallments(
+  installments: Installments,
+  payments: number | null,
+): { plan: Installments; payments: number | null } {
+  const choice = installments.choices.find((option) => option.payments === payments);
+  if (!choice) return { plan: installments, payments: null };
+  return {
+    plan: { ...installments, total: choice.total, fee: choice.fee, schedule: choice.schedule },
+    payments: choice.payments,
+  };
+}
+
+/** How many payments follow the deposit, like a repayment term (ADR-124). */
+function PaymentsChoice({
+  installments,
+  payments,
+  onChange,
+}: {
+  installments: Installments;
+  payments: number | null;
+  onChange: (payments: number) => void;
+}) {
+  const { t } = useBookingT();
+  const most = installments.schedule.length - 1;
+  const selected = payments ?? most;
+  return (
+    <fieldset className="flex flex-col gap-2" data-testid="installment-payments">
+      <legend className="mb-1 font-body text-body-sm font-bold text-foreground">
+        {t('checkout.plan.payments')}
+      </legend>
+      <div className="flex flex-wrap gap-2">
+        {installments.choices.map((choice) => (
+          <label
+            key={choice.payments}
+            htmlFor={`plan-payments-${String(choice.payments)}`}
+            className="flex min-h-12 items-center gap-2 rounded-md border border-border-strong px-3 font-body text-body-sm text-foreground has-checked:border-primary"
+          >
+            <input
+              id={`plan-payments-${String(choice.payments)}`}
+              type="radio"
+              name="plan-payments"
+              checked={selected === choice.payments}
+              onChange={() => onChange(choice.payments)}
+              className="size-5 shrink-0 accent-primary"
+            />
+            {t('checkout.plan.paymentsOption', { count: choice.payments })}
+          </label>
+        ))}
+      </div>
+      <p className="font-body text-caption text-foreground">{t('checkout.plan.paymentsHint')}</p>
+    </fieldset>
+  );
+}
+
+/**
  * Pay now, reserve and pay later, or installments (ADR-018). Only what the airline allows for
  * this fare is offered, never with paid extras; the full schedule, total, fee and missed-payment
- * policy are shown before the traveller commits.
+ * policy are shown before the traveller commits. With installments, the traveller chooses how
+ * many payments follow the deposit (ADR-124).
  */
 export function PlanChoice({
   vertical,
   options,
   value,
   onChange,
+  payments = null,
+  onPaymentsChange,
   extrasSelected,
   seatsSelected = false,
 }: {
@@ -112,6 +174,9 @@ export function PlanChoice({
   options: Options;
   value: PaymentPlanChoice;
   onChange: (plan: PaymentPlanChoice) => void;
+  /** Payments after the deposit the traveller chose; null for as many as fit. */
+  payments?: number | null;
+  onPaymentsChange?: (payments: number) => void;
   extrasSelected: boolean;
   /** The extra is a chosen seat (ADR-094), so the note names seats, not bags. */
   seatsSelected?: boolean;
@@ -120,7 +185,8 @@ export function PlanChoice({
   const format = useFormatters();
   if (!options.hold && !options.installments) return null;
   const hold = extrasSelected ? null : options.hold;
-  const installments = extrasSelected ? null : options.installments;
+  const offered = extrasSelected ? null : options.installments;
+  const installments = offered ? chosenInstallments(offered, payments).plan : null;
   return (
     <Card asChild className="flex flex-col gap-3 p-4">
       <fieldset>
@@ -168,6 +234,13 @@ export function PlanChoice({
           >
             {value === 'installments' ? (
               <>
+                {offered && offered.choices.length > 1 && onPaymentsChange ? (
+                  <PaymentsChoice
+                    installments={offered}
+                    payments={chosenInstallments(offered, payments).payments}
+                    onChange={onPaymentsChange}
+                  />
+                ) : null}
                 <InstallmentSchedule installments={installments} />
                 <p className="font-body text-caption text-foreground">
                   {t('checkout.plan.estimate')}

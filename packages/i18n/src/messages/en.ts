@@ -1034,6 +1034,9 @@ export const en = {
       },
       reserve: 'Reserve now',
       setUp: 'Set up installments',
+      payments: 'Pay the rest in',
+      paymentsOption: { one: '{count} payment', other: '{count} payments' },
+      paymentsHint: 'Fewer payments are spread over the same time, so each one comes later.',
     },
     method: {
       heading: 'How would you like to pay?',

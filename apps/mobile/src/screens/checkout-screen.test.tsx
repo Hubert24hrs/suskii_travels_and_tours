@@ -192,6 +192,68 @@ describe('CheckoutScreen', () => {
     expect(bodies.map((body) => body.method)).toEqual(['agent', 'card']);
   });
 
+  it('sets up installments with the number of payments the traveller chose (ADR-124)', async () => {
+    const base = flightQuote();
+    const ngn = (amountMinor: number) => ({ amountMinor, currency: 'NGN' });
+    const due = (day: number, amountMinor: number, sequence: number) => ({
+      sequence,
+      dueAt: `2026-10-${String(day).padStart(2, '0')}T09:00:00.000Z`,
+      amount: ngn(amountMinor),
+    });
+    const deposit = due(1, 2_125_000, 0);
+    const choices = [
+      { payments: 1, schedule: [deposit, due(10, 6_375_000, 1)] },
+      { payments: 2, schedule: [deposit, due(5, 3_187_500, 1), due(10, 3_187_500, 2)] },
+      {
+        payments: 3,
+        schedule: [deposit, due(4, 2_125_000, 1), due(7, 2_125_000, 2), due(10, 2_125_000, 3)],
+      },
+    ].map((choice) => ({ ...choice, total: ngn(8_500_000), fee: ngn(0) }));
+    const { calls } = mockApi({
+      [`GET /v1/quotes/${QUOTE_ID}`]: () =>
+        json(
+          flightQuote({
+            payment: {
+              ...base.payment,
+              installments: {
+                deadline: '2026-10-11T09:00:00.000Z',
+                total: ngn(8_500_000),
+                fee: ngn(0),
+                graceHours: 24,
+                defaultFeeBps: 0,
+                schedule: choices[2]?.schedule ?? [],
+                choices,
+              },
+            },
+          }),
+        ),
+      'GET /v1/catalog/countries': () => json(countries),
+      'POST /v1/attestation/challenges': () =>
+        json({ challenge: 'challenge-1', expiresAt: '2026-10-01T09:05:00.000Z' }, 201),
+      'POST /v1/bookings': () =>
+        json({ booking: booking({ status: 'PRICED', documents: [] }), accessToken: TOKEN }, 201),
+      [`POST /v1/bookings/${BOOKING_ID}/installment-plan`]: () =>
+        json(booking({ status: 'HELD', documents: [] })),
+    });
+    await renderWithApp(<CheckoutScreen />);
+    await fillTraveller();
+
+    await fireEvent.press(await screen.findByTestId('plan-installments'));
+    // As many payments as fit until the traveller chooses fewer, like a repayment term.
+    expect(screen.getByTestId('installment-payments')).toBeOnTheScreen();
+    expect(screen.getByTestId('plan-payments-3')).toBeChecked();
+    expect(screen.getAllByText(/21,250/).length).toBeGreaterThan(1);
+    await fireEvent.press(screen.getByTestId('plan-payments-1'));
+    expect(screen.getByTestId('plan-payments-1')).toBeChecked();
+    expect(screen.getByText(/63,750/)).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByTestId('checkout-submit'));
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith(`/trips/${BOOKING_ID}`));
+    const plan = calls.find((request) => request.url.endsWith('/installment-plan'));
+    expect(await plan?.json()).toEqual({ payments: 1 });
+    expect(openHostedCheckout).not.toHaveBeenCalled();
+  });
+
   it('checks the form before calling the API', async () => {
     const { calls } = api(() => json(paymentSession, 201));
     await renderWithApp(<CheckoutScreen />);

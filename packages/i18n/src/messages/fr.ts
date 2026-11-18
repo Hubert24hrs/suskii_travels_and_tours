@@ -1075,6 +1075,10 @@ export const fr: Messages = {
       },
       reserve: 'Réserver maintenant',
       setUp: 'Mettre en place les échéances',
+      payments: 'Payer le reste en',
+      paymentsOption: { one: '{count} paiement', other: '{count} paiements' },
+      paymentsHint:
+        'Moins de paiements sont répartis sur la même durée, et chacun arrive donc plus tard.',
     },
     method: {
       heading: 'Comment souhaitez-vous payer ?',
