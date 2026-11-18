@@ -130,6 +130,7 @@ export const PLATFORM_GUIDE: Readonly<Record<PlatformGuideTopic, GuideTopic>> = 
       'The payment page lists the methods available for the currency, which can include card, bank transfer, USSD, mobile money, Apple Pay or Google Pay, and the Suskii wallet balance.',
       'A booking is confirmed only after the payment provider confirms the payment; the trip page then shows it as paid. A screenshot of a transfer is not a confirmation.',
       'Where a payment plan is offered, the booking page shows the deposit, each installment with its date, any fee and what happens when a payment is missed, before the traveller commits.',
+      'With installments, the traveller pays a deposit now and chooses how many payments follow; fewer payments are spread over the same time, and everything is paid before the deadline shown.',
       'The trip page shows what has been paid, what is still due, and the receipt.',
       'Prices can be shown in the currencies the site lists; the currency switch is at the top of the site and in the app’s settings.',
     ],

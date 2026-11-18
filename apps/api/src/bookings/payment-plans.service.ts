@@ -23,7 +23,13 @@ import { approvalRequired, bookingConflict, holdLimit, holdUnavailable } from '.
 import type { BookingDto } from './bookings.schemas';
 import { BookingsService, customerActor, type BookingCaller } from './bookings.service';
 import { CheckoutService } from './checkout.service';
-import { holdTerms, planOptions, planPolicy, type PlanPolicy } from './payment-options';
+import {
+  chosenSchedule,
+  holdTerms,
+  planOptions,
+  planPolicy,
+  type PlanPolicy,
+} from './payment-options';
 import { RefundsService } from './refunds.service';
 import { TicketingService } from './ticketing.service';
 
@@ -65,10 +71,15 @@ export class PaymentPlansService {
   // Creating a plan
   // -------------------------------------------------------------------------
 
+  /**
+   * `payments` is how many payments after the deposit the traveller chose for an installment
+   * plan (ADR-124); left out, the plan has as many as fit, as before.
+   */
   async create(
     bookingId: string,
     caller: BookingCaller,
     kind: PaymentPlanKind,
+    payments?: number,
   ): Promise<BookingDto> {
     const booking = await this.bookings.load(bookingId, caller);
     if (booking.paymentPlan) {
@@ -104,12 +115,13 @@ export class PaymentPlansService {
     // The price must still hold right now (may answer 409 `price-changed`).
     const fresh = await this.checkout.confirmPrice(booking, actor);
     const offered = planOptions(holdTerms(fresh.payload, policy), fresh.total, false, policy, now);
-    if (!offered.hold || (kind === 'installments' && !offered.installments))
-      throw holdUnavailable();
+    const offeredSchedule =
+      kind === 'installments' ? chosenSchedule(offered.installments, payments) : null;
+    if (!offered.hold || (kind === 'installments' && !offeredSchedule)) throw holdUnavailable();
     if (fresh.payload.kind === 'package') {
       // Our own seats are already reserved: the plan itself is the hold (ADR-028).
       const deadline = offered.hold.deadline;
-      const installments = kind === 'installments' ? offered.installments : null;
+      const installments = offeredSchedule ? { schedule: offeredSchedule } : null;
       await this.prisma.$transaction(async (tx) => {
         await this.checkout.storeFresh(tx, item.id, fresh);
         await this.recordPlan(tx, {
@@ -174,9 +186,12 @@ export class PaymentPlansService {
       policy,
       now,
     );
+    // The number of payments chosen must still fit what the airline granted.
+    const grantedSchedule =
+      kind === 'installments' ? chosenSchedule(granted.installments, payments) : null;
     const schedule =
       kind === 'installments'
-        ? granted.installments?.schedule.payments
+        ? grantedSchedule?.payments
         : granted.hold
           ? [{ sequence: 0, dueAt: granted.hold.deadline, amount: fresh.total }]
           : undefined;
@@ -185,14 +200,8 @@ export class PaymentPlansService {
       await this.releaseHold(offer.supplier, held.orderId);
       throw holdUnavailable();
     }
-    const total =
-      kind === 'installments' && granted.installments
-        ? granted.installments.schedule.total
-        : fresh.total;
-    const fee =
-      kind === 'installments' && granted.installments
-        ? granted.installments.schedule.fee
-        : money(0n, fresh.total.currency);
+    const total = grantedSchedule ? grantedSchedule.total : fresh.total;
+    const fee = grantedSchedule ? grantedSchedule.fee : money(0n, fresh.total.currency);
 
     try {
       await this.prisma.$transaction(async (tx) => {

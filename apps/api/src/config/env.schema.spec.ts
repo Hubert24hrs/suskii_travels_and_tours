@@ -518,7 +518,7 @@ describe('parseEnv', () => {
       PAYSTACK_SECRET_KEY: 'sk_test_0123456789abcdef',
     });
     expect(env.PAYMENT_PROVIDERS).toEqual(['paystack', 'mock']);
-    expect(env.INSTALLMENT_DEPOSIT_BPS).toBe(3000);
+    expect(env.INSTALLMENT_DEPOSIT_BPS).toBe(2500);
     expect(env.REFUND_APPROVAL_THRESHOLD_NGN).toBe(0);
     let message = '';
     try {

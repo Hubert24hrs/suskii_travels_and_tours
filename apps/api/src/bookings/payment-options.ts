@@ -48,7 +48,13 @@ export interface HoldTerms {
 
 export interface PlanOptions {
   hold: { deadline: Date; total: Money } | null;
-  installments: { deadline: Date; schedule: InstallmentSchedule } | null;
+  installments: {
+    deadline: Date;
+    /** As many payments as fit: the plan when the traveller does not choose. */
+    schedule: InstallmentSchedule;
+    /** One schedule per number of payments after the deposit, fewest first (ADR-124). */
+    choices: InstallmentSchedule[];
+  } | null;
 }
 
 const NONE: PlanOptions = { hold: null, installments: null };
@@ -96,8 +102,32 @@ export function planOptions(
   if (!guaranteed) return { hold, installments: null };
   const lastDueBy = new Date(deadline.getTime() - policy.graceHours * HOUR_MS);
   const schedule = installmentSchedule(total, now, lastDueBy, policy.installment);
-  return { hold, installments: schedule ? { deadline, schedule } : null };
+  if (!schedule) return { hold, installments: null };
+  const choices = Array.from({ length: schedule.payments.length - 1 }, (_, index) =>
+    installmentSchedule(total, now, lastDueBy, policy.installment, index + 1),
+  ).filter((choice): choice is InstallmentSchedule => choice !== null);
+  return { hold, installments: { deadline, schedule, choices } };
 }
+
+/**
+ * The schedule for the number of payments the traveller chose after the deposit, or the one
+ * with as many as fit when they did not choose. Null when that number is not on offer.
+ */
+export function chosenSchedule(
+  installments: PlanOptions['installments'],
+  payments: number | undefined,
+): InstallmentSchedule | null {
+  if (!installments) return null;
+  if (payments === undefined) return installments.schedule;
+  return installments.choices.find((choice) => choice.payments.length - 1 === payments) ?? null;
+}
+
+const scheduleDto = (schedule: InstallmentSchedule) =>
+  schedule.payments.map((payment) => ({
+    sequence: payment.sequence,
+    dueAt: payment.dueAt.toISOString(),
+    amount: toWire(payment.amount),
+  }));
 
 /** The wire shape shared by quotes and bookings. */
 export function paymentOptionsDto(
@@ -120,10 +150,12 @@ export function paymentOptionsDto(
           fee: toWire(plans.installments.schedule.fee),
           graceHours: policy.graceHours,
           defaultFeeBps: policy.defaultFeeBps,
-          schedule: plans.installments.schedule.payments.map((payment) => ({
-            sequence: payment.sequence,
-            dueAt: payment.dueAt.toISOString(),
-            amount: toWire(payment.amount),
+          schedule: scheduleDto(plans.installments.schedule),
+          choices: plans.installments.choices.map((choice) => ({
+            payments: choice.payments.length - 1,
+            total: toWire(choice.total),
+            fee: toWire(choice.fee),
+            schedule: scheduleDto(choice),
           })),
         }
       : null,

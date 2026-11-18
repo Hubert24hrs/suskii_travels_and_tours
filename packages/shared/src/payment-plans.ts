@@ -86,16 +86,36 @@ function ceilToUnit(amount: Money): Money {
 const floorToMinute = (ms: number): Date => new Date(Math.floor(ms / MINUTE_MS) * MINUTE_MS);
 
 /**
+ * How many payments can follow the deposit before `lastDueBy`: as many as the policy allows,
+ * each at least `minSpacingHours` after the one before. Zero when none fits.
+ */
+export function maxInstallmentsBefore(
+  now: Date,
+  lastDueBy: Date,
+  policy: InstallmentPolicy,
+): number {
+  const windowMs = lastDueBy.getTime() - now.getTime();
+  const spacingMs = policy.minSpacingHours * HOUR_MS;
+  if (windowMs <= 0 || spacingMs <= 0) return 0;
+  return Math.max(0, Math.min(policy.maxInstallments, Math.floor(windowMs / spacingMs)));
+}
+
+/**
  * Deposit now plus evenly spaced installments, all due no later than `lastDueBy` (the hold
  * deadline minus the grace period). The parts always add up to the total exactly; the remainder
  * of an uneven split goes to the earliest installments. Returns null when no installment fits
  * after the deposit, so the plan is simply not offered.
+ *
+ * `payments` is how many payments the traveller chose to make after the deposit (ADR-124, as a
+ * repayment term is chosen): fewer payments spread over the same window, so each comes later.
+ * Left out, the plan has as many as fit. A number that does not fit gives null.
  */
 export function installmentSchedule(
   price: Money,
   now: Date,
   lastDueBy: Date,
   policy: InstallmentPolicy,
+  payments?: number,
 ): InstallmentSchedule | null {
   if (price.minor <= 0n || policy.maxInstallments < 1) return null;
   const fee = percentageOf(price, policy.feeBps, 'ceil');
@@ -106,8 +126,11 @@ export function installmentSchedule(
   if (remaining.minor <= 0n || deposit.minor <= 0n) return null;
 
   const windowMs = lastDueBy.getTime() - now.getTime();
-  const spacingMs = policy.minSpacingHours * HOUR_MS;
-  const count = Math.min(policy.maxInstallments, Math.floor(windowMs / spacingMs));
+  const fits = maxInstallmentsBefore(now, lastDueBy, policy);
+  if (payments !== undefined && (!Number.isInteger(payments) || payments < 1 || payments > fits)) {
+    return null;
+  }
+  const count = payments ?? fits;
   if (count < 1) return null;
 
   const interval = windowMs / count;

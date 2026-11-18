@@ -19171,7 +19171,7 @@
       "post": {
         "operationId": "createInstallmentPlan",
         "summary": "Pay in installments",
-        "description": "Holds the seats and sets up the schedule from `paymentOptions.installments`; then pay the deposit with `payments`. If the deposit is not paid within the checkout window the hold is released. Tickets are issued after the last installment.",
+        "description": "Holds the seats and sets up the schedule from `paymentOptions.installments`, with the number of payments after the deposit the traveller chose (`payments`, ADR-124); then pay the deposit with `payments`. If the deposit is not paid within the checkout window the hold is released. Tickets are issued after the last installment.",
         "tags": [
           "Bookings"
         ],
@@ -19216,6 +19216,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InstallmentPlanRequestInput"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -56651,6 +56661,16 @@
           }
         ]
       },
+      "InstallmentPlanRequestInput": {
+        "type": "object",
+        "properties": {
+          "payments": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 12
+          }
+        }
+      },
       "Jwks": {
         "type": "object",
         "properties": {
@@ -60434,6 +60454,38 @@
                     "items": {
                       "$ref": "#/components/schemas/ScheduledPayment"
                     }
+                  },
+                  "choices": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "payments": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "total": {
+                          "$ref": "#/components/schemas/Money"
+                        },
+                        "fee": {
+                          "$ref": "#/components/schemas/Money"
+                        },
+                        "schedule": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ScheduledPayment"
+                          }
+                        }
+                      },
+                      "required": [
+                        "payments",
+                        "total",
+                        "fee",
+                        "schedule"
+                      ],
+                      "additionalProperties": false
+                    }
                   }
                 },
                 "required": [
@@ -60442,7 +60494,8 @@
                   "fee",
                   "graceHours",
                   "defaultFeeBps",
-                  "schedule"
+                  "schedule",
+                  "choices"
                 ],
                 "additionalProperties": false
               },

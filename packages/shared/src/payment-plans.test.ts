@@ -2,7 +2,12 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 
 import { money } from './money';
-import { defaultRefund, installmentSchedule, type InstallmentPolicy } from './payment-plans';
+import {
+  defaultRefund,
+  installmentSchedule,
+  maxInstallmentsBefore,
+  type InstallmentPolicy,
+} from './payment-plans';
 
 const HOUR = 3_600_000;
 const NOW = new Date('2026-10-01T10:00:30.000Z');
@@ -63,6 +68,36 @@ describe('installmentSchedule', () => {
         POLICY,
       ),
     ).toBeNull();
+  });
+
+  it('spreads the number of payments the traveller chose over the same window (ADR-124)', () => {
+    const deadline = new Date(NOW.getTime() + 9 * 24 * HOUR);
+    expect(maxInstallmentsBefore(NOW, deadline, POLICY)).toBe(3);
+    const one = installmentSchedule(money(100_000_00n, 'NGN'), NOW, deadline, POLICY, 1);
+    expect(one?.payments.map((p) => p.amount.minor)).toEqual([30_000_00n, 70_000_00n]);
+    expect(one?.payments[1]?.dueAt.toISOString()).toBe('2026-10-10T10:00:00.000Z');
+    const two = installmentSchedule(money(100_000_00n, 'NGN'), NOW, deadline, POLICY, 2);
+    expect(two?.payments.map((p) => p.amount.minor)).toEqual([30_000_00n, 35_000_00n, 35_000_00n]);
+    expect(two?.payments.map((p) => p.dueAt.toISOString())).toEqual([
+      '2026-10-01T10:00:00.000Z',
+      '2026-10-05T22:00:00.000Z',
+      '2026-10-10T10:00:00.000Z',
+    ]);
+    // Leaving the number out gives as many as fit, as before.
+    expect(installmentSchedule(money(100_000_00n, 'NGN'), NOW, deadline, POLICY)).toEqual(
+      installmentSchedule(money(100_000_00n, 'NGN'), NOW, deadline, POLICY, 3),
+    );
+  });
+
+  it('refuses a number of payments that does not fit, or is not a whole number', () => {
+    const deadline = new Date(NOW.getTime() + 50 * HOUR);
+    expect(maxInstallmentsBefore(NOW, deadline, POLICY)).toBe(2);
+    for (const payments of [0, 3, 1.5, -1]) {
+      expect(
+        installmentSchedule(money(100_000_00n, 'NGN'), NOW, deadline, POLICY, payments),
+      ).toBeNull();
+    }
+    expect(maxInstallmentsBefore(NOW, new Date(NOW.getTime() - HOUR), POLICY)).toBe(0);
   });
 
   it('is not offered when the deposit already covers everything', () => {

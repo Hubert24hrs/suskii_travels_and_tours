@@ -4196,7 +4196,7 @@ export interface paths {
         put?: never;
         /**
          * Pay in installments
-         * @description Holds the seats and sets up the schedule from `paymentOptions.installments`; then pay the deposit with `payments`. If the deposit is not paid within the checkout window the hold is released. Tickets are issued after the last installment.
+         * @description Holds the seats and sets up the schedule from `paymentOptions.installments`, with the number of payments after the deposit the traveller chose (`payments`, ADR-124); then pay the deposit with `payments`. If the deposit is not paid within the checkout window the hold is released. Tickets are issued after the last installment.
          */
         post: operations["createInstallmentPlan"];
         delete?: never;
@@ -12622,6 +12622,9 @@ export interface components {
              */
             currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
         };
+        InstallmentPlanRequestInput: {
+            payments?: number;
+        };
         Jwks: {
             keys: ({
                 kty: string;
@@ -13364,6 +13367,12 @@ export interface components {
                 graceHours: number;
                 defaultFeeBps: number;
                 schedule: components["schemas"]["ScheduledPayment"][];
+                choices: {
+                    payments: number;
+                    total: components["schemas"]["Money"];
+                    fee: components["schemas"]["Money"];
+                    schedule: components["schemas"]["ScheduledPayment"][];
+                }[];
             } | null;
             wallet: components["schemas"]["Money"] | null;
             companyWallet: {
@@ -24616,7 +24625,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstallmentPlanRequestInput"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {

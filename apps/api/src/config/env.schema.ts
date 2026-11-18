@@ -498,7 +498,8 @@ export const envSchema = z
     HOLD_MIN_WINDOW_HOURS: z.coerce.number().int().min(1).max(168).default(6),
     HOLD_SAFETY_MARGIN_MINUTES: z.coerce.number().int().min(15).max(1440).default(120),
     HOLD_MAX_ACTIVE: z.coerce.number().int().min(1).max(20).default(2),
-    INSTALLMENT_DEPOSIT_BPS: z.coerce.number().int().min(500).max(9000).default(3000),
+    // 25% down, as Pay Small Small plans take it (ADR-124).
+    INSTALLMENT_DEPOSIT_BPS: z.coerce.number().int().min(500).max(9000).default(2500),
     INSTALLMENT_MAX_COUNT: z.coerce.number().int().min(1).max(12).default(3),
     INSTALLMENT_MIN_SPACING_HOURS: z.coerce.number().int().min(1).max(720).default(24),
     INSTALLMENT_FEE_BPS: z.coerce.number().int().min(0).max(2000).default(0),

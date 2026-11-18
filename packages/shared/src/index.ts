@@ -435,6 +435,7 @@ export {
   REFUND_STATUSES,
   defaultRefund,
   installmentSchedule,
+  maxInstallmentsBefore,
   type InstallmentPolicy,
   type InstallmentSchedule,
   type PaymentPlanKind,
