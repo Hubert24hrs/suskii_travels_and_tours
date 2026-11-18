@@ -14,7 +14,10 @@ async function publicTourPrice(slug: string): Promise<number> {
   return price.amountMinor;
 }
 
-/** Markup rules (ADR-035) apply to new prices at once: the pricing cache is invalidated. */
+/**
+ * Markup rules (ADR-035) apply to new prices at once: the pricing cache is invalidated. The seed's
+ * default 10% on tours (ADR-124) is in the price already; a rule staff add comes first.
+ */
 test('a markup rule raises the public price of a tour', async ({ page, stack }) => {
   const before = await publicTourPrice(stack.tourSlug);
 
@@ -26,14 +29,17 @@ test('a markup rule raises the public price of a tour', async ({ page, stack }) 
   await expectNoAxeViolations(page);
   await dialog.getByLabel(t('pricing.name')).fill('E2E tours markup');
   await dialog.getByLabel(t('pricing.vertical')).selectOption('tours');
-  await dialog.getByTestId('rule-value').fill('10');
+  await dialog.getByTestId('rule-value').fill('20');
   await dialog.getByRole('button', { name: t('common.save') }).click();
-  await expect(page.getByRole('row', { name: /E2E tours markup/ })).toContainText('10%');
+  await expect(page.getByRole('row', { name: /E2E tours markup/ })).toContainText('20%');
+  // The default rule is listed too, at the lowest precedence.
+  await expect(page.getByRole('row', { name: /Default markup/ }).first()).toBeVisible();
 
-  // 10% on the supplier cost; fees and rounding make the exact figure the pricing engine's job.
+  // 20% in place of the default 10% on the supplier cost; fees and rounding make the exact
+  // figure the pricing engine's job.
   await expect.poll(() => publicTourPrice(stack.tourSlug)).toBeGreaterThan(before);
   const after = await publicTourPrice(stack.tourSlug);
-  expect(after).toBeLessThanOrEqual(Math.ceil(before * 1.1) + 100);
+  expect(after).toBeLessThanOrEqual(Math.ceil((before * 1.2) / 1.1) + 100);
 });
 
 /**

@@ -30,3 +30,11 @@ function nameUuid(name: string): string {
 export function stableCityId(countryCode: string, name: string): string {
   return nameUuid(`city:${countryCode.toUpperCase()}|${name}`);
 }
+
+/**
+ * The id of the default markup rule of a vertical (ADR-124): one per vertical, the same in every
+ * database, so the seed creates it once and never again, whatever staff do with it afterwards.
+ */
+export function stableDefaultMarkupId(vertical: string): string {
+  return nameUuid(`markup:default|${vertical}`);
+}

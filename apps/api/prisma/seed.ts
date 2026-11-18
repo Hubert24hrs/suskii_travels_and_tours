@@ -11,6 +11,8 @@
  * - Homepage CMS blocks and FAQs with the spec copy (published). Business facts (Prime price,
  *   support contacts, social and app store links) are left empty; the web hides them until set.
  * - Starter deal routes and featured hotel destinations from the homepage spec (ADR-011).
+ * - The owner's default markups (ADR-124): 2% on flights, 10% on hotels, Cars and everything
+ *   else. Created once, never overwritten, so staff changes in the console survive re-seeding.
  * - Optional local super admin from SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD (never in production).
  */
 import { readFileSync } from 'node:fs';
@@ -25,6 +27,7 @@ import { emailSchema, passwordSchema } from '@suskii/shared';
 import { stableCityId } from '../src/catalog/reference-ids';
 import { airportSearchText, citySearchText } from '../src/catalog/search-text';
 import { PrismaClient, type AirportType, type Prisma } from '../src/generated/prisma/client';
+import { seedDefaultMarkups } from '../src/pricing/default-markups';
 import { syncRbacCatalog } from '../src/rbac/rbac-catalog';
 
 const DATA_DIR = join(__dirname, 'data');
@@ -384,6 +387,7 @@ async function main(): Promise<void> {
     await syncRbacCatalog(prisma);
     await seedContent(prisma);
     await seedDealsAndDestinations(prisma);
+    await seedDefaultMarkups(prisma);
     await seedLocalAdmin(prisma);
   } finally {
     await prisma.$disconnect();
