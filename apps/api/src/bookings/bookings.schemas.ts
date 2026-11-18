@@ -173,9 +173,10 @@ export const paymentOptionsSchema = named(
               schedule: z.array(scheduledPaymentSchema),
             }),
           )
+          .optional()
           .meta({
             description:
-              'One schedule per number of payments the traveller can choose after the deposit, fewest first (ADR-124). Each is spread over the same time.',
+              'One schedule per number of payments the traveller can choose after the deposit, fewest first (ADR-124). Each is spread over the same time. Always sent; optional because a server before ADR-124 sends none, and a client then offers `schedule` alone.',
           }),
       })
       .nullable()

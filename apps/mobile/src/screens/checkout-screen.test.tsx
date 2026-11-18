@@ -254,6 +254,48 @@ describe('CheckoutScreen', () => {
     expect(openHostedCheckout).not.toHaveBeenCalled();
   });
 
+  it('keeps the one schedule of a server that offers no choice of payments', async () => {
+    const base = flightQuote();
+    const ngn = (amountMinor: number) => ({ amountMinor, currency: 'NGN' });
+    const { calls } = mockApi({
+      [`GET /v1/quotes/${QUOTE_ID}`]: () =>
+        json(
+          flightQuote({
+            payment: {
+              ...base.payment,
+              installments: {
+                deadline: '2026-10-11T09:00:00.000Z',
+                total: ngn(8_500_000),
+                fee: ngn(0),
+                graceHours: 24,
+                defaultFeeBps: 0,
+                schedule: [
+                  { sequence: 0, dueAt: '2026-10-01T09:00:00.000Z', amount: ngn(2_550_000) },
+                  { sequence: 1, dueAt: '2026-10-10T09:00:00.000Z', amount: ngn(5_950_000) },
+                ],
+              },
+            },
+          }),
+        ),
+      'GET /v1/catalog/countries': () => json(countries),
+      'POST /v1/attestation/challenges': () =>
+        json({ challenge: 'challenge-1', expiresAt: '2026-10-01T09:05:00.000Z' }, 201),
+      'POST /v1/bookings': () =>
+        json({ booking: booking({ status: 'PRICED', documents: [] }), accessToken: TOKEN }, 201),
+      [`POST /v1/bookings/${BOOKING_ID}/installment-plan`]: () =>
+        json(booking({ status: 'HELD', documents: [] })),
+    });
+    await renderWithApp(<CheckoutScreen />);
+    await fillTraveller();
+    await fireEvent.press(await screen.findByTestId('plan-installments'));
+    expect(screen.getByTestId('installment-schedule')).toBeOnTheScreen();
+    expect(screen.queryByTestId('installment-payments')).toBeNull();
+    await fireEvent.press(screen.getByTestId('checkout-submit'));
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith(`/trips/${BOOKING_ID}`));
+    const plan = calls.find((request) => request.url.endsWith('/installment-plan'));
+    expect(await plan?.json()).toEqual({});
+  });
+
   it('checks the form before calling the API', async () => {
     const { calls } = api(() => json(paymentSession, 201));
     await renderWithApp(<CheckoutScreen />);

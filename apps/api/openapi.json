@@ -60494,8 +60494,7 @@
                   "fee",
                   "graceHours",
                   "defaultFeeBps",
-                  "schedule",
-                  "choices"
+                  "schedule"
                 ],
                 "additionalProperties": false
               },

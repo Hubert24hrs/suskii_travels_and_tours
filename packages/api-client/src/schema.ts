@@ -13367,7 +13367,7 @@ export interface components {
                 graceHours: number;
                 defaultFeeBps: number;
                 schedule: components["schemas"]["ScheduledPayment"][];
-                choices: {
+                choices?: {
                     payments: number;
                     total: components["schemas"]["Money"];
                     fee: components["schemas"]["Money"];

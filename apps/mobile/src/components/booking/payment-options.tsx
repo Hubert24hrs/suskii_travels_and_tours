@@ -103,7 +103,8 @@ export function chosenInstallments(
   installments: Installments,
   payments: number | null,
 ): { plan: Installments; payments: number | null } {
-  const choice = installments.choices.find((option) => option.payments === payments);
+  // A server before ADR-124 lists no choices: its one schedule is the plan.
+  const choice = (installments.choices ?? []).find((option) => option.payments === payments);
   if (!choice) return { plan: installments, payments: null };
   return {
     plan: { ...installments, total: choice.total, fee: choice.fee, schedule: choice.schedule },
@@ -129,7 +130,7 @@ function PaymentsChoice({
         {t('checkout.plan.payments')}
       </Text>
       <View accessibilityRole="radiogroup" className="flex-row flex-wrap gap-2">
-        {installments.choices.map((choice) => {
+        {(installments.choices ?? []).map((choice) => {
           const checked = selected === choice.payments;
           const label = t('checkout.plan.paymentsOption', { count: choice.payments });
           return (
@@ -233,7 +234,7 @@ export function PlanChoice({
         >
           {value === 'installments' ? (
             <>
-              {offered && offered.choices.length > 1 && onPaymentsChange ? (
+              {offered && (offered.choices?.length ?? 0) > 1 && onPaymentsChange ? (
                 <PaymentsChoice
                   installments={offered}
                   payments={chosenInstallments(offered, payments).payments}
