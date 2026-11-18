@@ -282,6 +282,8 @@ export function evalContext(caller: {
   audience: AgentAudience;
   locale: string;
   signedIn: boolean;
+  /** A trip is being planned part by part in the conversation (ADR-123). */
+  tripPlanning?: boolean | undefined;
 }): AgentRunContext {
   const staff = caller.audience === 'staff';
   return {
@@ -297,6 +299,7 @@ export function evalContext(caller: {
       : [...CUSTOMER_AGENTS],
     signedIn: staff || caller.signedIn,
     today: EVAL_TODAY,
+    ...(caller.tripPlanning ? { tripPlanning: true } : {}),
   };
 }
 
@@ -315,6 +318,8 @@ export async function runMessage(options: {
   maxSteps?: number;
   /** `staff`: a super admin in the console, who reaches every staff agent (ADR-107). */
   audience?: AgentAudience | undefined;
+  /** A trip is being planned part by part in the conversation (ADR-123). */
+  tripPlanning?: boolean | undefined;
 }): Promise<EvalRun> {
   const staff = options.audience === 'staff';
   const scopes = staff
@@ -362,6 +367,7 @@ export async function runMessage(options: {
     audience: staff ? 'staff' : 'customer',
     locale: options.locale,
     signedIn: options.signedIn,
+    tripPlanning: options.tripPlanning,
   });
   const sequence = String((threads += 1)).padStart(12, '0');
   let end: AgentRunEnd | null = null;

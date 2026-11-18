@@ -308,6 +308,11 @@ export function buildAgentGraph(deps: RunDeps, checkpointer: BaseCheckpointSaver
     if (obvious && allowed.includes(obvious)) {
       return { turn: { ...state.turn, agent: obvious, agents: [obvious] } };
     }
+    // A trip planned part by part stays with the trip planner until its checkout (ADR-123):
+    // "option 2" or "no car" means nothing to any other specialist.
+    if (!staff && context.tripPlanning && allowed.includes('trip_builder')) {
+      return { turn: { ...state.turn, agent: 'trip_builder', agents: ['trip_builder'] } };
+    }
     if (allowed.length <= 1) {
       return { turn: { ...state.turn, agent: fallbackAgent, agents: [fallbackAgent] } };
     }

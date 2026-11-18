@@ -8,6 +8,7 @@ import { useT } from '../../providers/app-provider';
 
 export type PlanChoiceValue = 'full' | 'hold' | 'installments';
 type Options = Schemas['PaymentOptions'];
+type Installments = NonNullable<Options['installments']>;
 export type PaymentMethodName = Options['methods'][number]['method'];
 
 function Radio({
@@ -94,12 +95,81 @@ export function InstallmentSchedule({
   );
 }
 
-/** Pay now, reserve and pay later, or installments, as the fare allows and never with extras. */
+/**
+ * The plan for the number of payments after the deposit the traveller chose (ADR-124), or the
+ * one with as many as fit when they have not chosen (or chose a number no longer on offer).
+ */
+export function chosenInstallments(
+  installments: Installments,
+  payments: number | null,
+): { plan: Installments; payments: number | null } {
+  // A server before ADR-124 lists no choices: its one schedule is the plan.
+  const choice = (installments.choices ?? []).find((option) => option.payments === payments);
+  if (!choice) return { plan: installments, payments: null };
+  return {
+    plan: { ...installments, total: choice.total, fee: choice.fee, schedule: choice.schedule },
+    payments: choice.payments,
+  };
+}
+
+/** How many payments follow the deposit, like a repayment term (ADR-124). */
+function PaymentsChoice({
+  installments,
+  payments,
+  onChange,
+}: {
+  installments: Installments;
+  payments: number | null;
+  onChange: (payments: number) => void;
+}) {
+  const { t } = useT();
+  const selected = payments ?? installments.schedule.length - 1;
+  return (
+    <View testID="installment-payments" className="gap-2">
+      <Text className="font-body-bold text-body-sm text-foreground">
+        {t('checkout.plan.payments')}
+      </Text>
+      <View accessibilityRole="radiogroup" className="flex-row flex-wrap gap-2">
+        {(installments.choices ?? []).map((choice) => {
+          const checked = selected === choice.payments;
+          const label = t('checkout.plan.paymentsOption', { count: choice.payments });
+          return (
+            <Pressable
+              key={choice.payments}
+              testID={`plan-payments-${String(choice.payments)}`}
+              accessibilityRole="radio"
+              accessibilityState={{ checked }}
+              accessibilityLabel={label}
+              onPress={() => onChange(choice.payments)}
+              className={
+                checked
+                  ? 'min-h-12 justify-center rounded-md border-2 border-primary px-3'
+                  : 'min-h-12 justify-center rounded-md border border-border-strong px-3'
+              }
+            >
+              <Text className="font-body text-body-sm text-foreground">{label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <Text className="font-body text-caption text-foreground">
+        {t('checkout.plan.paymentsHint')}
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * Pay now, reserve and pay later, or installments, as the fare allows and never with extras. With
+ * installments, the traveller chooses how many payments follow the deposit (ADR-124).
+ */
 export function PlanChoice({
   vertical = 'flights',
   options,
   value,
   onChange,
+  payments = null,
+  onPaymentsChange,
   extrasSelected,
   seatsSelected = false,
 }: {
@@ -108,6 +178,9 @@ export function PlanChoice({
   options: Options;
   value: PlanChoiceValue;
   onChange: (value: PlanChoiceValue) => void;
+  /** Payments after the deposit the traveller chose; null for as many as fit. */
+  payments?: number | null;
+  onPaymentsChange?: (payments: number) => void;
   extrasSelected: boolean;
   /** Chosen seats (ADR-094): they rule out reserving and installments, as bags do. */
   seatsSelected?: boolean;
@@ -116,7 +189,8 @@ export function PlanChoice({
   const format = useFormatters();
   if (!options.hold && !options.installments) return null;
   const hold = extrasSelected ? null : options.hold;
-  const installments = extrasSelected ? null : options.installments;
+  const offered = extrasSelected ? null : options.installments;
+  const installments = offered ? chosenInstallments(offered, payments).plan : null;
   return (
     <Card className="gap-3 p-4">
       <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
@@ -158,7 +232,18 @@ export function PlanChoice({
           checked={value === 'installments'}
           onPress={() => onChange('installments')}
         >
-          {value === 'installments' ? <InstallmentSchedule installments={installments} /> : null}
+          {value === 'installments' ? (
+            <>
+              {offered && (offered.choices?.length ?? 0) > 1 && onPaymentsChange ? (
+                <PaymentsChoice
+                  installments={offered}
+                  payments={chosenInstallments(offered, payments).payments}
+                  onChange={onPaymentsChange}
+                />
+              ) : null}
+              <InstallmentSchedule installments={installments} />
+            </>
+          ) : null}
         </Radio>
       ) : null}
       {extrasSelected ? (

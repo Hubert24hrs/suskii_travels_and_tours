@@ -796,6 +796,73 @@
       "signedIn": true,
       "expect": ["price_intel", "executive"],
       "recorded": "price_intel"
+    },
+    {
+      "id": "r99",
+      "message": "Which restaurants are close to the hotel you found me in Abuja?",
+      "locale": "en-NG",
+      "signedIn": true,
+      "expect": ["hotels"],
+      "recorded": "hotels"
+    },
+    {
+      "id": "r100",
+      "message": "How far are those hotels from Eko Atlantic, and which one is closest?",
+      "locale": "en-NG",
+      "signedIn": false,
+      "expect": ["hotels", "trip_builder"],
+      "recorded": "hotels"
+    },
+    {
+      "id": "r101",
+      "message": "Qu’y a-t-il à visiter près de cet hôtel à Dakar ?",
+      "locale": "fr",
+      "signedIn": false,
+      "expect": ["hotels", "concierge", "tours"],
+      "recorded": "hotels"
+    },
+    {
+      "id": "r102",
+      "message": "What is the nearest airport to Victoria Island?",
+      "locale": "en-NG",
+      "signedIn": false,
+      "expect": ["concierge", "hotels", "flights"],
+      "recorded": "concierge"
+    },
+    {
+      "id": "r103",
+      "message": "Nataka hoteli karibu na kituo cha mikutano cha KICC Nairobi",
+      "locale": "sw",
+      "signedIn": false,
+      "expect": ["hotels"],
+      "recorded": "hotels"
+    },
+    {
+      "id": "r104",
+      "message": "Option 2",
+      "locale": "en-NG",
+      "signedIn": true,
+      "tripPlanning": true,
+      "expect": ["trip_builder"],
+      "recorded": "trip_builder"
+    },
+    {
+      "id": "r105",
+      "message": "No car, thanks. What comes next?",
+      "locale": "en-NG",
+      "signedIn": true,
+      "tripPlanning": true,
+      "expect": ["trip_builder"],
+      "recorded": "trip_builder"
+    },
+    {
+      "id": "r106",
+      "message": "Je prends l’hôtel numéro 1",
+      "locale": "fr",
+      "signedIn": false,
+      "tripPlanning": true,
+      "expect": ["trip_builder"],
+      "recorded": "trip_builder"
     }
   ]
 }

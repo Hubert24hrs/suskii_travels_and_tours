@@ -6,6 +6,100 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Booking as Nigerian travellers know it, and the owner's markups (2026-11-18, ADR-124)
+
+#### Added
+
+- The owner's markups on every price: 2% on flight fares; 10% on hotels, buses, rides, rental
+  cars, packages, tours, visa assistance, travel add-ons and assisted quotes; none on Prime.
+  They are markup rules the seed creates once per vertical, at the lowest precedence, on the
+  fare before taxes. Staff change or switch them off in the console, and a rule they add for a
+  route, a supplier or a channel comes first.
+- With installments, the traveller chooses how many payments follow the deposit, as a
+  repayment term is chosen, on the website and in the app. The payment options list one
+  schedule per number that fits, and the installment plan route takes `payments`.
+
+#### Changed
+
+- The installment deposit is 25% by default (was 30%).
+
+### Ask Suskii plans a combined trip one part at a time (2026-11-15, ADR-123)
+
+#### Added
+
+- Ask Suskii shows the flight options first. Once the traveller chooses a flight, it shows the
+  places to stay, then rental cars, airport transfers and travel insurance, one part at a time,
+  then the checkout with each part's price and one total. The order is kept in the API: each
+  prepare tool returns the next part's options, searched for the trip's own place, dates and
+  travellers read from the prepared flight. A part can be skipped (`trips.next_part`). A part
+  with nothing on offer is passed over and named.
+- The flow asks the children's ages before searching a stay, and asks a guest to sign in before
+  a car.
+- Options are chosen by their number: the search tools remember what they showed, per
+  conversation, for as long as the search lasts. A Choose button on the newest answer, on the
+  website and in the app, sends the choice as the traveller's own words.
+- Routing keeps a conversation that is planning a trip with the trip planner until the checkout.
+  Prompt versions change: flights 6, hotels 6, cars 5, tours 5, trip builder 7, disruption 4.
+  There are new routing and grounding eval cases.
+
+#### Changed
+
+- The combined trip card from the assistant opens the trip's details form while parts wait for
+  the travellers' details. The form leads on to the one payment.
+
+### Places and distances from Google Maps for Ask Suskii (2026-11-15, ADR-122)
+
+Part 1 of `docs/phases/google-maps.md`: the backend and the assistant. The maps on the website
+and in the app follow in their own parts.
+
+#### Added
+
+- API: places behind `PlacesProvider` (`none`, `mock`, `google`: the Places API, New, with a
+  field mask) and Google's Routes API behind the existing `MapsProvider` (`google`, with a
+  `matrix()` for several hotels or airports at once). One `LocationService` decides every call:
+  daily caps per Google API counted in Redis before the call and failing closed, a breaker,
+  timeouts, scrubbed search text, and no caching of Google's content.
+- Ask Suskii: `places.find`, `places.nearby`, `places.compare_proximity` and
+  `places.airports_near` for the concierge, hotels and trip builder agents. They measure only
+  from references the platform holds (a hotel of a search, an airport, a place a tool returned),
+  give distances and times as text, fall back to the straight line and say so, and attach notes
+  the clients word in every language: Google Maps' attribution, straight-line distances and
+  driving times without traffic. Airports nearby come from our own catalog.
+- The testing machine's `LOCATION_PROVIDER` (`mock` by default; `google` with the owner's
+  restricted key in `GOOGLE_MAPS_SERVER_KEY`, capped at 200 searches and 1,000 distances a day).
+- Eval cases for routing, grounding and safety; the prompts of the concierge (5), hotels (5),
+  trip builder (6) and the router (2) change version.
+
+#### Fixed
+
+- A hotel whose supplier gave no position is no longer measured from the city's point: it is
+  listed as of unknown position.
+
+### The Ask Suskii chat in the app, redesigned (2026-11-15, ADR-121)
+
+#### Changed
+
+- App: the chat screen has its own header (back, Ask Suskii's mark, Earlier conversations, New
+  chat), message bubbles, three dots while Ask Suskii answers, a welcome with four questions a tap
+  sends, and a message box that sits on the keyboard, grows to about four lines and then scrolls
+  inside itself. Talk to a person and the assistant's preferences stay in reach above it.
+- Cards open the app's own screen for every page the app has (Home, deals, Prime, account, trips,
+  support, searches, rentals with their dates and more); only a page the app lacks opens on the
+  website.
+
+#### Removed
+
+- The conversation's score out of five, on the app and the website. Each answer keeps its thumbs;
+  the API's rating route stays for older app builds.
+
+#### Fixed
+
+- The message being typed disappeared under the keyboard (Android draws the app edge to edge).
+- A card named Home opened the website in a browser tab.
+- New chat did not clear a conversation opened from Earlier conversations.
+- Ask Suskii's guide linked "Sign in" to `/sign in` and "Travel extras" to `/travel-extras`; they
+  are `/sign-in` and `/travel-add-ons`, and a spec checks every page it names.
+
 ### The receipt read in the app (2026-11-15, ADR-120)
 
 #### Added

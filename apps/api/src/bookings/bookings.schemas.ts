@@ -158,7 +158,26 @@ export const paymentOptionsSchema = named(
           .number()
           .int()
           .meta({ description: 'Kept on a missed payment, in basis points of the amount paid.' }),
-        schedule: z.array(scheduledPaymentSchema),
+        schedule: z.array(scheduledPaymentSchema).meta({
+          description: 'With as many payments as fit: the plan when no number is chosen.',
+        }),
+        choices: z
+          .array(
+            z.object({
+              payments: z
+                .number()
+                .int()
+                .meta({ description: 'Payments after the deposit; send it to choose this plan.' }),
+              total: moneySchema,
+              fee: moneySchema,
+              schedule: z.array(scheduledPaymentSchema),
+            }),
+          )
+          .optional()
+          .meta({
+            description:
+              'One schedule per number of payments the traveller can choose after the deposit, fewest first (ADR-124). Each is spread over the same time. Always sent; optional because a server before ADR-124 sends none, and a client then offers `schedule` alone.',
+          }),
       })
       .nullable()
       .meta({
@@ -1109,6 +1128,17 @@ export const flightCancellationQuoteSchema = named(
   }),
 );
 export type FlightCancellationQuoteDto = z.infer<typeof flightCancellationQuoteSchema>;
+
+export const installmentPlanRequestSchema = named(
+  'InstallmentPlanRequest',
+  z.object({
+    payments: z.number().int().min(1).max(12).optional().meta({
+      description:
+        'How many payments after the deposit (ADR-124): one of `paymentOptions.installments.choices[].payments`. Left out, as many as fit (`paymentOptions.installments.schedule`). A number not on offer answers 409 `hold-unavailable`.',
+    }),
+  }),
+);
+export type InstallmentPlanRequest = z.infer<typeof installmentPlanRequestSchema>;
 
 export const cancelBookingRequestSchema = named(
   'CancelBookingRequest',

@@ -26,6 +26,8 @@ const routingCase = z
     message: z.string().min(1),
     locale: z.string().default('en-NG'),
     signedIn: z.boolean().default(true),
+    /** A trip is being planned part by part in the conversation (ADR-123). */
+    tripPlanning: z.boolean().default(false),
     /** The specialists that would be right; the first is the best. */
     expect: z.array(agent).min(1),
     /** A hand-written router answer for CI; a few are wrong on purpose. */
@@ -67,6 +69,7 @@ export async function runRoutingEval(
       signedIn: entry.signedIn,
       locale: entry.locale,
       audience: entry.audience,
+      tripPlanning: entry.tripPlanning,
       recorded: {
         router: [routeTo(entry.recorded)],
         // Routing is what is measured: the specialist says one line that needs no tool.

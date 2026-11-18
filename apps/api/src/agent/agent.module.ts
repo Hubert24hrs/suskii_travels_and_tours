@@ -14,6 +14,7 @@ import { DealsModule } from '../deals/deals.module';
 import { DocumentsModule } from '../documents/documents.module';
 import { GroundModule } from '../ground/ground.module';
 import { InhouseModule } from '../inhouse/inhouse.module';
+import { LocationModule } from '../location/location.module';
 import { PriceIntelModule } from '../price-intel/price-intel.module';
 import { PrivacyModule } from '../privacy/privacy.module';
 import { RentalsModule } from '../rentals/rentals.module';
@@ -57,12 +58,15 @@ import { AgentMemoryService } from './memory/agent-memory.service';
 import { AdminAgentKnowledgeController } from './knowledge/admin-agent-knowledge.controller';
 import { KnowledgeService } from './knowledge/knowledge.service';
 import { AccountTools } from './tools/account-tools';
+import { AgentOptions } from './tools/agent-options';
 import { CatalogTools } from './tools/catalog-tools';
 import { CheckoutTools } from './tools/checkout-tools';
 import { CommitTools } from './tools/commit-tools';
 import { DisruptionTools } from './tools/disruption-tools';
 import { KnowledgeTools } from './tools/knowledge-tools';
+import { LocationTools } from './tools/location-tools';
 import { MemoryTools } from './tools/memory-tools';
+import { AgentPlaceRefs } from './tools/place-refs';
 import { PlanningTools } from './tools/planning-tools';
 import { PlatformTools } from './tools/platform-tools';
 import { AgentPreparedParts } from './tools/prepared-parts';
@@ -73,6 +77,8 @@ import { StaffTools } from './tools/staff-tools';
 import { SupportTools } from './tools/support-tools';
 import { AgentToolCallers } from './tools/tool-support';
 import { TripCheckoutTools } from './tools/trip-checkout-tools';
+import { AgentTripFlow } from './tools/trip-flow';
+import { TripFlowTools } from './tools/trip-flow-tools';
 import { WatchTools } from './tools/watch-tools';
 import { AgentWhatsApp } from './whatsapp/agent-whatsapp.service';
 
@@ -97,6 +103,7 @@ import { AgentWhatsApp } from './whatsapp/agent-whatsapp.service';
     DocumentsModule,
     GroundModule,
     InhouseModule,
+    LocationModule,
     PriceIntelModule,
     PrivacyModule,
     RentalsModule,
@@ -134,7 +141,12 @@ import { AgentWhatsApp } from './whatsapp/agent-whatsapp.service';
     PlanningTools,
     CatalogTools,
     SearchTools,
+    AgentPlaceRefs,
+    LocationTools,
     AgentPreparedParts,
+    AgentOptions,
+    AgentTripFlow,
+    TripFlowTools,
     CheckoutTools,
     TripCheckoutTools,
     ProductTools,

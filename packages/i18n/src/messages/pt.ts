@@ -1070,6 +1070,10 @@ export const pt: Messages = {
       },
       reserve: 'Reservar agora',
       setUp: 'Configurar prestações',
+      payments: 'Pagar o resto em',
+      paymentsOption: { one: '{count} pagamento', other: '{count} pagamentos' },
+      paymentsHint:
+        'Menos pagamentos são repartidos pelo mesmo período, por isso cada um chega mais tarde.',
     },
     method: {
       heading: 'Como prefere pagar?',
@@ -3260,6 +3264,14 @@ export const pt: Messages = {
     intro:
       'Pergunte sobre voos, hotéis, carros, as suas reservas ou como a Suskii funciona. Posso pesquisar, explicar e preparar uma reserva para si: adiciona os viajantes e paga na página da reserva. Nunca pago, reembolso nem confirmo nada sozinho.',
     disclosure: 'Este é um assistente automático. Pode pedir uma pessoa a qualquer momento.',
+    subtitle: 'Assistente de viagem automático',
+    suggestions: {
+      heading: 'Experimente perguntar',
+      trip: 'Planear uma viagem de Lagos para Londres',
+      flight: 'Encontrar o voo mais barato para Nairobi no próximo mês',
+      hotel: 'Encontrar um hotel em Abuja para este fim de semana',
+      bookings: 'Mostrar as minhas reservas',
+    },
     privacy: 'Nunca escreva aqui números de cartão, palavras-passe ou números de passaporte.',
     messageLabel: 'A sua mensagem',
     placeholder: 'Escreva a sua pergunta',
@@ -3307,6 +3319,9 @@ export const pt: Messages = {
       indicativeNote:
         'Visto noutro site, não é um preço da Suskii. Uma pessoa confirma o preço real antes de qualquer pagamento.',
       source: 'Dos nossos documentos',
+      choose: 'Escolher',
+      chooseLabel: 'Escolher {title}',
+      chosen: 'Escolho a opção {option}: {title}',
     },
     // What an answer is read with (ADR-107): shown whatever the assistant wrote.
     notes: {
@@ -3329,11 +3344,12 @@ export const pt: Messages = {
         'Para pagar tudo de uma só vez, inicie sessão e peça de novo. Também pode reservar cada parte a partir do seu próprio cartão.',
       trip_separate:
         'Os pacotes, os passeios, a assistência com vistos, os eSIM e o acesso a salas VIP não entram no pagamento único da viagem: reserve cada um a partir do seu próprio cartão.',
-    },
-    rating: {
-      question: 'O assistente ajudou-o bem?',
-      score: '{score} em 5',
-      thanks: 'Obrigado. A sua avaliação ajuda-nos a melhorar o assistente.',
+      places_google:
+        'Os locais, os endereços e as avaliações vêm do Google Maps. Confirme o horário de funcionamento com o local antes de ir.',
+      distance_straight:
+        'As distâncias são em linha reta e não pela estrada, por isso o percurso real é mais longo.',
+      driving_estimate:
+        'Os tempos de condução são estimativas sem trânsito, por isso conte com mais tempo nas horas de ponta.',
     },
     memory: {
       heading: 'O que o assistente guarda',

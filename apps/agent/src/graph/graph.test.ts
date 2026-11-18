@@ -76,7 +76,7 @@ describe('routing (ADR-106)', () => {
       }),
     });
     expect(end).toMatchObject({ agent: 'hotels', outcome: 'answered' });
-    expect(end.prompts).toEqual(['router@1', 'hotels@4']);
+    expect(end.prompts).toEqual(['router@2', 'hotels@6']);
     const router = h.model.requests[0]?.request;
     expect(router?.toolChoice).toEqual({ name: ROUTE_TOOL });
     expect(

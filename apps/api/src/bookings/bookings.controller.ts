@@ -39,6 +39,7 @@ import {
   bookingLinkRequestSchema,
   bookingSchema,
   cancelBookingRequestSchema,
+  installmentPlanRequestSchema,
   createBookingRequestSchema,
   createdBookingSchema,
   documentParamsSchema,
@@ -53,6 +54,7 @@ import {
   startPaymentRequestSchema,
   type BookingLinkRequest,
   type CancelBookingRequest,
+  type InstallmentPlanRequest,
   type ScheduleChangeRefundRequest,
   type CreateBookingRequest,
   type StartPaymentRequest,
@@ -242,19 +244,21 @@ export class BookingsController {
     operationId: 'createInstallmentPlan',
     summary: 'Pay in installments',
     description:
-      'Holds the seats and sets up the schedule from `paymentOptions.installments`; then pay the deposit with `payments`. If the deposit is not paid within the checkout window the hold is released. Tickets are issued after the last installment.',
+      'Holds the seats and sets up the schedule from `paymentOptions.installments`, with the number of payments after the deposit the traveller chose (`payments`, ADR-124); then pay the deposit with `payments`. If the deposit is not paid within the checkout window the hold is released. Tickets are issued after the last installment.',
     tags: TAGS,
     params: bookingIdParamsSchema,
     headers: [BOOKING_TOKEN_HEADER],
+    body: installmentPlanRequestSchema,
     responses: { 200: bookingSchema },
     errors: [404, 409, 410, 503],
     idempotent: true,
   })
   installments(
     @Param('bookingId') bookingId: string,
+    @Body() body: InstallmentPlanRequest,
     @Req() request: AuthenticatedRequest,
   ): Promise<z.infer<typeof bookingSchema>> {
-    return this.plans.create(bookingId, caller(request), 'installments');
+    return this.plans.create(bookingId, caller(request), 'installments', body.payments);
   }
 
   @Post('bookings/:bookingId/price-consent')

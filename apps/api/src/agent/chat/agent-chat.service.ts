@@ -42,6 +42,7 @@ import { AgentGrants } from '../agent-grants';
 import { AgentPause } from '../agent-pause';
 import { AgentSettingsService } from '../agent-settings.service';
 import { AgentShadows, type ShadowPlan } from '../shadow/agent-shadows.service';
+import { AgentTripFlow } from '../tools/trip-flow';
 
 import type { AgentMessageDto, AgentStreamEvent } from './agent-chat.schemas';
 import { AGENT_CLIENT, AgentClient, failedRun } from './agent-client';
@@ -115,6 +116,7 @@ export class AgentChatService {
     private readonly background: BackgroundTasks,
     private readonly hmac: HmacService,
     @Inject(AGENT_CLIENT) private readonly client: AgentClient,
+    private readonly tripFlow: AgentTripFlow,
     @Inject(REDIS) private readonly redis: Redis,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
@@ -295,7 +297,15 @@ export class AgentChatService {
     // Planning one must never cost the traveller their answer.
     const shadow = await this.shadows.plan(input, continuesWaitingTurn).catch(() => null);
     const request: AgentRunRequest = {
-      ...this.request(runId, conversation, input, roles, now, await this.settings.disabledAgents()),
+      ...this.request(
+        runId,
+        conversation,
+        input,
+        roles,
+        now,
+        await this.settings.disabledAgents(),
+        await this.planningTrip(conversation),
+      ),
       ...(shadow ? { shadow: { prompts: shadow.prompts } } : {}),
     };
     this.background.run('agent-run', () =>
@@ -333,6 +343,7 @@ export class AgentChatService {
       roles,
       now,
       await this.settings.disabledAgents(),
+      await this.planningTrip(conversation),
     );
     this.background.run('agent-run', () => this.execute(request, conversation, reservation));
     return runId;
@@ -473,6 +484,11 @@ export class AgentChatService {
     return run;
   }
 
+  /** Whether the traveller is planning a trip part by part here (ADR-123): never for staff. */
+  private async planningTrip(conversation: AgentConversation): Promise<boolean> {
+    return conversation.audience === 'staff' ? false : this.tripFlow.planning(conversation.id);
+  }
+
   private request(
     runId: string,
     conversation: AgentConversation,
@@ -480,6 +496,7 @@ export class AgentChatService {
     roles: readonly Role[],
     now: Date,
     disabled: readonly AgentName[],
+    tripPlanning: boolean,
   ): AgentRunRequest {
     // A staff conversation lives in the console; a traveller's on the website, in the app or
     // in a WhatsApp thread.
@@ -526,6 +543,8 @@ export class AgentChatService {
         ),
         signedIn,
         today: localDate(now, DEFAULT_SEARCH_TIME_ZONE),
+        // The supervisor keeps the trip planner on a trip being planned part by part.
+        ...(tripPlanning ? { tripPlanning: true } : {}),
       },
       limits: {
         maxSteps: this.config.AGENT_RUN_MAX_STEPS,

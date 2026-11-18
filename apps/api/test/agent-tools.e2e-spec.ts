@@ -34,6 +34,7 @@ interface Card {
   price?: Wire;
   href?: string;
   ref?: { type: string; id: string };
+  choose?: number;
 }
 interface Answer<T = Record<string, unknown>> {
   status: 'ok' | 'denied' | 'error' | 'timeout';
@@ -63,6 +64,7 @@ describe('customer agent tools (e2e)', () => {
       AGENT_TOOLS_TOKEN: TOOLS_TOKEN,
       AGENT_RUN_TOKEN: RUN_TOKEN,
       AGENT_RUN_MAX_TOOL_CALLS: 40,
+      PLACES_PROVIDER: 'mock',
     });
     grants = ctx.app.get(AgentGrants);
   });
@@ -190,7 +192,7 @@ describe('customer agent tools (e2e)', () => {
     }
   };
 
-  it('ships the tools with their tiers: fifteen prepare something, six ask for a tap, and the staff tools are staff only', async () => {
+  it('ships the tools with their tiers: sixteen prepare something, six ask for a tap, and the staff tools are staff only', async () => {
     const response = await ctx
       .http()
       .get('/v1/internal/agent-tools')
@@ -235,6 +237,10 @@ describe('customer agent tools (e2e)', () => {
       'packages.prepare_booking',
       'packages.search',
       'payments.options',
+      'places.airports_near',
+      'places.compare_proximity',
+      'places.find',
+      'places.nearby',
       'platform.guide',
       'platform.status',
       'prices.indicative',
@@ -250,6 +256,7 @@ describe('customer agent tools (e2e)', () => {
       'tours.search',
       'trips.get',
       'trips.list',
+      'trips.next_part',
       'trips.plan',
       'trips.prepare_checkout',
       'visa.prepare_booking',
@@ -268,6 +275,7 @@ describe('customer agent tools (e2e)', () => {
       'sources.propose_recipe',
       'support.handover',
       'tours.prepare_booking',
+      'trips.next_part',
       'trips.plan',
       'trips.prepare_checkout',
       'visa.prepare_booking',
@@ -466,6 +474,97 @@ describe('customer agent tools (e2e)', () => {
     );
     expect(backwards.result?.problems).toContain('check_out_not_after_check_in');
     expect(backwards.result).toMatchObject({ found: 0, hotels: [] });
+  });
+
+  it('finds places, measures hotels from a place and names the nearest airports, from references the platform holds (ADR-122)', async () => {
+    const cityId =
+      (await ctx.prisma.airport.findUniqueOrThrow({ where: { iataCode: 'ABV' } })).cityId ?? '';
+    // One run: the places one call finds are what the next call may measure from.
+    const grant = await guestGrant();
+    const search = await call<{ hotels: { rateId: string; name: string }[] }>(
+      'hotels.search',
+      'hotels',
+      { cityId, checkIn: inDays(30), checkOut: inDays(33), rooms: [{ adults: 2 }], limit: 3 },
+      grant,
+    );
+    const hotels = search.result?.hotels ?? [];
+    const rateIds = hotels.map((hotel) => hotel.rateId);
+    expect(rateIds.length).toBeGreaterThan(1);
+
+    // Around the first hotel: sample places, each with a reference and a straight-line distance.
+    const nearby = await call<{
+      around: string | null;
+      places: { place: string; name: string; distance: string | null; sample: boolean }[];
+    }>('places.nearby', 'hotels', { hotel: rateIds[0], kind: 'restaurants', limit: 3 }, grant);
+    expect(nearby.status).toBe('ok');
+    expect(nearby.result?.around).toBe(hotels[0]?.name);
+    expect(nearby.result?.places).toHaveLength(3);
+    for (const place of nearby.result?.places ?? []) {
+      expect(place.place).toMatch(/^place_\d+$/);
+      expect(place.name).toMatch(/^Sample restaurant \d$/);
+      expect(place.distance).toMatch(/^\d+(\.\d)? k?m$/);
+      expect(place.sample).toBe(true);
+    }
+    expect(nearby.result?.cards?.map((card) => card.title)).toEqual(['distance_straight']);
+
+    // A landmark by name, then the hotels measured from it, nearest first, by the mock's road.
+    const found = await call<{ places: { place: string; name: string }[] }>(
+      'places.find',
+      'hotels',
+      { query: 'National Mosque, Abuja', nearCityId: cityId },
+      grant,
+    );
+    const place = found.result?.places[0]?.place;
+    expect(place).toMatch(/^place_\d+$/);
+    expect(found.result?.places[0]?.name).toBe('National Mosque, Abuja (sample)');
+    const compared = await call<{
+      hotels: {
+        rateId: string;
+        distance: string | null;
+        distanceMetres: number | null;
+        drivingTime: string | null;
+        measured: string;
+      }[];
+      sampleFigures: boolean;
+    }>('places.compare_proximity', 'hotels', { hotels: rateIds, place }, grant);
+    const rows = compared.result?.hotels ?? [];
+    expect(rows.map((row) => row.rateId).sort()).toEqual([...rateIds].sort());
+    for (const row of rows) {
+      expect(row).toMatchObject({ measured: 'by_road' });
+      expect(row.drivingTime).toMatch(/min|h/);
+    }
+    const metres = rows.map((row) => row.distanceMetres ?? 0);
+    expect(metres).toEqual([...metres].sort((a, b) => a - b));
+    expect(compared.result?.sampleFigures).toBe(true);
+    expect(compared.result?.cards?.map((card) => card.title)).toEqual(['driving_estimate']);
+
+    // The nearest airports come from our own list, with a driving time.
+    const airports = await call<{
+      around: string | null;
+      airports: { code: string; distance: string | null; drivingTime: string | null }[];
+    }>('places.airports_near', 'hotels', { hotel: rateIds[0], limit: 2 }, grant);
+    expect(airports.result?.around).toBe(hotels[0]?.name);
+    expect(airports.result?.airports[0]?.code).toBe('ABV');
+    expect(airports.result?.airports[0]?.drivingTime).toMatch(/min|h/);
+
+    // Exactly one thing to measure from; a place of another run, or a hotel of no search, is
+    // not one; and only the agents that talk about stays and trips ask.
+    const problems = async (tool: string, args: Record<string, unknown>, using = grant) =>
+      (await call(tool, 'hotels', args, using)).result?.problems;
+    expect(await problems('places.nearby', { kind: 'shopping' })).toEqual(['anchor_required']);
+    expect(await problems('places.nearby', { airport: 'ABV', place, kind: 'shopping' })).toEqual([
+      'anchor_required',
+    ]);
+    expect(
+      await problems('places.nearby', { place, kind: 'shopping' }, await guestGrant()),
+    ).toEqual(['place_unknown']);
+    expect(
+      await problems('places.compare_proximity', { hotels: ['nope.nope.r0'], airport: 'ABV' }),
+    ).toEqual(['search_expired']);
+    expect(await problems('places.find', { query: '+234 803 123 4567' })).toEqual(['query_empty']);
+    expect(
+      await call('places.nearby', 'flights', { airport: 'ABV', kind: 'shopping' }, grant),
+    ).toMatchObject({ status: 'denied', reason: 'agent' });
   });
 
   it('prepares the booking of a chosen flight: a quote and a card to the booking page, nothing booked', async () => {
@@ -1216,7 +1315,8 @@ describe('customer agent tools (e2e)', () => {
     const cards = summary.result?.cards ?? [];
     expect(cards.map((card) => card.kind)).toEqual(['trip', 'package', 'note', 'note']);
     expect(cards.slice(2).map((card) => card.title)).toEqual(['trip_handoff', 'trip_separate']);
-    const tripId = /^\/trips\/([0-9a-f-]{36})$/.exec(cards[0]?.href ?? '')?.[1] ?? '';
+    // Parts waiting for the travellers' details: the card opens the form that takes them once.
+    const tripId = /^\/trips\/([0-9a-f-]{36})\/details$/.exec(cards[0]?.href ?? '')?.[1] ?? '';
     expect(cards[0]).toMatchObject({
       ref: { type: 'trip', id: tripId },
       price: summary.result?.payOnceTotal,
@@ -1281,7 +1381,8 @@ describe('customer agent tools (e2e)', () => {
       grant,
     );
     expect(again.result?.parts.map((part) => part.part)).toEqual(['flight', 'hotel', 'package']);
-    expect(again.result?.cards?.[0]?.href).toBe(`/trips/${tripId}`);
+    // The flight still waits for its details: the card opens the form that takes them.
+    expect(again.result?.cards?.[0]?.href).toBe(`/trips/${tripId}/details`);
     const after = await ctx
       .http()
       .get(`/v1/trips/${tripId}`)
@@ -1292,6 +1393,191 @@ describe('customer agent tools (e2e)', () => {
     ]);
     expect(await ctx.prisma.trip.count()).toBe(1);
     expect(await ctx.prisma.payment.count()).toBe(0);
+  });
+
+  it('plans a whole trip part by part: the flight, then a stay, a car and a transfer, then one checkout (ADR-123)', async () => {
+    await catalogProducts();
+    await rentalVehicle(ctx, staff);
+    const conversationId = await conversation(ada.userId);
+    const grant = await grantFor({ conversationId });
+    interface Next {
+      part: string;
+      ask: string | null;
+      options: { option: number; title: string; price: Wire | null; sample: boolean }[];
+      noneOffered: string[];
+      checkout: { payOnce: boolean; payOnceTotal: Wire | null; parts: { part: string }[] } | null;
+    }
+    type Step = Answer<{ prepared: boolean; totalToPay: Wire | null; next: Next | null }>;
+
+    // The trip planner shows the flights first: options a traveller chooses with a button.
+    const flights = await call<{ offers: { option: number }[] }>(
+      'flights.search',
+      'trip_builder',
+      { origin: 'ABV', destination: 'LOS', departDate: inDays(30), returnDate: inDays(33) },
+      grant,
+    );
+    expect(flights.result?.cards?.map((card) => card.choose)).toEqual(
+      flights.result?.offers.map((offer) => offer.option),
+    );
+
+    // Choosing flight 1 (by its number, as a later turn would) brings the stays in Lagos.
+    const flight: Step = await call(
+      'flights.prepare_booking',
+      'trip_builder',
+      { option: 1 },
+      grant,
+    );
+    expect(flight.result).toMatchObject({ prepared: true, alsoOffer: [] });
+    expect(flight.result?.next).toMatchObject({ part: 'hotel', ask: null, noneOffered: [] });
+    expect(flight.result?.next?.options.length).toBeGreaterThan(1);
+    // The part keeps no checkout of its own: the trip is checked out once, at the end.
+    expect(flight.result?.cards?.[0]).toMatchObject({ kind: 'flight' });
+    expect(flight.result?.cards?.[0]?.href).toBeUndefined();
+    expect(flight.result?.cards?.slice(1).map((card) => [card.kind, card.choose])).toEqual(
+      flight.result?.next?.options.map((option) => ['hotel', option.option]),
+    );
+    expectInternal(flight.result?.cards);
+
+    // The second stay, then the car at the Ikeja branch for the days of the trip.
+    const hotel: Step = await call('hotels.prepare_booking', 'trip_builder', { option: 2 }, grant);
+    expect(hotel.result?.prepared).toBe(true);
+    expect(hotel.result?.next).toMatchObject({ part: 'car', ask: null });
+    expect(hotel.result?.next?.options[0]?.title).toBe('Toyota Corolla');
+    const car: Step = await call('cars.prepare_booking', 'trip_builder', { option: 1 }, grant);
+    expect(car.result?.problems).toEqual([]);
+    expect(car.result?.next).toMatchObject({ part: 'transfer' });
+
+    // The transfer takes the trip's day of arrival, place and travellers; no insurance is sold
+    // here, so the checkout comes next and says the insurance was passed over.
+    const transfer: Step = await call(
+      'addons.prepare_booking',
+      'trip_builder',
+      { option: 1 },
+      grant,
+    );
+    expect(transfer.result?.problems).toEqual([]);
+    const next = transfer.result?.next;
+    expect(next).toMatchObject({ part: 'checkout', noneOffered: ['insurance'] });
+    expect(next?.checkout?.parts.map((part) => part.part)).toEqual([
+      'flight',
+      'hotel',
+      'car',
+      'transfer',
+    ]);
+    const total = [flight, hotel, car, transfer].reduce(
+      (sum, step) => sum + (step.result?.totalToPay?.amountMinor ?? Number.NaN),
+      0,
+    );
+    expect(next?.checkout).toMatchObject({
+      payOnce: true,
+      payOnceTotal: { amountMinor: total, currency: 'NGN' },
+    });
+    // One checkout: the form that takes everyone's details once, then the one payment.
+    const tripCard = transfer.result?.cards?.find((card) => card.kind === 'trip');
+    expect(tripCard?.href).toMatch(/^\/trips\/[0-9a-f-]{36}\/details$/);
+    expect(transfer.result?.cards?.find((card) => card.kind === 'note')?.title).toBe(
+      'trip_handoff',
+    );
+
+    // The trip is planned: nothing more is shown until a new flight search starts another.
+    expect((await call('trips.next_part', 'trip_builder', {}, grant)).result).toMatchObject({
+      problems: ['no_trip_planned'],
+      next: null,
+    });
+    // An option that was never shown, or a part not chosen by anyone, is said in codes.
+    expect(
+      (await call('hotels.prepare_booking', 'trip_builder', { option: 9 }, grant)).result?.problems,
+    ).toEqual(['option_unknown']);
+    expect(
+      (await call('hotels.prepare_booking', 'trip_builder', {}, grant)).result?.problems,
+    ).toEqual(['option_required']);
+  });
+
+  it("asks a family's children's ages before the stays, asks a guest to sign in for a car, and passes over what is skipped (ADR-123)", async () => {
+    const { lagosId } = await catalogProducts();
+    await rentalVehicle(ctx, staff);
+    const conversationId = await conversation(null);
+    const grant = await grantFor({
+      conversationId,
+      userId: null,
+      roles: [],
+      scopes: GUEST_SCOPES,
+    });
+    interface Next {
+      part: string;
+      ask: string | null;
+      options: { option: number }[];
+      noneOffered: string[];
+      checkout: { payOnce: boolean } | null;
+    }
+    await call(
+      'flights.search',
+      'trip_builder',
+      {
+        origin: 'ABV',
+        destination: 'LOS',
+        departDate: inDays(30),
+        returnDate: inDays(33),
+        adults: 2,
+        children: 1,
+      },
+      grant,
+    );
+    const flight = await call<{ next: Next | null }>(
+      'flights.prepare_booking',
+      'trip_builder',
+      { option: 1 },
+      grant,
+    );
+    // A child's age changes a stay's price: asked, never assumed.
+    expect(flight.result?.next).toMatchObject({ part: 'hotel', ask: 'child_ages', options: [] });
+
+    // With the ages the trip planner searches the stays itself; choosing one goes on to cars,
+    // which a guest is asked to sign in for.
+    await call(
+      'hotels.search',
+      'trip_builder',
+      {
+        cityId: lagosId,
+        checkIn: inDays(30),
+        checkOut: inDays(33),
+        rooms: [{ adults: 2, childAges: [7] }],
+      },
+      grant,
+    );
+    const hotel = await call<{ next: Next | null }>(
+      'hotels.prepare_booking',
+      'trip_builder',
+      { option: 1 },
+      grant,
+    );
+    expect(hotel.result?.next).toMatchObject({ part: 'car', ask: 'sign_in' });
+
+    // "No car, thanks", then no transfer either: the checkout, which a guest pays part by part.
+    const noCar = await call<{ next: Next | null }>(
+      'trips.next_part',
+      'trip_builder',
+      { skip: 'car' },
+      grant,
+    );
+    expect(noCar.result?.next).toMatchObject({ part: 'transfer' });
+    const done = await call<{ next: Next | null }>(
+      'trips.next_part',
+      'trip_builder',
+      { skip: 'transfer' },
+      grant,
+    );
+    expect(done.result?.next).toMatchObject({
+      part: 'checkout',
+      noneOffered: ['insurance'],
+      checkout: { payOnce: false },
+    });
+    expect(done.result?.cards?.map((card) => card.title)).toContain('trip_sign_in');
+    // Only the trip planner plans trips part by part.
+    expect(await call('trips.next_part', 'hotels', {}, grant)).toMatchObject({
+      status: 'denied',
+      reason: 'agent',
+    });
   });
 
   it('sums up what a guest prepared and asks them to sign in to pay once (ADR-117)', async () => {

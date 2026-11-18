@@ -1034,6 +1034,9 @@ export const en = {
       },
       reserve: 'Reserve now',
       setUp: 'Set up installments',
+      payments: 'Pay the rest in',
+      paymentsOption: { one: '{count} payment', other: '{count} payments' },
+      paymentsHint: 'Fewer payments are spread over the same time, so each one comes later.',
     },
     method: {
       heading: 'How would you like to pay?',
@@ -3170,6 +3173,15 @@ export const en = {
     intro:
       'Ask about flights, hotels, cars, your bookings or how Suskii works. I can search, explain and get a booking ready for you: you add the travellers and pay on the booking page. I never pay, refund or confirm anything by myself.',
     disclosure: 'This is an automated assistant. You can ask for a person at any time.',
+    subtitle: 'Automated travel assistant',
+    // Questions a traveller can start with: a tap sends one as it is.
+    suggestions: {
+      heading: 'Try asking',
+      trip: 'Plan a trip from Lagos to London',
+      flight: 'Find the cheapest flight to Nairobi next month',
+      hotel: 'Find a hotel in Abuja for this weekend',
+      bookings: 'Show my bookings',
+    },
     privacy: 'Never type card numbers, passwords or passport numbers here.',
     messageLabel: 'Your message',
     placeholder: 'Type your question',
@@ -3215,6 +3227,9 @@ export const en = {
       indicativeNote:
         'Seen on another website, not a Suskii price. A person confirms the live price before anything is paid.',
       source: 'From our documents',
+      choose: 'Choose',
+      chooseLabel: 'Choose {title}',
+      chosen: 'I choose option {option}: {title}',
     },
     // What an answer is read with (ADR-107): shown whatever the assistant wrote.
     notes: {
@@ -3237,11 +3252,12 @@ export const en = {
         'To pay for all of this at once, sign in and ask again. You can also book each part from its own card.',
       trip_separate:
         'Packages, tours, visa assistance, eSIMs and lounge access are not in the trip’s single payment: book each one from its own card.',
-    },
-    rating: {
-      question: 'How well did the assistant help?',
-      score: '{score} out of 5',
-      thanks: 'Thank you. Your rating helps us improve the assistant.',
+      places_google:
+        'Places, addresses and ratings are from Google Maps. Check opening hours with the place before you go.',
+      distance_straight:
+        'Distances are in a straight line, not by road, so the trip there is longer.',
+      driving_estimate:
+        'Driving times are estimates for a car without traffic, so allow more time at busy hours.',
     },
     memory: {
       heading: 'What the assistant remembers',

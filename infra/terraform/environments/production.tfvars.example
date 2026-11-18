@@ -130,6 +130,14 @@ api_env = {
   # Seat selection on Duffel flights (ADR-094) is off unless set. Run the Duffel sandbox check
   # with booking on first (it orders one seat), then uncomment:
   # DUFFEL_SEAT_SELECTION = "true"
+  # Ask Suskii's places and driving times (ADR-122) are off unless set. Create a server key
+  # restricted to the Places API (New) and the Routes API and to the API's addresses, add
+  # "GOOGLE_MAPS_SERVER_KEY" to extra_secrets, set it in Secret Manager, then uncomment (Google
+  # bills each call; the API stops at the daily caps):
+  # PLACES_PROVIDER              = "google"
+  # MAPS_PROVIDER                = "google"
+  # GOOGLE_PLACES_DAILY_CALLS    = "300"
+  # GOOGLE_ROUTES_DAILY_ELEMENTS = "2000"
   # Live flight status and delay alerts (ADR-095) are off unless set: FLIGHT_STATUS_PROVIDER
   # takes a real flight-data provider once its adapter exists (the mock is refused here).
   # AI trip search (ADR-061) is off unless set. To offer it, add "LLM_API_KEY" to extra_secrets,

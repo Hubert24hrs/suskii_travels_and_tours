@@ -200,7 +200,15 @@ describe('payments (e2e): providers, ledger, plans and refunds', () => {
     payment: {
       providers: { name: string }[];
       hold: { deadline: string } | null;
-      installments: { schedule: { sequence: number; amount: Money }[] } | null;
+      installments: {
+        total: Money;
+        schedule: { sequence: number; dueAt: string; amount: Money }[];
+        choices: {
+          payments: number;
+          total: Money;
+          schedule: { sequence: number; dueAt: string; amount: Money }[];
+        }[];
+      } | null;
     };
   }
 
@@ -280,8 +288,8 @@ describe('payments (e2e): providers, ledger, plans and refunds', () => {
       .send(body);
   }
 
-  function post(path: string, token: Record<string, string>) {
-    return ctx.http().post(path).set('Idempotency-Key', idempotencyKey()).set(token).send({});
+  function post(path: string, token: Record<string, string>, body: object = {}) {
+    return ctx.http().post(path).set('Idempotency-Key', idempotencyKey()).set(token).send(body);
   }
 
   async function payWithMock(checkoutUrl: string) {
@@ -660,6 +668,50 @@ describe('payments (e2e): providers, ledger, plans and refunds', () => {
       paid: total,
       paymentPlan: { status: 'completed' },
     });
+  });
+
+  it('takes a quarter down and lets the traveller choose how many payments follow (ADR-124)', async () => {
+    const offer = await planQuote('installments');
+    const installments = offer.payment.installments;
+    if (!installments) throw new Error('the plan should be offered');
+    // A quarter of the total now, rounded up to whole units, as the default policy takes it.
+    const deposit = installments.schedule[0]?.amount.amountMinor ?? 0;
+    expect(deposit).toBeGreaterThanOrEqual(Math.ceil(installments.total.amountMinor / 4));
+    expect(deposit).toBeLessThan(Math.ceil(installments.total.amountMinor / 4) + 100);
+    // One schedule per number of payments that fits, fewest first, each adding up to the total.
+    const choices = installments.choices;
+    expect(choices.map((choice) => choice.payments)).toEqual(
+      Array.from({ length: installments.schedule.length - 1 }, (_, index) => index + 1),
+    );
+    for (const choice of choices) {
+      expect(choice.schedule).toHaveLength(choice.payments + 1);
+      expect(choice.schedule.reduce((sum, item) => sum + item.amount.amountMinor, 0)).toBe(
+        choice.total.amountMinor,
+      );
+    }
+
+    const { id, token, total } = await book(offer.quoteId);
+    // A number that is not on offer is refused, and nothing is held.
+    const refused = await post(`/v1/bookings/${id}/installment-plan`, token, {
+      payments: choices.length + 1,
+    }).expect(409);
+    expect(refused.body.type).toBe('urn:suskii:problem:hold-unavailable');
+    expect((await getBooking(id, token)).status).toBe('PRICED');
+
+    // One payment after the deposit: the balance falls due at the end of the plan.
+    const plan = await post(`/v1/bookings/${id}/installment-plan`, token, { payments: 1 }).expect(
+      200,
+    );
+    const scheduled = plan.body.paymentPlan.installments as { dueAt: string; amount: Money }[];
+    expect(scheduled).toHaveLength(2);
+    expect(scheduled[0]?.amount).toEqual(installments.schedule[0]?.amount);
+    expect(scheduled.reduce((sum, item) => sum + item.amount.amountMinor, 0)).toBe(
+      total.amountMinor,
+    );
+    const last = installments.schedule.at(-1)?.dueAt ?? '';
+    expect(new Date(scheduled[1]?.dueAt ?? '').getTime()).toBeGreaterThanOrEqual(
+      new Date(last).getTime() - 5 * 60_000,
+    );
   });
 
   it('defaults a plan on a missed installment and refunds per policy, keeping the fee', async () => {

@@ -28,6 +28,7 @@ import {
   chosenMethod,
   MethodChoice,
   PlanChoice,
+  chosenInstallments,
   type PaymentMethodName,
   type PlanChoiceValue,
 } from '../components/booking/payment-options';
@@ -107,6 +108,8 @@ function Checkout({ quote }: { quote: Quote }) {
   const [draft, setDraft] = useState<CheckoutDraft>(() => draftFor(quote));
   const [errors, setErrors] = useState<FieldIssues>({});
   const [plan, setPlan] = useState<PlanChoiceValue>('full');
+  // How many payments follow an installment plan's deposit; null for as many as fit (ADR-124).
+  const [planPayments, setPlanPayments] = useState<number | null>(null);
   // Seat selection (ADR-094): the seat map loads only when the traveller asks for it.
   const [choosingSeats, setChoosingSeats] = useState(false);
   const [seats, setSeats] = useState<PricedSeat[]>([]);
@@ -217,10 +220,17 @@ function Checkout({ quote }: { quote: Quote }) {
         path: { bookingId: booking.id },
         header: { ...booking.headers, 'Idempotency-Key': randomUUID() },
       };
+      // Only a number still on offer is sent; otherwise the plan takes as many as fit.
+      const payments = quote.payment.installments
+        ? chosenInstallments(quote.payment.installments, planPayments).payments
+        : null;
       const result =
         chosenPlan === 'hold'
           ? await api.POST('/v1/bookings/{bookingId}/hold', { params })
-          : await api.POST('/v1/bookings/{bookingId}/installment-plan', { params });
+          : await api.POST('/v1/bookings/{bookingId}/installment-plan', {
+              params,
+              body: payments === null ? {} : { payments },
+            });
       if (!result.data) {
         const slug = problemSlug(result.error);
         setFormError(
@@ -687,6 +697,8 @@ function Checkout({ quote }: { quote: Quote }) {
               options={quote.payment}
               value={chosenPlan}
               onChange={setPlan}
+              payments={planPayments}
+              onPaymentsChange={setPlanPayments}
               extrasSelected={extrasSelected}
               seatsSelected={seats.length > 0}
             />

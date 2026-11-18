@@ -3,6 +3,7 @@
 - Status: Accepted
 - Date: 2026-09-29
 - Deciders: Claude Code (implementer), pending owner review
+- Amended by: ADR-124 (a 25% deposit, and the traveller chooses how many payments follow it)
 
 ## Context
 

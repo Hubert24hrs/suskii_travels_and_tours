@@ -45,7 +45,12 @@ export const nativewindPreset = {
       popover: px(size.popover),
       dialog: px(size.dialog),
     },
-    maxHeight: { none: 'none', full: '100%', menu: px(size.menu) },
+    maxHeight: {
+      none: 'none',
+      full: '100%',
+      menu: px(size.menu),
+      composer: px(size.composer),
+    },
     transitionDuration: mapValues(motion.duration, ms),
     transitionTimingFunction: { ...motion.easing },
     // The spec's active-tab underline is 3px; Tailwind v3 has no `border-3` by default.

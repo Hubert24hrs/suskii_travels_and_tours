@@ -154,6 +154,23 @@ Approvals for someone other than the person who asked, who may manage data sourc
 saves it as that person's change and closes the incident; if nothing can be proposed
 (`nothing_priced`), a person writes the selectors on the site's page in Data sources.
 
+## 8. Places and distances (Google Maps, ADR-122)
+
+The places tools answer `places_unavailable` (Google failed, or the breaker is open after
+repeated failures), `places_limit` (the day's cap is reached, or Redis could not count) or
+`places_off` (no provider). Distances then fall back to the straight line, which every answer
+says. Nothing a traveller books depends on them.
+
+1. Look at `suskii_location_calls_total` by `api` and `outcome`: `failed` with a status of 403
+   in the API's warning log means the key's restrictions refuse the machine (its address
+   changed, or an API was left out of the key); 429 means Google's own quota.
+2. At the cap: raise `GOOGLE_PLACES_DAILY_CALLS` or `GOOGLE_ROUTES_DAILY_ELEMENTS` only after
+   reading the project's billing; the count starts again at midnight UTC.
+3. If the server key may have leaked: delete it in the Google Cloud console (Credentials),
+   create a new restricted one, put it in the secret `GOOGLE_MAPS_SERVER_KEY` and release
+   ([Key rotation](key-rotation.md)). Until then `LOCATION_PROVIDER=mock` (the testing
+   machine) or `PLACES_PROVIDER=none` and `MAPS_PROVIDER=mock` stop every call.
+
 ## Afterwards
 
 - Confirm the alert has cleared and a test conversation in the console's staff chat answers.

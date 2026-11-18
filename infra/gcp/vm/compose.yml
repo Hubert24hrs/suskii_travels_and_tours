@@ -111,6 +111,13 @@ services:
       # stand-in page takes every other currency and every method Paystack does not.
       PAYMENT_PROVIDERS: ${SUSKII_PAYMENT_PROVIDERS:-mock}
       PAYSTACK_CURRENCIES: NGN
+      # Places and driving times for Ask Suskii (ADR-122): samples that say so, or Google's
+      # (LOCATION_PROVIDER=google on the deploy; its server key comes with the API's keys).
+      # Google bills each call, so the API stops asking at these caps each day (UTC).
+      PLACES_PROVIDER: ${SUSKII_PLACES_PROVIDER:-mock}
+      MAPS_PROVIDER: ${SUSKII_MAPS_PROVIDER:-mock}
+      GOOGLE_PLACES_DAILY_CALLS: '200'
+      GOOGLE_ROUTES_DAILY_ELEMENTS: '1000'
       TAX_SELLER_COUNTRY: NG
       # Email (ADR-113): with the mailbox, every message goes to it over the private network and
       # stops there, for the owner to read; without it, nothing is sent at all.

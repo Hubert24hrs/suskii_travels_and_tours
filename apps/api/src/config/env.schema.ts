@@ -498,7 +498,8 @@ export const envSchema = z
     HOLD_MIN_WINDOW_HOURS: z.coerce.number().int().min(1).max(168).default(6),
     HOLD_SAFETY_MARGIN_MINUTES: z.coerce.number().int().min(15).max(1440).default(120),
     HOLD_MAX_ACTIVE: z.coerce.number().int().min(1).max(20).default(2),
-    INSTALLMENT_DEPOSIT_BPS: z.coerce.number().int().min(500).max(9000).default(3000),
+    // 25% down, as Pay Small Small plans take it (ADR-124).
+    INSTALLMENT_DEPOSIT_BPS: z.coerce.number().int().min(500).max(9000).default(2500),
     INSTALLMENT_MAX_COUNT: z.coerce.number().int().min(1).max(12).default(3),
     INSTALLMENT_MIN_SPACING_HOURS: z.coerce.number().int().min(1).max(720).default(24),
     INSTALLMENT_FEE_BPS: z.coerce.number().int().min(0).max(2000).default(0),
@@ -550,10 +551,35 @@ export const envSchema = z
     /** Bus seat holds (ADR-051). */
     BUS_SEAT_HOLD_MINUTES: z.coerce.number().int().min(2).max(30).default(10),
     BUS_MAX_ACTIVE_HOLDS: z.coerce.number().int().min(1).max(10).default(2),
-    /** Routing and geocoding (ADR-053): `mock` only outside production unless ALLOW_MOCK_PROVIDERS. */
-    MAPS_PROVIDER: z.enum(['mock', 'osrm']).default('mock'),
+    /**
+     * Routing (ADR-053, ADR-122): `mock` only outside production unless ALLOW_MOCK_PROVIDERS,
+     * `osrm` needs OSRM_URL, `google` (the Routes API) needs GOOGLE_MAPS_SERVER_KEY. Ask Suskii's
+     * distances use the mock only where mocks are allowed, and then call them sample figures.
+     */
+    MAPS_PROVIDER: z.enum(['mock', 'osrm', 'google']).default('mock'),
     OSRM_URL: z.url().optional(),
     MAPS_TIMEOUT_MS: z.coerce.number().int().min(500).max(20_000).default(3000),
+    /**
+     * Places for Ask Suskii's location tools (ADR-122). `none` turns them off: nothing is asked
+     * and the tools say so. `mock` only outside production unless ALLOW_MOCK_PROVIDERS; `google`
+     * (the Places API, New) needs GOOGLE_MAPS_SERVER_KEY.
+     */
+    PLACES_PROVIDER: z.enum(['none', 'mock', 'google']).default('none'),
+    /**
+     * The server key for Google Maps Platform (Places and Routes only): a secret held by the API,
+     * never sent to a website or an app. Restrict it to those APIs and the API's addresses.
+     */
+    GOOGLE_MAPS_SERVER_KEY: z.string().min(20).optional(),
+    GOOGLE_PLACES_API_URL: z.url().default('https://places.googleapis.com/v1'),
+    GOOGLE_ROUTES_API_URL: z.url().default('https://routes.googleapis.com'),
+    /**
+     * Spending caps per UTC day (ADR-122): calls to the Places API, and route elements (one per
+     * origin and destination pair) to the Routes API. At a cap the API stops asking until the
+     * next day: places answer that they are unavailable and distances fall back to the straight
+     * line. 0 stops that API altogether.
+     */
+    GOOGLE_PLACES_DAILY_CALLS: z.coerce.number().int().min(0).max(1_000_000).default(300),
+    GOOGLE_ROUTES_DAILY_ELEMENTS: z.coerce.number().int().min(0).max(10_000_000).default(2000),
     /**
      * AI trip search (ADR-061): on outside production, off in production unless set. `mock` only
      * outside production unless ALLOW_MOCK_PROVIDERS; `anthropic` needs LLM_API_KEY.
@@ -1155,6 +1181,10 @@ export const envSchema = z
     }
     if (env.MAPS_PROVIDER === 'osrm' && !env.OSRM_URL)
       require('OSRM_URL', 'is required when MAPS_PROVIDER is osrm');
+    if (env.MAPS_PROVIDER === 'google' && !env.GOOGLE_MAPS_SERVER_KEY)
+      require('GOOGLE_MAPS_SERVER_KEY', 'is required when MAPS_PROVIDER is google');
+    if (env.PLACES_PROVIDER === 'google' && !env.GOOGLE_MAPS_SERVER_KEY)
+      require('GOOGLE_MAPS_SERVER_KEY', 'is required when PLACES_PROVIDER is google');
     if (env.LLM_PROVIDER === 'anthropic' && !env.LLM_API_KEY)
       require('LLM_API_KEY', 'is required when LLM_PROVIDER is anthropic');
     if (env.FLIGHT_SUPPLIERS.length === 0)
@@ -1405,6 +1435,13 @@ export const envSchema = z
     }
     if (env.MAPS_PROVIDER === 'osrm' && env.OSRM_URL && !env.OSRM_URL.startsWith('https://'))
       require('OSRM_URL', 'must use https in production');
+    // Never show invented places to travellers (ADR-122).
+    if (!env.ALLOW_MOCK_PROVIDERS && env.PLACES_PROVIDER === 'mock')
+      require('PLACES_PROVIDER', 'the mock invents places; it is not allowed in production');
+    if (!env.GOOGLE_PLACES_API_URL.startsWith('https://'))
+      require('GOOGLE_PLACES_API_URL', 'must use https in production');
+    if (!env.GOOGLE_ROUTES_API_URL.startsWith('https://'))
+      require('GOOGLE_ROUTES_API_URL', 'must use https in production');
   });
 
 export type Env = z.output<typeof envSchema>;

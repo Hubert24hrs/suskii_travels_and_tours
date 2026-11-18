@@ -3,6 +3,7 @@
 - Status: Accepted
 - Date: 2026-10-06
 - Deciders: Claude Code (implementer), pending owner review
+- Amended by: ADR-124 (the owner's default markups are seeded, once, at the lowest precedence)
 
 ## Context
 

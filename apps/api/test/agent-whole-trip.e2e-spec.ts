@@ -237,7 +237,8 @@ describe('a whole trip planned with Ask Suskii and paid once (e2e)', () => {
       ['trips.prepare_checkout', 'ok'],
     ]);
     const tripCard = answer?.cards.find((card) => card.kind === 'trip');
-    const tripId = /^\/trips\/([0-9a-f-]{36})$/.exec(tripCard?.href ?? '')?.[1] ?? '';
+    // The card opens the form that takes everyone's details once, then the one payment.
+    const tripId = /^\/trips\/([0-9a-f-]{36})\/details$/.exec(tripCard?.href ?? '')?.[1] ?? '';
     expect(tripId).not.toBe('');
     // Nothing was booked or paid by the assistant.
     expect(await ctx.prisma.booking.count()).toBe(0);

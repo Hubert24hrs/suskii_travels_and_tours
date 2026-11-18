@@ -143,6 +143,23 @@ for a signed-in traveller with a flight, the flight, stay, car, transfer and ins
 combined trip, whose page shows each prepared part with "Enter details" and takes one payment.
 Built and tested; the evals against the real model wait for the owner's Cloud Build run.
 
+A combined trip one part at a time (outside the numbered phases, ADR-123,
+`docs/phases/assistant-trip-flow.md`): Ask Suskii shows the flight options first, then, after each
+choice, the options for a place to stay, a rental car, an airport transfer and travel insurance,
+each chosen by its number (a Choose button on the newest answer) or skipped, then the checkout
+with one total, whose card opens the trip's details form. The order is the API's
+(`AgentTripFlow`), not a prompt's. Built and tested; the evals against the real model wait for
+the owner's Cloud Build run.
+
+Booking as Nigerian travellers know it (outside the numbered phases, ADR-124,
+`docs/phases/booking-logic-and-markups.md`): the owner asked for bookings to follow Wakanow's
+booking logic with their markups. The platform already reserved now for payment later, took
+deposits with installments, offered transfers and USSD and sent the e-ticket; the changes are
+the owner's default markups (2% on flight fares, 10% on hotels, Cars and everything else, none
+on Prime; created once, changed in the console), a 25% deposit, and the traveller choosing how
+many payments follow it, on the website and in the app. Nothing names Wakanow to a traveller.
+Built and tested.
+
 One details form for the whole trip (outside the numbered phases, ADR-118,
 `docs/phases/trip-details-form.md`): the trip page's "Enter everyone's details once" opens one
 form (website `/trips/{id}/details`, app `/trips/built/{id}/details`) that takes the contact
@@ -155,6 +172,15 @@ app's twelve typed dates (dates of birth, expiry dates, a rental's pickup and re
 later, a transfer's arrival) are pickers: `DatePicker` in ui-native, with years, months and days,
 and hours and minutes on the 24 hour clock. The screens send the same ISO values as before, and no
 string shows a date in that form. Built and tested; the phone flows run on the emulator in CI.
+
+Google Maps Platform (outside the numbered phases, ADR-122, `docs/phases/google-maps.md`): part
+1, Ask Suskii's places and distances, is built: places behind `PlacesProvider` (`none`, `mock`,
+`google`, the Places API, New), Google's Routes API behind the existing `MapsProvider`, one
+`LocationService` with daily caps, and four read tools (`places.find`, `places.nearby`,
+`places.compare_proximity`, `places.airports_near`). The testing machine answers with samples
+(`LOCATION_PROVIDER=mock`) until the owner's restricted server key is in
+`GOOGLE_MAPS_SERVER_KEY` and `LOCATION_PROVIDER=google` is deployed; nothing calls Google before.
+Parts 2 and 3, Google maps on the website and in the app, are next.
 
 The backend on Google Cloud (outside the numbered phases, ADR-110): the owner asked for the
 backend and the assistant's backend to be deployed on Google's services. Built:
@@ -464,7 +490,12 @@ Tooling notes for agents:
   takes an explicit rounding mode. On the wire it is `{ amountMinor, currency }` (`moneySchema` /
   `priceSchema` in `src/pricing/pricing.schemas.ts`); never send floats or decimal strings.
 - Prices come from `PricingService.pricer()` (markup, conversion, fees, promo). Markup and supplier
-  cost are internal and never leave the API. No pricing rule or promo is seeded.
+  cost are internal and never leave the API. The owner's default markups (ADR-124: 2% on
+  flights, 10% on every other vertical but `prime`) are the only pricing rules seeded:
+  `seedDefaultMarkups()` creates one per vertical once, under `stableDefaultMarkupId()`, at the
+  lowest precedence (priority 10,000), and never updates or re-creates it, so staff changes in
+  the console survive releases. A new vertical needs its entry in `DEFAULT_MARKUP_BPS` (the
+  type check fails otherwise). No fee, tax rule or promo is seeded.
 - Supplier adapters live in `src/suppliers/<vendor>` and map vendor payloads to the domain types in
   `supplier.types.ts`; vendor types never leave the adapter. Enable them with `FLIGHT_SUPPLIERS` /
   `HOTEL_SUPPLIERS` (comma-separated). Adapters throw the `SupplierError` subclasses and honour the
@@ -553,7 +584,11 @@ Tooling notes for agents:
   synthetic event id (`reconcile:{reference}:{status}`), so dedupe and postings stay in one place.
 - Plans: `PaymentPlansService` creates holds and installment plans (flights with supplier holds,
   no paid extras) and closes them (cancel, default, expiry) under the plan's policy. Amounts,
-  deposit, fees and grace come from config; never hard-code them.
+  deposit, fees and grace come from config; never hard-code them. The traveller chooses how many
+  payments follow the 25% deposit (ADR-124): the options list one schedule per number that fits
+  (`installments.choices`, from `installmentSchedule(..., payments)`), the route takes `payments`
+  and refuses a number that no longer fits (`chosenSchedule()`, 409 `hold-unavailable`). Never
+  build a schedule anywhere else, and never stretch a plan past the supplier's deadline.
 - Captured card payments are scored by `PaymentRiskService` in the capture transaction; at or
   above `PAYMENT_RISK_REVIEW_SCORE` the booking stays PAID with an open `PaymentRiskReview` and
   nothing fulfils it until finance approves (reject refunds in full). Never fulfil a PAID booking
@@ -1039,6 +1074,28 @@ Tooling notes for agents:
   already tomorrow in Dubai, and the search refuses that date as in the past. A test of such a
   date pins the clock (`page.clock.setFixedTime`): a suite that only runs by day never meets it.
 
+### Places and distances (apps/api/src/location, agent/tools/location-tools.ts; ADR-122)
+
+- Places come only through `PlacesProvider` and routes only through `MapsProvider`, both asked by
+  `LocationService`: the day's cap for a Google API is counted in Redis before the call and fails
+  closed, a breaker stops a failing provider, search text goes through `scrubQuery()`. Never call
+  Google from anywhere else, and never send it a traveller, a booking or an account.
+- Nothing from Google is cached or stored but a place's id and point (`AgentPlaceRefs`, six
+  hours, as Google's terms allow). A name, address, rating or route a traveller reads comes from
+  a call made for that answer.
+- A distance a traveller reads is by road from a real router, or the straight line with no time
+  and said as such (`distance_straight`). The mock router answers only where mocks are allowed
+  and its figures are `sample`. Never estimate a road distance or a driving time.
+- A hotel at its city's point or at 0,0 has no position of its own (`HotelSearchService
+.positions()`): never measure from it. Tools take references the platform holds (a `rateId`,
+  an airport code, a `place_n`), never coordinates a model wrote.
+- Places from Google carry `places_google` (Google's attribution) and are never drawn on a map
+  that is not Google's, our drawn pin map included. No public route asks Google: a list on every
+  hotel page would bill a call per view. The server key never reaches a client; the maps on the
+  website and in the app (parts 2 and 3) get keys of their own, restricted to them.
+- A new kind of place is a value in `PLACE_KINDS` with its radius (`PLACE_RADIUS_METRES`) and
+  Google's types (`GOOGLE_PLACE_TYPES`).
+
 ### Combined trips (apps/api/src/trips, packages/shared trips; ADR-099)
 
 - A trip is a group of the account's own ordinary bookings, one per part (`flight`, `hotel`,
@@ -1082,7 +1139,9 @@ Tooling notes for agents:
 - Prepared parts (ADR-117) are quotes Ask Suskii put on a trip (`trips.prepared`), written only
   by `TripsService.prepare()` and dropped by `addPart` when the part's booking joins. They are
   shown with their quoted price and "Enter details" (the ordinary checkout in trip mode) and
-  counted in `totalWithPrepared`, never in `due` or a payment: only bookings are paid.
+  counted in `totalWithPrepared`, never in `due` or a payment: only bookings are paid. The
+  assistant's trip card opens the details form (`/trips/{id}/details`) while a part waits for
+  details, and the trip page once every part is booked (ADR-123).
 - The details form (ADR-118) books prepared parts only through `TripBookingService.book()`:
   each part is the ordinary `BookingsService.create()` request with the travellers its quote
   was priced for (a flight and an add-on by their counts, a lead guest per room from the
@@ -1162,6 +1221,21 @@ Tooling notes for agents:
   for a signed-in traveller, puts the parts a trip takes on a combined trip through
   `TripsService.prepare()`. A model never adds prices up; the summary's card leads to the trip
   or to each part's own checkout.
+- A trip planned part by part (ADR-123) follows only `AgentTripFlow` (`tools/trip-flow.ts`):
+  the flight, then `TRIP_FLOW_PARTS` in order, then the checkout from `summarize()`. The trip's
+  facts come from the prepared flight (`tripFlowFacts`, `rentalWindow`, `addonDays`), never from
+  a model; a prepare tool hands the next part's options back as `next` through `continueTrip()`,
+  and `trips.next_part` passes a part over. A new part is a value there, its options in
+  `optionsFor()` and a case in `agent-tools.e2e-spec.ts`; never move the order into a prompt.
+  Children's ages are asked before a stay, never assumed.
+- Options are chosen by their number through `AgentOptions` (Redis `agent:options`, ids only, 30
+  minutes): a tool that shows options remembers them and gives their cards `choose`; a prepare
+  tool takes `option` beside its id (`chosen()`). The clients draw a Choose button only on the
+  newest answer and send `assistant.cards.chosen` as the traveller's words; a client never sends
+  an id. Keep an answer's option cards within the six it holds (the chosen part and four).
+- While a conversation plans a trip, the API sets `tripPlanning` in the run's context
+  (`AgentChatService.planningTrip()`), and the supervisor sends it to the trip planner after the
+  keyword rules, until the checkout.
 - `platform.guide` answers from `src/agent/platform-guide.ts`: plain sentences about what a
   traveller can do and where, with no price, fee, hour or promise. A change to a feature a
   traveller sees changes its topic there in the same change.
@@ -1189,6 +1263,14 @@ Tooling notes for agents:
   preferences page stays open while it is paused, so erasing is always possible. The app
   keeps the open conversation's id and a guest's token in `assistantSession`
   (`lib/assistant.ts`, secure store) and offers the assistant from Account.
+- The app's chat screen (ADR-121) hides the native header and draws its own (back, the mark,
+  Earlier conversations, New chat) so its actions are tested. Its message box sits on the
+  keyboard through `KeyboardAvoidingView` with `padding` (Android draws edge to edge, so the
+  keyboard covers the screen) and stops growing at `max-h-composer`. A card's link goes only
+  through `assistantCardTarget()`: the app's own screen for every page it has, the website only
+  for a page it lacks, no link for anything else; a new page the assistant links to gets its
+  screen there, with a case in `assistant.test.ts`. New chat clears every cached answer to
+  which conversation is open (`['agent', 'open']`), whatever the screen was opened with.
 - Chat (`src/agent/chat`): `POST /v1/agent/chat` stores the message (sealed), starts the run in
   the background and answers 202; events are read from the run's log in Redis as a stream
   (`GET /v1/agent/runs/{id}/stream`) or by polling. One run per conversation
@@ -1233,7 +1315,9 @@ Tooling notes for agents:
   words with `memoryValueText()`.
 - A conversation's score is set only through `AgentConversationsService.rate()` by its
   owner; staff see counts, a mean in tenths and the funnel (`AgentInsightsService`, computed
-  at read time). A new search tool joins `SEARCH_TOOLS` there, or the funnel misses it.
+  at read time). A new search tool joins `SEARCH_TOOLS` there, or the funnel misses it. The
+  clients no longer ask for a score (ADR-121, the owner's choice): keep the route for app
+  builds already on phones, and the per-answer thumbs as the clients' signal.
 - Planning tools (`src/agent/tools/planning-tools.ts`): `fares.trend` always returns
   `FARE_TREND_BASIS` (a trend over fares already found, never a forecast; the rule is
   `fareTrend()` in `route-facts.ts`); `documents.passports` returns counts from
@@ -2061,6 +2145,10 @@ Tooling notes for agents:
 - [ADR-118: One details form for the whole trip](docs/decisions/ADR-118-one-details-form-for-the-whole-trip.md)
 - [ADR-119: Paystack's test mode on the testing backend, and Duffel in the mode of the payments](docs/decisions/ADR-119-paystack-test-mode-on-the-testing-backend.md)
 - [ADR-120: The receipt of a combined trip, and the whole trip run end to end](docs/decisions/ADR-120-the-receipt-of-a-combined-trip.md)
+- [ADR-121: The Ask Suskii chat in the app: its own header, a message box on the keyboard, cards that open the app, and no score](docs/decisions/ADR-121-the-ask-suskii-chat-in-the-app.md)
+- [ADR-122: Google Maps Platform for Ask Suskii's places and distances, behind our own providers](docs/decisions/ADR-122-google-maps-places-and-distances-for-ask-suskii.md)
+- [ADR-123: Ask Suskii plans a combined trip one part at a time, in an order kept in code](docs/decisions/ADR-123-ask-suskii-plans-a-trip-one-part-at-a-time.md)
+- [ADR-124: Booking as Nigerian travellers know it, and the owner's default markups](docs/decisions/ADR-124-booking-like-the-market-and-default-markups.md)
 
 ## Open questions for the owner
 
@@ -2307,6 +2395,19 @@ per method on the testing backend (ADR-074); and the currencies the live account
 Added with the trip receipt (ADR-120): whether the receipt should also be emailed when a trip is
 paid, and the accountant's view on whether it must be a tax invoice in some markets (the
 seller's legal name, address and registration on it, from `TAX_SELLER_COUNTRY`'s rules).
+Added with Google Maps (ADR-122): a server key restricted to the Places API (New) and the Routes
+API and to the API's addresses (`GOOGLE_MAPS_SERVER_KEY`), a budget alert and the daily caps,
+counsel's reading of Google's terms and of where the Maps Platform processes requests, the
+privacy policy naming Google Maps, and whether hotel pages should list nearby places (a billed
+call per page view).
+Added with the trip planned part by part (ADR-123): whether four options per part is right, and
+whether a rental car collected an hour after landing and returned three hours before the flight
+back suits the fleet's branches.
+Added with the booking logic and markups (ADR-124): whether to offer installment plans longer
+than the airline's hold (months, as Wakanow's Pay Small Small does on flights), which means
+issuing tickets before full payment and carrying the credit risk; whether the installment fee
+should grow with the number of payments; and whether a markup should also apply to a fare's
+taxes (today it applies to the fare before taxes, as the trade does).
 Every
 owner action is listed, step by step, in
 `docs/owner/launch-checklist.md`, and every stand-in to replace before the public launch (with

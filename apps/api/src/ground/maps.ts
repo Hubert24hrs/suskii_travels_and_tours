@@ -22,11 +22,56 @@ export class RoutingFailedError extends Error {
   }
 }
 
-/** Routing for ride quotes and route-deviation checks. */
+/** How far and how long one origin is from one destination by road. */
+export interface RouteLeg {
+  distanceMetres: number;
+  durationSeconds: number;
+}
+
+/**
+ * Routing for ride quotes, route-deviation checks and Ask Suskii's distances (ADR-053,
+ * ADR-122). Requests carry coordinates only: no rider, traveller or booking data.
+ */
 export abstract class MapsProvider {
   abstract readonly name: string;
   /** Throws `RoutingFailedError` when no route could be computed. */
   abstract route(from: GeoPoint, to: GeoPoint, signal: AbortSignal): Promise<RouteResult>;
+
+  /**
+   * Driving legs from every origin to every destination: `result[origin][destination]`, null
+   * where no route exists. This asks `route()` once per pair; a provider with a matrix call of
+   * its own overrides it. Throws `RoutingFailedError` when the provider answered for no pair.
+   */
+  async matrix(
+    origins: readonly GeoPoint[],
+    destinations: readonly GeoPoint[],
+    signal: AbortSignal,
+  ): Promise<(RouteLeg | null)[][]> {
+    let answered = 0;
+    const rows = await Promise.all(
+      origins.map((origin) =>
+        Promise.all(
+          destinations.map(async (destination): Promise<RouteLeg | null> => {
+            try {
+              const route = await this.route(origin, destination, signal);
+              answered += 1;
+              return {
+                distanceMetres: route.distanceMetres,
+                durationSeconds: route.durationSeconds,
+              };
+            } catch (error) {
+              if (error instanceof RoutingFailedError) return null;
+              throw error;
+            }
+          }),
+        ),
+      ),
+    );
+    if (answered === 0 && origins.length > 0 && destinations.length > 0) {
+      throw new RoutingFailedError('no route for any pair');
+    }
+    return rows;
+  }
 }
 
 /** City driving speed the mock and the fallback assume: 25 km/h (Lagos traffic). */

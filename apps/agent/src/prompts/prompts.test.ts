@@ -92,8 +92,23 @@ describe('what the prompts ask a model to say (ADR-112)', () => {
   });
 
   it('ties the offer after a flight to what the tool says can be added', () => {
-    for (const agent of ['flights', 'trip_builder'] as const) {
-      expect(promptFor(agent).render(context)).toContain('alsoOffer');
+    expect(promptFor('flights').render(context)).toContain('alsoOffer');
+  });
+
+  it('has the trip planner show each part the tools hand over, in their order (ADR-123)', () => {
+    const prompt = promptFor('trip_builder').render(context);
+    // The order is the API's: the planner shows next and never asks first.
+    expect(prompt).toContain('next.options');
+    expect(prompt).toContain('trips.next_part');
+    expect(prompt).not.toContain('alsoOffer');
+    // Answers that show the next part in a model's own words are not held as read back.
+    const shown = [
+      'Your flight is set. Now choose where to stay in Lagos: option 1 is Eko Signature, option 2 is Lagoon View Suites. Which one do you want, or shall I skip the stay?',
+      'The stay is set. Here are the cars for your dates. Pick one, or tell me to skip the car.',
+      'Everything is chosen: the flight, the stay and the car. Open the checkout card to enter everyone’s details once and pay the total.',
+    ];
+    for (const answer of shown) {
+      expect(leaksInstructions(answer, instructions('trip_builder'))).toBe(false);
     }
   });
 });

@@ -277,7 +277,15 @@ test.describe('flexible payment', () => {
     const schedule = page.getByTestId('installment-schedule');
     await expect(schedule).toBeVisible();
     const rows = schedule.getByRole('listitem');
-    expect(await rows.count()).toBeGreaterThan(1);
+    expect(await rows.count()).toBeGreaterThan(2);
+    // How many payments follow the deposit is the traveller's choice, as a repayment term is
+    // (ADR-124): one payment leaves the deposit and the balance at the end of the plan.
+    const payments = page.getByTestId('installment-payments');
+    await expect(payments).toBeVisible();
+    await payments
+      .getByLabel(t('checkout.plan.paymentsOption', { count: 1 }), { exact: true })
+      .check();
+    await expect(rows).toHaveCount(2);
     await expect(rows.first()).toContainText(t('checkout.plan.depositDue'));
     const deposit = (await rows.first().locator('span').last().textContent()) ?? '';
     const second = (await rows.nth(1).locator('span').last().textContent()) ?? '';

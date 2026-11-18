@@ -22,6 +22,8 @@ import { localDateTimeSchema } from '../../rentals/rentals.schemas';
 import { VisaService } from '../../visa/visa.service';
 import { agentTool, AgentToolRegistry } from '../agent-tool';
 
+import { AgentOptions } from './agent-options';
+
 import {
   AgentToolCallers,
   card,
@@ -71,6 +73,7 @@ export class ProductTools implements OnModuleInit {
     private readonly buses: BusesService,
     private readonly inhouse: InhouseCatalogService,
     private readonly visa: VisaService,
+    private readonly options: AgentOptions,
   ) {}
 
   onModuleInit(): void {
@@ -126,7 +129,7 @@ export class ProductTools implements OnModuleInit {
           ),
           cards: cardsOut,
         }),
-        run: async (input) => {
+        run: async (input, { grant }) => {
           const nothing = (problems: string[]) => ({
             problems,
             found: 0,
@@ -148,6 +151,19 @@ export class ProductTools implements OnModuleInit {
             });
             const period = `?pickupAt=${encodeURIComponent(input.pickupAt)}&returnAt=${encodeURIComponent(input.returnAt)}${input.withChauffeur ? '&chauffeur=true' : ''}`;
             const shown = result.vehicles.slice(0, input.limit);
+            // Chosen by number later, for the same pick-up and return times (ADR-123).
+            await this.options.remember(
+              grant,
+              'car',
+              shown.map((vehicle) => ({
+                id: vehicle.id,
+                extra: {
+                  pickupAt: input.pickupAt,
+                  returnAt: input.returnAt,
+                  ...(input.withChauffeur ? { withChauffeur: 'true' } : {}),
+                },
+              })),
+            );
             return {
               problems: [],
               found: result.vehicles.length,
@@ -170,7 +186,7 @@ export class ProductTools implements OnModuleInit {
                 kilometresPerDay: vehicle.mileage.kmPerDay,
                 fuelPolicy: vehicle.fuelPolicy,
               })),
-              cards: shown.flatMap((vehicle): AgentCard[] =>
+              cards: shown.flatMap((vehicle, index): AgentCard[] =>
                 card(
                   'car',
                   `${vehicle.make} ${vehicle.model}`,
@@ -178,7 +194,11 @@ export class ProductTools implements OnModuleInit {
                     vehicle.branch.name,
                     `${wallTime(input.pickupAt)} \u2192 ${wallTime(input.returnAt)}`,
                   ],
-                  { price: vehicle.estimate.rental, href: `/rentals/${vehicle.slug}${period}` },
+                  {
+                    price: vehicle.estimate.rental,
+                    href: `/rentals/${vehicle.slug}${period}`,
+                    choose: index + 1,
+                  },
                 ),
               ),
             };
@@ -637,6 +657,11 @@ export class ProductTools implements OnModuleInit {
             client,
           );
           const shown = addons.slice(0, input.limit);
+          await this.options.remember(
+            grant,
+            'addon',
+            shown.map((item) => ({ id: item.id, extra: { type: item.type } })),
+          );
           return {
             found: addons.length,
             addons: shown.map((item, index) => ({
@@ -650,10 +675,11 @@ export class ProductTools implements OnModuleInit {
               chargedPer: item.pricingBasis.replace(/^per_/, ''),
               mostTravellers: item.maxTravellers,
             })),
-            cards: shown.flatMap((item): AgentCard[] =>
+            cards: shown.flatMap((item, index): AgentCard[] =>
               card('link', item.title, [], {
                 price: item.unitPrice,
                 href: `/travel-add-ons?type=${item.type}`,
+                choose: index + 1,
               }),
             ),
           };

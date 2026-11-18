@@ -2044,6 +2044,247 @@
         "answer": "Your next instalment of NGN 32,000.00 is due on 2026-11-25, and missing it costs a NGN 5,000.00 penalty.",
         "rewrite": "Your next instalment of NGN 32,000.00 is due on 2026-11-20 12:00 UTC. A missed payment has 24 hours of grace."
       }
+    },
+    {
+      "id": "g17",
+      "agent": "hotels",
+      "message": "Are there shopping centres near the National Mosque in Abuja?",
+      "locale": "en-NG",
+      "signedIn": false,
+      "results": {
+        "places.find": {
+          "problems": [],
+          "places": [
+            {
+              "place": "place_1",
+              "name": "Abuja National Mosque",
+              "address": "Independence Ave, Abuja",
+              "type": "mosque",
+              "rating": 4.7,
+              "ratings": 5210,
+              "priceLevel": null,
+              "distance": null,
+              "sample": false
+            }
+          ],
+          "cards": [
+            {
+              "kind": "note",
+              "title": "places_google",
+              "lines": []
+            }
+          ]
+        },
+        "places.nearby": {
+          "problems": [],
+          "around": null,
+          "places": [
+            {
+              "place": "place_2",
+              "name": "Ceddi Plaza",
+              "address": "Tafawa Balewa Way, Abuja",
+              "type": "shopping_mall",
+              "rating": 4.1,
+              "ratings": 7140,
+              "priceLevel": null,
+              "distance": "1.4 km",
+              "sample": false
+            },
+            {
+              "place": "place_3",
+              "name": "Silverbird Galleria",
+              "address": "Shehu Shagari Way, Abuja",
+              "type": "shopping_mall",
+              "rating": 4.3,
+              "ratings": 9860,
+              "priceLevel": null,
+              "distance": "1.9 km",
+              "sample": false
+            }
+          ],
+          "cards": [
+            {
+              "kind": "note",
+              "title": "places_google",
+              "lines": []
+            },
+            {
+              "kind": "note",
+              "title": "distance_straight",
+              "lines": []
+            }
+          ]
+        }
+      },
+      "expect": "grounded",
+      "mustNotInclude": [],
+      "recorded": {
+        "calls": [
+          {
+            "name": "places.find",
+            "arguments": {
+              "query": "National Mosque, Abuja"
+            }
+          },
+          {
+            "name": "places.nearby",
+            "arguments": {
+              "place": "place_1",
+              "kind": "shopping"
+            }
+          }
+        ],
+        "answer": "Yes, two shopping centres are close to the National Mosque: Ceddi Plaza, 1.4 km away in a straight line and rated 4.1 from 7,140 ratings, and Silverbird Galleria, 1.9 km away and rated 4.3 from 9,860 ratings."
+      }
+    },
+    {
+      "id": "f18",
+      "agent": "hotels",
+      "message": "How long is the drive from Lekki Phase 1 to Lagos airport?",
+      "locale": "en-NG",
+      "signedIn": false,
+      "results": {
+        "places.find": {
+          "problems": [],
+          "places": [
+            {
+              "place": "place_1",
+              "name": "Lekki Phase 1",
+              "address": "Lekki, Lagos",
+              "type": "neighborhood",
+              "rating": null,
+              "ratings": null,
+              "priceLevel": null,
+              "distance": null,
+              "sample": false
+            }
+          ],
+          "cards": [
+            {
+              "kind": "note",
+              "title": "places_google",
+              "lines": []
+            }
+          ]
+        },
+        "places.airports_near": {
+          "problems": [],
+          "around": null,
+          "airports": [
+            {
+              "code": "LOS",
+              "name": "Murtala Muhammed International Airport",
+              "city": "Lagos",
+              "distance": "24 km",
+              "distanceMetres": 24130,
+              "drivingTime": null,
+              "measured": "straight_line"
+            }
+          ],
+          "sampleFigures": false,
+          "cards": [
+            {
+              "kind": "note",
+              "title": "distance_straight",
+              "lines": []
+            }
+          ]
+        }
+      },
+      "expect": "fabricated",
+      "mustNotInclude": ["45"],
+      "recorded": {
+        "calls": [
+          {
+            "name": "places.find",
+            "arguments": {
+              "query": "Lekki Phase 1, Lagos"
+            }
+          },
+          {
+            "name": "places.airports_near",
+            "arguments": {
+              "place": "place_1",
+              "limit": 1
+            }
+          }
+        ],
+        "answer": "From Lekki Phase 1 the drive to Murtala Muhammed International Airport (LOS) takes about 45 minutes, it is 24 km away.",
+        "rewrite": "Murtala Muhammed International Airport (LOS) is 24 km from Lekki Phase 1 in a straight line. I do not have a driving time for that trip, and the road is longer than the straight line."
+      }
+    },
+    {
+      "id": "g18",
+      "agent": "trip_builder",
+      "message": "Option 1",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "flights.prepare_booking": {
+          "problems": [],
+          "bookingStatus": "not_booked",
+          "prepared": true,
+          "what": "Abuja (ABV) → Lagos (LOS), Air Peace",
+          "totalToPay": {
+            "amountMinor": 19300000,
+            "currency": "NGN"
+          },
+          "priceChangedSinceSearch": false,
+          "priceBeforeTheChange": null,
+          "offerValidUntil": "2026-11-20 10:00 UTC",
+          "alsoOffer": [],
+          "stay": {
+            "city": "Lagos",
+            "country": "NG",
+            "arrive": "2026-12-10",
+            "leave": "2026-12-13"
+          },
+          "next": {
+            "part": "hotel",
+            "ask": null,
+            "noneOffered": [],
+            "checkout": null,
+            "options": [
+              {
+                "option": 1,
+                "title": "Eko Signature",
+                "details": ["5★ · Victoria Island", "Deluxe king room", "2026-12-10 → 2026-12-13"],
+                "price": {
+                  "amountMinor": 55500000,
+                  "currency": "NGN"
+                },
+                "chargedPer": null,
+                "sample": false
+              },
+              {
+                "option": 2,
+                "title": "Lagoon View Suites",
+                "details": ["4★ · Lekki", "One bedroom suite", "2026-12-10 → 2026-12-13"],
+                "price": {
+                  "amountMinor": 27600000,
+                  "currency": "NGN"
+                },
+                "chargedPer": null,
+                "sample": false
+              }
+            ]
+          },
+          "cards": []
+        }
+      },
+      "expect": "grounded",
+      "mustNotInclude": [],
+      "recorded": {
+        "calls": [
+          {
+            "name": "flights.prepare_booking",
+            "arguments": {
+              "option": 1
+            }
+          }
+        ],
+        "answer": "Your Air Peace flight from Abuja to Lagos is set, NGN 193,000.00. Now choose where to stay in Lagos from 2026-12-10 to 2026-12-13:\n1. Eko Signature, 5 stars in Victoria Island, NGN 555,000.00 for the stay.\n2. Lagoon View Suites, 4 stars in Lekki, NGN 276,000.00 for the stay.\nWhich one would you like, or shall I skip the stay?"
+      }
     }
   ]
 }

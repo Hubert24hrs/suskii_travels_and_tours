@@ -7,6 +7,7 @@ import { AgentToolError } from '../agent-tool';
 import { faqScore } from './support-tools';
 import {
   card,
+  distanceText,
   durationText,
   guarded,
   issueCodes,
@@ -108,6 +109,17 @@ describe('agent tool support', () => {
     expect(utcTime('2026-11-02T13:00:00.000Z')).toBe('2026-11-02 13:00 UTC');
     expect(placeText({ code: 'LOS', cityName: 'Lagos' })).toBe('Lagos (LOS)');
     expect(placeText({ code: 'XYZ', cityName: null })).toBe('XYZ');
+  });
+
+  it('writes distances the way a person reads them, so a model never converts one (ADR-122)', () => {
+    expect(distanceText(0)).toBe('10 m');
+    expect(distanceText(847)).toBe('850 m');
+    expect(distanceText(996)).toBe('1 km');
+    expect(distanceText(1000)).toBe('1 km');
+    expect(distanceText(1234)).toBe('1.2 km');
+    expect(distanceText(9949)).toBe('9.9 km');
+    expect(distanceText(12_400)).toBe('12 km');
+    expect(distanceText(38_600)).toBe('39 km');
   });
 
   it("keeps a supplier's name to a name: no link, no address, no markup", () => {

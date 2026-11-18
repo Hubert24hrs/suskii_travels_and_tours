@@ -187,6 +187,17 @@ export const RECIPIENTS = {
     status: 'optional',
     setting: 'AGENT_ENABLED with AGENT_MODEL_PROVIDER=vertex',
   },
+  google_maps: {
+    name: 'Google Maps Platform (Places API, Routes API)',
+    role: 'processor',
+    receives:
+      'For the assistant, Ask Suskii: points (a hotel, an airport or a public place) with place types and a radius, and the scrubbed name of a public place a traveller asked about; for rides and rental delivery when chosen for them, pick-up and drop-off points. No names, contacts, bookings or account ids, sent by the API, never the traveller’s device (ADR-122)',
+    location:
+      'Global: Google serves the Maps Platform from the regions it chooses; to be confirmed',
+    transfer: 'processor_terms',
+    status: 'optional',
+    setting: 'PLACES_PROVIDER=google, MAPS_PROVIDER=google',
+  },
   sentry: {
     name: 'Sentry',
     role: 'processor',
@@ -422,7 +433,7 @@ export const PROCESSING_ACTIVITIES: readonly ProcessingActivity[] = [
       'RentalLicence',
       'RentalHandoverPhoto',
     ],
-    recipients: [...hosting, 'termii', 'africastalking', 'expo_push'],
+    recipients: [...hosting, 'termii', 'africastalking', 'expo_push', 'google_maps'],
   },
   {
     id: 'drivers',
@@ -530,7 +541,14 @@ export const PROCESSING_ACTIVITIES: readonly ProcessingActivity[] = [
       'AgentToolCall',
       'AgentShadowRun',
     ],
-    recipients: [...hosting, 'google_vertex', 'google_gemini', 'anthropic', 'whatsapp'],
+    recipients: [
+      ...hosting,
+      'google_vertex',
+      'google_gemini',
+      'anthropic',
+      'whatsapp',
+      'google_maps',
+    ],
   },
   {
     id: 'privacy',

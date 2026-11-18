@@ -36,6 +36,9 @@
 #                                           Paystack's test mode, with its test secret key in the
 #                                           secret PAYSTACK_SECRET_KEY (ADR-119); the stand-in
 #                                           page takes everything else
+#   LOCATION_PROVIDER=mock|google           Ask Suskii's places and driving times: google needs
+#                                           the server key in the secret GOOGLE_MAPS_SERVER_KEY
+#                                           (ADR-122); Google bills each call, under daily caps
 # And for one run only:
 #   SUSKII_TAG=<tag>                        release images that are built already
 set -euo pipefail
@@ -162,6 +165,11 @@ case "${PAYMENT_PROVIDERS:-}" in
   mock | paystack) set_setting payment_providers "\"$PAYMENT_PROVIDERS\"" ;;
   *) stop "PAYMENT_PROVIDERS must be mock or paystack." ;;
 esac
+case "${LOCATION_PROVIDER:-}" in
+  "") ;;
+  mock | google) set_setting location_provider "\"$LOCATION_PROVIDER\"" ;;
+  *) stop "LOCATION_PROVIDER must be mock or google." ;;
+esac
 if [ -n "${TURNSTILE_SITE_KEY:-}" ]; then
   [[ "$TURNSTILE_SITE_KEY" =~ ^[A-Za-z0-9_-]+$ ]] || stop "TURNSTILE_SITE_KEY does not look like a Turnstile site key."
   set_setting turnstile_site_key "\"$TURNSTILE_SITE_KEY\""
@@ -211,6 +219,12 @@ fi
 # can give. The machine refuses a live key: a testing backend never takes real money.
 if [ "$(setting payment_providers)" = "paystack" ]; then
   has_value PAYSTACK_SECRET_KEY || stop "payments go through Paystack's test mode, and the secret PAYSTACK_SECRET_KEY is empty. Open https://console.cloud.google.com/security/secret-manager/secret/PAYSTACK_SECRET_KEY/versions?project=$PROJECT, press New version, paste Paystack's test secret key (it starts with sk_test_), save, and run this again. To go back to the stand-in: PAYMENT_PROVIDERS=mock."
+fi
+
+# Places and driving times from Google (ADR-122) need the owner's server key, restricted to the
+# Places API (New) and the Routes API. Google bills each call, under the compose file's caps.
+if [ "$(setting location_provider)" = "google" ]; then
+  has_value GOOGLE_MAPS_SERVER_KEY || stop "places and driving times come from Google, and the secret GOOGLE_MAPS_SERVER_KEY is empty. Open https://console.cloud.google.com/security/secret-manager/secret/GOOGLE_MAPS_SERVER_KEY/versions?project=$PROJECT, press New version, paste the server key (restricted to the Places API (New) and the Routes API), save, and run this again. To go back to the samples: LOCATION_PROVIDER=mock."
 fi
 
 # --- 5. Images, built by Cloud Build from this checkout ---------------------------------------
@@ -345,6 +359,7 @@ $(if [ "$SITES_ON" = "true" ]; then printf '  Website              %s\n  Admin c
   Hotels from          $(if [ "$(setting hotel_suppliers)" = "duffel" ]; then echo "Duffel (test mode)"; else echo "the stand-in"; fi)
   Payments             $(if [ "$(setting payment_providers)" = "paystack" ]; then echo "Paystack (test mode) for naira, the stand-in for the rest"; else echo "the stand-in"; fi)
 $(if [ "$(setting payment_providers)" = "paystack" ]; then printf '  Paystack webhook     %s/v1/payments/webhooks/paystack (Paystack: Settings, API Keys and Webhooks, Test Webhook URL)\n' "$API_URL"; fi)
+  Places and distances $(if [ "$(setting location_provider)" = "google" ]; then echo "Google (billed per call, capped each day)"; else echo "samples"; fi)
   Mailbox              $(if [ -n "$(terraform output -raw mailbox_url)" ]; then echo "$(terraform output -raw mailbox_url) (user suskii, password in the secret MAILBOX_PASSWORD)"; else echo off; fi)
   Last release         $outcome
 
@@ -362,6 +377,9 @@ To take flights from Duffel's test mode (its test token in the secret DUFFEL_API
 To take naira through Paystack's test mode (its test secret key in the secret
   PAYSTACK_SECRET_KEY first, and the webhook address above set on Paystack's dashboard):
   PAYMENT_PROVIDERS=paystack bash scripts/gcp/deploy-vm.sh $PROJECT $REGION $ZONE
+To take Ask Suskii's places and driving times from Google (the server key in the secret
+  GOOGLE_MAPS_SERVER_KEY first; Google bills each call, up to the caps in infra/gcp/vm/compose.yml):
+  LOCATION_PROVIDER=google bash scripts/gcp/deploy-vm.sh $PROJECT $REGION $ZONE
 To show sample packages, tours, buses and rental cars on this testing backend (or to stop):
   SAMPLE_CATALOGUE=true bash scripts/gcp/deploy-vm.sh $PROJECT $REGION $ZONE
 To keep every email the API sends in a mailbox on the machine, on a testing backend:

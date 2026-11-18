@@ -1075,6 +1075,10 @@ export const fr: Messages = {
       },
       reserve: 'Réserver maintenant',
       setUp: 'Mettre en place les échéances',
+      payments: 'Payer le reste en',
+      paymentsOption: { one: '{count} paiement', other: '{count} paiements' },
+      paymentsHint:
+        'Moins de paiements sont répartis sur la même durée, et chacun arrive donc plus tard.',
     },
     method: {
       heading: 'Comment souhaitez-vous payer ?',
@@ -3286,6 +3290,14 @@ export const fr: Messages = {
       'Posez vos questions sur les vols, les hôtels, les voitures, vos réservations ou le fonctionnement de Suskii. Je peux chercher, expliquer et préparer une réservation pour vous : vous ajoutez les voyageurs et payez sur la page de réservation. Je ne paie, ne rembourse et ne confirme jamais rien seul.',
     disclosure:
       'Ceci est un assistant automatique. Vous pouvez demander une personne à tout moment.',
+    subtitle: 'Assistant de voyage automatique',
+    suggestions: {
+      heading: 'Essayez de demander',
+      trip: 'Organiser un voyage de Lagos à Londres',
+      flight: 'Trouver le vol le moins cher pour Nairobi le mois prochain',
+      hotel: 'Trouver un hôtel à Abuja pour ce week-end',
+      bookings: 'Afficher mes réservations',
+    },
     privacy:
       'Ne saisissez jamais ici de numéro de carte, de mot de passe ni de numéro de passeport.',
     messageLabel: 'Votre message',
@@ -3338,6 +3350,9 @@ export const fr: Messages = {
       indicativeNote:
         'Vu sur un autre site, ce n’est pas un prix Suskii. Une personne confirme le prix réel avant tout paiement.',
       source: 'D’après nos documents',
+      choose: 'Choisir',
+      chooseLabel: 'Choisir {title}',
+      chosen: 'Je choisis l’option {option} : {title}',
     },
     // What an answer is read with (ADR-107): shown whatever the assistant wrote.
     notes: {
@@ -3360,11 +3375,12 @@ export const fr: Messages = {
         'Pour tout payer en une seule fois, connectez-vous et demandez à nouveau. Vous pouvez aussi réserver chaque partie depuis sa propre carte.',
       trip_separate:
         'Les forfaits, les visites, l’aide au visa, les eSIM et l’accès aux salons ne font pas partie du paiement unique du voyage : réservez chacun depuis sa propre carte.',
-    },
-    rating: {
-      question: "L'assistant vous a-t-il bien aidé ?",
-      score: '{score} sur 5',
-      thanks: "Merci. Votre note nous aide à améliorer l'assistant.",
+      places_google:
+        'Les lieux, les adresses et les notes proviennent de Google Maps. Vérifiez les horaires d’ouverture auprès du lieu avant d’y aller.',
+      distance_straight:
+        'Les distances sont mesurées à vol d’oiseau et non par la route : le trajet réel est plus long.',
+      driving_estimate:
+        'Les temps de trajet en voiture sont des estimations sans circulation : prévoyez plus de temps aux heures de pointe.',
     },
     memory: {
       heading: "Ce que l'assistant retient",

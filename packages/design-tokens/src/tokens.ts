@@ -179,6 +179,8 @@ export const size = {
   popover: 360,
   /** Max width of centred modal dialogs. */
   dialog: 560,
+  /** Max height of a chat message box (about four lines) before it scrolls inside itself. */
+  composer: 136,
 } as const;
 
 export const motion = {

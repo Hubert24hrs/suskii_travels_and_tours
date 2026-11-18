@@ -1068,6 +1068,9 @@ export const sw: Messages = {
       },
       reserve: 'Hifadhi sasa',
       setUp: 'Weka awamu',
+      payments: 'Lipa kiasi kilichobaki kwa',
+      paymentsOption: { one: 'Malipo {count}', other: 'Malipo {count}' },
+      paymentsHint: 'Malipo machache hugawanywa katika muda ule ule, hivyo kila moja huja baadaye.',
     },
     method: {
       heading: 'Ungependa kulipa vipi?',
@@ -3247,6 +3250,14 @@ export const sw: Messages = {
     intro:
       'Uliza kuhusu ndege, hoteli, magari, nafasi ulizohifadhi au jinsi Suskii inavyofanya kazi. Ninaweza kutafuta, kueleza na kukuandalia uhifadhi: unaongeza wasafiri na kulipa kwenye ukurasa wa kuhifadhi. Silipi, sirejeshi pesa wala sithibitishi chochote peke yangu.',
     disclosure: 'Huyu ni msaidizi wa kiotomatiki. Unaweza kuomba mtu wakati wowote.',
+    subtitle: 'Msaidizi wa safari wa kiotomatiki',
+    suggestions: {
+      heading: 'Jaribu kuuliza',
+      trip: 'Panga safari kutoka Lagos hadi London',
+      flight: 'Tafuta ndege ya bei nafuu zaidi kwenda Nairobi mwezi ujao',
+      hotel: 'Tafuta hoteli Abuja kwa wikendi hii',
+      bookings: 'Onyesha uhifadhi wangu',
+    },
     privacy: 'Usiandike hapa namba za kadi, manenosiri wala namba za pasipoti.',
     messageLabel: 'Ujumbe wako',
     placeholder: 'Andika swali lako',
@@ -3296,6 +3307,9 @@ export const sw: Messages = {
       indicativeNote:
         'Imeonekana kwenye tovuti nyingine, si bei ya Suskii. Mtu huthibitisha bei halisi kabla ya malipo yoyote.',
       source: 'Kutoka kwenye nyaraka zetu',
+      choose: 'Chagua',
+      chooseLabel: 'Chagua {title}',
+      chosen: 'Nachagua chaguo la {option}: {title}',
     },
     // What an answer is read with (ADR-107): shown whatever the assistant wrote.
     notes: {
@@ -3318,11 +3332,12 @@ export const sw: Messages = {
         'Ili kulipia vyote kwa mara moja, ingia kwenye akaunti yako na uulize tena. Unaweza pia kuweka kila sehemu kutoka kwenye kadi yake.',
       trip_separate:
         'Vifurushi, ziara, msaada wa visa, eSIM na kuingia kwenye sebule hazimo kwenye malipo moja ya safari: weka kila kimoja kutoka kwenye kadi yake.',
-    },
-    rating: {
-      question: 'Msaidizi alikusaidia kwa kiasi gani?',
-      score: '{score} kati ya 5',
-      thanks: 'Asante. Tathmini yako inatusaidia kuboresha msaidizi.',
+      places_google:
+        'Maeneo, anwani na alama za tathmini zinatoka Google Maps. Thibitisha saa za kufungua na mahali husika kabla ya kwenda.',
+      distance_straight:
+        'Umbali umepimwa kwa mstari ulionyooka, si kwa barabara, kwa hiyo safari halisi ni ndefu zaidi.',
+      driving_estimate:
+        'Muda wa kuendesha gari ni makadirio bila msongamano wa magari, kwa hiyo weka muda zaidi wakati wa msongamano.',
     },
     memory: {
       heading: 'Mambo ambayo msaidizi anakumbuka',

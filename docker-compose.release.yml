@@ -13,6 +13,8 @@ name: suskii-release
 x-api-env: &api-env
   NODE_ENV: production
   ALLOW_MOCK_PROVIDERS: 'true'
+  # Ask Suskii's places are samples here, as on the testing machine by default (ADR-122).
+  PLACES_PROVIDER: mock
   LOG_LEVEL: info
   API_PORT: '4000'
   DATABASE_URL: postgresql://suskii_app:release-rehearsal-app-password@postgres:5432/suskii?sslmode=disable

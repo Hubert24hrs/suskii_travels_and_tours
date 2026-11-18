@@ -105,6 +105,27 @@ function describe(quote: Quote): { what: string; price: MoneyWire } | null {
 
 const toMoney = (wire: MoneyWire): Money => money(BigInt(wire.amountMinor), wire.currency);
 
+/** What the summary of a whole trip answers with (ADR-117). */
+export const tripSummaryOut = z.object({
+  problems: problemsSchema,
+  bookingStatus: z.literal('not_booked'),
+  parts: z.array(
+    z.object({
+      part: z.enum(PREPARED_PARTS),
+      what: z.string(),
+      price: moneyOut,
+      /** `trip`: paid with the trip's one payment; `own_page`: on its own booking page. */
+      paidWith: z.enum(['trip', 'own_page']),
+    }),
+  ),
+  expired: z.array(z.enum(PREPARED_PARTS)),
+  total: moneyOut.nullable(),
+  payOnce: z.boolean(),
+  payOnceTotal: moneyOut.nullable(),
+  cards: cardsOut,
+});
+export type TripSummary = z.infer<typeof tripSummaryOut>;
+
 /**
  * The checkout of a whole trip, put together by the assistant (ADR-117). Every prepare tool
  * remembers the quote it made for the conversation (`AgentPreparedParts`); this tool reads
@@ -143,70 +164,60 @@ export class TripCheckoutTools implements OnModuleInit {
             .default([])
             .meta({ description: 'Prepared parts the traveller no longer wants.' }),
         }),
-        output: z.object({
-          problems: problemsSchema,
-          bookingStatus: z.literal('not_booked'),
-          parts: z.array(
-            z.object({
-              part: z.enum(PREPARED_PARTS),
-              what: z.string(),
-              price: moneyOut,
-              /** `trip`: paid with the trip's one payment; `own_page`: on its own booking page. */
-              paidWith: z.enum(['trip', 'own_page']),
-            }),
-          ),
-          expired: z.array(z.enum(PREPARED_PARTS)),
-          total: moneyOut.nullable(),
-          payOnce: z.boolean(),
-          payOnceTotal: moneyOut.nullable(),
-          cards: cardsOut,
-        }),
-        run: async (input, { grant }) => {
-          if (input.leaveOut.length > 0) await this.prepared.forget(grant, input.leaveOut);
-          const memory = await this.prepared.read(grant);
-          const { loaded, expired, otherCurrency } = await this.load(grant, memory.parts);
-          const problems = otherCurrency ? ['currency_changed'] : [];
-          if (loaded.length === 0) {
-            return {
-              problems: [...problems, 'nothing_prepared'],
-              bookingStatus: 'not_booked' as const,
-              parts: [],
-              expired,
-              total: null,
-              payOnce: false,
-              payOnceTotal: null,
-              cards: [],
-            };
-          }
-          const total = loaded.reduce(
-            (sum, part) => add(sum, toMoney(part.price)),
-            zero(this.callers.currency(grant)),
-          );
-          const drop = input.leaveOut.flatMap((part) => TRIP_PARTS[part] ?? []);
-          const trip = await this.tripFor(grant, memory.tripId, loaded, drop, problems);
-          const onTrip = (part: Loaded): boolean => trip !== null && part.component !== null;
-          return {
-            problems,
-            bookingStatus: 'not_booked' as const,
-            parts: loaded.map((part) => ({
-              part: part.part,
-              what: part.what,
-              price: part.price,
-              paidWith: onTrip(part) ? ('trip' as const) : ('own_page' as const),
-            })),
-            expired,
-            total: toWire(total),
-            payOnce: trip !== null,
-            payOnceTotal: trip ? (trip.totalWithPrepared ?? trip.total) : null,
-            cards: this.cards(
-              grant,
-              trip,
-              loaded.filter((part) => !onTrip(part)),
-            ),
-          };
-        },
+        output: tripSummaryOut,
+        run: (input, { grant }) => this.summarize(grant, input.leaveOut),
       }),
     );
+  }
+
+  /**
+   * The summary of everything the conversation prepared, with the combined trip it goes on for
+   * a signed-in traveller: what `trips.prepare_checkout` answers, and the last step of a trip
+   * planned part by part (ADR-123).
+   */
+  async summarize(grant: AgentGrant, leaveOut: readonly PreparedPart[]): Promise<TripSummary> {
+    if (leaveOut.length > 0) await this.prepared.forget(grant, leaveOut);
+    const memory = await this.prepared.read(grant);
+    const { loaded, expired, otherCurrency } = await this.load(grant, memory.parts);
+    const problems = otherCurrency ? ['currency_changed'] : [];
+    if (loaded.length === 0) {
+      return {
+        problems: [...problems, 'nothing_prepared'],
+        bookingStatus: 'not_booked' as const,
+        parts: [],
+        expired,
+        total: null,
+        payOnce: false,
+        payOnceTotal: null,
+        cards: [],
+      };
+    }
+    const total = loaded.reduce(
+      (sum, part) => add(sum, toMoney(part.price)),
+      zero(this.callers.currency(grant)),
+    );
+    const drop = leaveOut.flatMap((part) => TRIP_PARTS[part] ?? []);
+    const trip = await this.tripFor(grant, memory.tripId, loaded, drop, problems);
+    const onTrip = (part: Loaded): boolean => trip !== null && part.component !== null;
+    return {
+      problems,
+      bookingStatus: 'not_booked' as const,
+      parts: loaded.map((part) => ({
+        part: part.part,
+        what: part.what,
+        price: part.price,
+        paidWith: onTrip(part) ? ('trip' as const) : ('own_page' as const),
+      })),
+      expired,
+      total: toWire(total),
+      payOnce: trip !== null,
+      payOnceTotal: trip ? (trip.totalWithPrepared ?? trip.total) : null,
+      cards: this.cards(
+        grant,
+        trip,
+        loaded.filter((part) => !onTrip(part)),
+      ),
+    };
   }
 
   /** The remembered quotes, read again as the caller; those that ran out are named. */
@@ -362,7 +373,10 @@ export class TripCheckoutTools implements OnModuleInit {
           [`${trip.plan.departDate} → ${trip.plan.returnDate}`],
           {
             price: trip.totalWithPrepared ?? trip.total,
-            href: `/trips/${trip.id}`,
+            // Parts still waiting for the travellers' details go to the form that takes them
+            // once (ADR-118), which leads on to the one payment; a trip already booked pays.
+            href:
+              (trip.prepared?.length ?? 0) > 0 ? `/trips/${trip.id}/details` : `/trips/${trip.id}`,
             ref: { type: 'trip', id: trip.id },
           },
         )

@@ -127,6 +127,16 @@ variable "payment_providers" {
   }
 }
 
+variable "location_provider" {
+  description = "Places and driving times for Ask Suskii (ADR-122): mock, sample places and figures that say they are samples, or google: Google's Places API (New) and Routes API with the server key in the secret GOOGLE_MAPS_SERVER_KEY. Google bills each call; the API stops asking at the daily caps of the compose file."
+  type        = string
+  default     = "mock"
+  validation {
+    condition     = contains(["mock", "google"], var.location_provider)
+    error_message = "Use mock or google."
+  }
+}
+
 variable "assistant_location" {
   description = "With vertex: where Vertex AI processes the assistant's requests, a region or global. Empty: the machine's own region."
   type        = string

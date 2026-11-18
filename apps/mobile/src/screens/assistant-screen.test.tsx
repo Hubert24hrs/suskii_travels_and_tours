@@ -2,6 +2,7 @@ import { getMessages } from '@suskii/i18n';
 import type { Schemas } from '@suskii/api-client';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { openBrowserAsync } from 'expo-web-browser';
 
 import { assistantSession } from '../lib/assistant';
 import { json, mockApi, renderWithApp, signedInSession } from '../test/app';
@@ -78,6 +79,8 @@ beforeEach(async () => {
 afterEach(() => {
   params.mockReturnValue({});
   jest.mocked(router.push).mockClear();
+  jest.mocked(router.replace).mockClear();
+  jest.mocked(openBrowserAsync).mockClear();
 });
 
 describe('AssistantScreen', () => {
@@ -427,34 +430,33 @@ describe('AssistantScreen', () => {
     expect(screen.queryByText(m.assistant.confirm.statuses.confirmed)).toBeNull();
   });
 
-  it('asks how the conversation went once the assistant has answered, and sends the score', async () => {
+  it('takes a thumb for an answer, and asks for no score out of five', async () => {
     await assistantSession.remember(ID);
     await assistantSession.saveToken(ID, TOKEN);
     const { calls } = mockApi({
       'GET /v1/agent/status': available,
       [`GET /v1/agent/conversations/${ID}`]: () =>
         json(conversation({ messages: [message(), answer()] })),
-      [`PUT /v1/agent/conversations/${ID}/rating`]: () =>
-        json(conversation({ messages: [message(), answer()], rating: 4 })),
+      [`PUT /v1/agent/messages/${answer().id}/feedback`]: () => new Response(null, { status: 204 }),
     });
     await renderWithApp(<AssistantScreen />);
 
-    expect(await screen.findByText(m.assistant.rating.question)).toBeOnTheScreen();
-    expect(screen.queryByTestId('assistant-rating-thanks')).toBeNull();
-    await fireEvent.press(
-      screen.getByRole('radio', { name: m.assistant.rating.score.replace('{score}', '4') }),
-    );
+    expect(await screen.findByText('Your fare allows a change for a fee.')).toBeOnTheScreen();
+    // The owner took the conversation's score away: only each answer's thumbs remain.
+    expect(screen.queryByTestId('assistant-rating')).toBeNull();
+    expect(screen.queryByRole('radio')).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: m.assistant.feedback.up }));
 
-    expect(await screen.findByTestId('assistant-rating-thanks')).toBeOnTheScreen();
-    expect(screen.getByTestId('assistant-rating-4')).toBeChecked();
-    const rated = calls.find((call) => call.url.endsWith('/rating'));
-    expect(await rated?.json()).toEqual({ score: 4 });
+    expect(await screen.findByText(m.assistant.feedback.thanks)).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: m.assistant.feedback.down })).toBeNull();
+    const rated = calls.find((call) => call.url.endsWith('/feedback'));
+    expect(await rated?.json()).toEqual({ feedback: 'up' });
     expect(rated?.headers.get('X-Agent-Token')).toBe(TOKEN);
     // What the assistant remembers is for accounts: a guest is not offered the screen.
     expect(screen.queryByTestId('assistant-preferences')).toBeNull();
   });
 
-  it('asks nothing about a conversation the assistant has not answered in', async () => {
+  it("keeps a signed-in traveller's preferences and history one press away", async () => {
     await assistantSession.remember(ID);
     mockApi({
       'GET /v1/agent/status': available,
@@ -463,9 +465,171 @@ describe('AssistantScreen', () => {
     await renderWithApp(<AssistantScreen />, await signedInSession());
 
     expect(await screen.findByText(message().text)).toBeOnTheScreen();
-    expect(screen.queryByTestId('assistant-rating')).toBeNull();
     await fireEvent.press(screen.getByTestId('assistant-preferences'));
     expect(router.push).toHaveBeenCalledWith('/assistant/preferences');
+    await fireEvent.press(screen.getByTestId('assistant-history'));
+    expect(router.push).toHaveBeenCalledWith('/assistant/history');
+  });
+
+  it('starts a new conversation from the header, and the next message starts it', async () => {
+    await assistantSession.remember(ID);
+    const fresh = '0192d3a0-7c1e-7b2a-9f00-00000000a002';
+    const { calls } = mockApi({
+      'GET /v1/agent/status': available,
+      [`GET /v1/agent/conversations/${ID}`]: () =>
+        json(conversation({ messages: [message(), answer()] })),
+      'POST /v1/attestation/challenges': () =>
+        json({ challenge: 'challenge-2', expiresAt: '2026-11-11T09:05:00.000Z' }, 201),
+      'POST /v1/agent/conversations': () =>
+        json({ conversation: conversation({ id: fresh }), accessToken: TOKEN }, 201),
+      'POST /v1/agent/chat': () =>
+        json({ runId: RUN, message: message({ text: 'A hotel in Abuja?' }) }, 202),
+      [`GET /v1/agent/conversations/${fresh}`]: () =>
+        json(conversation({ id: fresh, messages: [message({ text: 'A hotel in Abuja?' })] })),
+    });
+    await renderWithApp(<AssistantScreen />);
+    expect(await screen.findByText(message().text)).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByTestId('assistant-start-again'));
+
+    // The old conversation leaves the screen and the device; the welcome is back.
+    expect(await screen.findByText(m.assistant.notices.greeting)).toBeOnTheScreen();
+    expect(screen.queryByText(message().text)).toBeNull();
+    expect(screen.queryByTestId('assistant-start-again')).toBeNull();
+    expect(await assistantSession.current()).toBeNull();
+
+    await fireEvent.changeText(screen.getByTestId('assistant-input'), 'A hotel in Abuja?');
+    await fireEvent.press(screen.getByTestId('assistant-send'));
+    expect(await screen.findByText('A hotel in Abuja?')).toBeOnTheScreen();
+    // The run it started ends, and the screen stops reading.
+    await waitFor(() => expect(screen.queryByTestId('assistant-thinking')).toBeNull(), {
+      timeout: 8_000,
+    });
+    expect(calls.filter((call) => call.url.endsWith('/v1/agent/conversations'))).toHaveLength(1);
+    expect(await assistantSession.current()).toBe(fresh);
+  }, 15_000);
+
+  it('starts afresh from a conversation opened from History', async () => {
+    params.mockReturnValue({ conversation: ID });
+    mockApi({
+      'GET /v1/agent/status': available,
+      [`GET /v1/agent/conversations/${ID}`]: () =>
+        json(conversation({ messages: [message(), answer()] })),
+    });
+    await renderWithApp(<AssistantScreen />);
+    expect(await screen.findByText(message().text)).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByTestId('assistant-start-again'));
+
+    expect(await screen.findByText(m.assistant.notices.greeting)).toBeOnTheScreen();
+    expect(router.replace).toHaveBeenCalledWith('/assistant');
+  });
+
+  it('sends a suggested question with one tap', async () => {
+    const asked = message({ text: m.assistant.suggestions.trip });
+    const { calls } = mockApi({
+      'GET /v1/agent/status': available,
+      'POST /v1/attestation/challenges': () =>
+        json({ challenge: 'challenge-3', expiresAt: '2026-11-11T09:05:00.000Z' }, 201),
+      'POST /v1/agent/conversations': () =>
+        json({ conversation: conversation(), accessToken: TOKEN }, 201),
+      'POST /v1/agent/chat': () => json({ runId: RUN, message: asked }, 202),
+      [`GET /v1/agent/conversations/${ID}`]: () =>
+        json(conversation({ messages: [asked, answer()] })),
+    });
+    await renderWithApp(<AssistantScreen />);
+    // Nothing can be sent before something is typed.
+    expect(await screen.findByTestId('assistant-send')).toBeDisabled();
+
+    await fireEvent.press(screen.getByTestId('assistant-suggestion-trip'));
+
+    expect(await screen.findByText(m.assistant.suggestions.trip)).toBeOnTheScreen();
+    expect(
+      await screen.findByText('Your fare allows a change for a fee.', {}, { timeout: 8_000 }),
+    ).toBeOnTheScreen();
+    const chat = calls.find((call) => call.url.endsWith('/v1/agent/chat'));
+    expect(await chat?.json()).toEqual({ conversationId: ID, text: m.assistant.suggestions.trip });
+  }, 15_000);
+
+  it("opens the app's own screen for a page it has, and the website only for one it lacks", async () => {
+    await assistantSession.remember(ID);
+    mockApi({
+      'GET /v1/agent/status': available,
+      [`GET /v1/agent/conversations/${ID}`]: () =>
+        json(
+          conversation({
+            messages: [
+              message({ text: 'Booking' }),
+              answer({
+                text: 'Which part of your trip would you like to start with?',
+                cards: [
+                  { kind: 'link', title: 'Home', lines: [], href: '/' },
+                  { kind: 'link', title: 'Visa assistance', lines: [], href: '/visa' },
+                ],
+              }),
+            ],
+          }),
+        ),
+    });
+    await renderWithApp(<AssistantScreen />);
+
+    // Home is the app's Home, never the website in a browser tab.
+    await fireEvent.press(
+      await screen.findByRole('link', { name: `Home, ${m.assistant.cards.view}` }),
+    );
+    expect(router.push).toHaveBeenCalledWith('/');
+    expect(openBrowserAsync).not.toHaveBeenCalled();
+
+    await fireEvent.press(
+      screen.getByRole('link', { name: `Visa assistance, ${m.assistant.cards.view}` }),
+    );
+    expect(openBrowserAsync).toHaveBeenCalledWith('https://www.suskii.test/visa');
+  });
+
+  it('chooses an option of the newest answer with its button, and offers none on an older one (ADR-123)', async () => {
+    await assistantSession.remember(ID);
+    const flights = answer({
+      id: '0193a000-0000-7000-8000-0000000000f1',
+      text: 'Here are the flights.',
+      cards: [{ kind: 'flight', title: 'Air Peace', lines: [], choose: 1 }],
+    });
+    const chose = message({ id: '0193a000-0000-7000-8000-0000000000f2', text: 'Option 1' });
+    const hotels = answer({
+      id: '0193a000-0000-7000-8000-0000000000f3',
+      text: 'Now choose where to stay.',
+      cards: [
+        { kind: 'hotel', title: 'Eko Signature', lines: ['5\u2605'], choose: 1 },
+        { kind: 'hotel', title: 'Lagoon View Suites', lines: ['4\u2605'], choose: 2 },
+      ],
+    });
+    const asked = message({ text: 'I choose option 2: Lagoon View Suites' });
+    const { calls } = mockApi({
+      'GET /v1/agent/status': available,
+      'POST /v1/agent/chat': () => json({ runId: RUN, message: asked }, 202),
+      [`GET /v1/agent/conversations/${ID}`]: () =>
+        json(conversation({ messages: [message(), flights, chose, hotels] })),
+    });
+    await renderWithApp(<AssistantScreen />);
+
+    // The newest answer's options have buttons; the flights shown earlier have none.
+    expect(await screen.findByTestId('assistant-choose-2')).toBeOnTheScreen();
+    expect(screen.getAllByTestId(/^assistant-choose-/)).toHaveLength(2);
+
+    await fireEvent.press(
+      screen.getByRole('button', {
+        name: m.assistant.cards.chooseLabel.replace('{title}', 'Lagoon View Suites'),
+      }),
+    );
+    await waitFor(() =>
+      expect(calls.some((call) => call.url.endsWith('/v1/agent/chat'))).toBe(true),
+    );
+    const chat = calls.find((call) => call.url.endsWith('/v1/agent/chat'));
+    expect(await chat?.json()).toEqual({
+      conversationId: ID,
+      text: m.assistant.cards.chosen
+        .replace('{option}', '2')
+        .replace('{title}', 'Lagoon View Suites'),
+    });
   });
 
   it('tells a traveller whose asked-for conversation is gone, without starting another', async () => {
