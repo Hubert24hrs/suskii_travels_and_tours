@@ -8,7 +8,7 @@
 # Behind a TLS-intercepting proxy, pass its CA as a build secret: --secret id=ca,src=ca.pem
 
 # Base image pinned by digest; Dependabot proposes updates (docker ecosystem).
-FROM node:24.21.0-alpine3.24@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS base
+FROM node:24.22.3-alpine3.24@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5 AS base
 ENV CI=true \
     PNPM_HOME=/pnpm \
     PATH=/pnpm:$PATH \
@@ -63,7 +63,7 @@ RUN --mount=type=secret,id=ca,required=false \
     fi && \
     pnpm exec turbo run build --filter=@suskii/web
 
-FROM node:24.21.0-alpine3.24@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS runtime
+FROM node:24.22.3-alpine3.24@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5 AS runtime
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \
